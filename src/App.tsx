@@ -6,6 +6,7 @@ import { LogScreen } from './screens/LogScreen';
 import { ShootScreen } from './screens/ShootScreen';
 import { StatsScreen } from './screens/StatsScreen';
 import { useStore } from './state/store';
+import { useAutoWeather } from './state/weatherSync';
 
 type Tab = 'shoot' | 'log' | 'stats' | 'gear';
 const TABS: [Tab, string, string][] = [
@@ -30,6 +31,7 @@ function readTab(): Tab {
 
 export default function App() {
   const store = useStore();
+  useAutoWeather();
   const [tab, setTab] = useState<Tab>(readTab);
 
   useEffect(() => {

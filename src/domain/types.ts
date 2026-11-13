@@ -87,7 +87,15 @@ export interface Settings {
   /** 날씨를 불러올 활터 위치. 정해 두면 휴대폰 위치 대신 이곳 날씨를 불러온다. */
   rangePlace?: Place | null;
   /** 오늘 입력한 날씨. 날짜가 바뀌면 쓰지 않는다. */
-  weather?: (Weather & { date: string }) | null;
+  weather?: (Weather & {
+    date: string;
+    /** 날씨 서비스에서 마지막으로 불러온 시각 (ms) */
+    fetchedAt?: number | null;
+    /** 불러온 서비스 이름 */
+    source?: string | null;
+    /** 사용자가 직접 고쳤으면 true. 이때는 자동으로 새로 불러와 덮어쓰지 않는다. */
+    manual?: boolean;
+  }) | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {

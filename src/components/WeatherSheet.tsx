@@ -1,11 +1,17 @@
 import { useState } from 'react';
 import type { Weather } from '../domain/types';
-import { BEARINGS, EMPTY_WEATHER, SKIES, WIND_DIRS, WIND_LEVELS, relativeWindDir, toWeather, weatherLabel } from '../domain/weather';
-import { currentPosition, fetchCurrentWeather, searchPlaces } from '../platform/weather';
+import { BEARINGS, EMPTY_WEATHER, SKIES, WIND_DIRS, WIND_LEVELS, relativeWindDir, weatherLabel } from '../domain/weather';
+import { currentPosition, searchPlaces } from '../platform/weather';
+import { loadWeather } from '../state/weatherSync';
 import type { Place } from '../domain/types';
 import { today } from '../domain/util';
 import { useStore } from '../state/store';
 import { Sheet } from './ui';
+
+function ago(t: number): string {
+  const m = Math.round((Date.now() - t) / 60000);
+  return m < 1 ? '방금' : m < 60 ? `${m}분 전` : `${Math.floor(m / 60)}시간 전`;
+}
 
 /** 오늘 날씨 입력. 모두 선택 사항이고, 고른 값은 다음에 저장하는 순부터 들어간다. */
 export function WeatherSheet({ onClose }: { onClose: () => void }) {
@@ -18,7 +24,6 @@ export function WeatherSheet({ onClose }: { onClose: () => void }) {
   const [placeQ, setPlaceQ] = useState('');
   const [places, setPlaces] = useState<Place[] | null>(null);
   const [placeErr, setPlaceErr] = useState('');
-  const [source, setSource] = useState('');
   const hereAsRange = async () => {
     setPlaceErr('');
     try {
@@ -41,9 +46,14 @@ export function WeatherSheet({ onClose }: { onClose: () => void }) {
   };
   const choosePlace = (p: Place | null) => { updateSettings({ rangePlace: p }); setPlaceOpen(false); setPlaces(null); setPlaceQ(''); setErr(''); };
   const w = todayWeather ?? EMPTY_WEATHER;
+  const meta = settings.weather?.date === today() ? settings.weather : null;
   const [tempText, setTempText] = useState(w.temp == null ? '' : String(w.temp));
+  // 자동으로 새로 불러와 기온이 바뀌면 입력 칸도 맞춘다
+  const [tempSeen, setTempSeen] = useState(w.temp);
+  if (w.temp !== tempSeen) { setTempSeen(w.temp); setTempText(w.temp == null ? '' : String(w.temp)); }
 
-  const set = (patch: Partial<Weather>) => updateSettings({ weather: { ...w, ...patch, date: today() } });
+  /** 직접 고친 값은 자동으로 덮어쓰지 않도록 표시해 둔다 */
+  const set = (patch: Partial<Weather>) => updateSettings({ weather: { ...w, ...patch, date: today(), fetchedAt: meta?.fetchedAt ?? null, source: meta?.source ?? null, manual: true } });
   const setTemp = (t: number | null) => { setTempText(t == null ? '' : String(t)); set({ temp: t }); };
   const onTempText = (v: string) => {
     const clean = v.replace(/[^\d.-]/g, '');
@@ -55,12 +65,7 @@ export function WeatherSheet({ onClose }: { onClose: () => void }) {
   const load = async () => {
     setLoading(true); setErr('');
     try {
-      const pos = place ?? await currentPosition();
-      const got = await fetchCurrentWeather(pos.lat, pos.lon);
-      setSource(got.source);
-      const next = toWeather(got, bearing);
-      setTempText(next.temp == null ? '' : String(next.temp));
-      await updateSettings({ weather: { ...next, date: today() } });
+      await loadWeather(settings, updateSettings);
     } catch (e) {
       setErr(e instanceof Error ? e.message : '날씨를 불러오지 못했습니다.');
       if (!place) setPlaceOpen(true);
@@ -72,7 +77,7 @@ export function WeatherSheet({ onClose }: { onClose: () => void }) {
     const patch: Partial<typeof settings> = { rangeBearing: b };
     // 불러온 바람이면 새 사대 방향으로 바람 방향을 다시 계산한다
     if (todayWeather?.windFrom != null && todayWeather.wind && todayWeather.wind !== '없음') {
-      patch.weather = { ...todayWeather, windDir: b == null ? null : relativeWindDir(todayWeather.windFrom, b), date: today() };
+      patch.weather = { ...meta, ...todayWeather, windDir: b == null ? null : relativeWindDir(todayWeather.windFrom, b), date: today() };
     }
     updateSettings(patch);
   };
@@ -82,10 +87,15 @@ export function WeatherSheet({ onClose }: { onClose: () => void }) {
     <Sheet title="오늘 날씨" onClose={onClose}>
       <div className="small muted">모두 선택 사항입니다. 다음에 저장하는 순부터 들어가고, 날짜가 바뀌면 비워집니다.</div>
       <div className="fetch-weather">
-        <button className="btn ghost" disabled={loading} onClick={load}>{loading ? '불러오는 중…' : place ? `${place.name} 날씨 불러오기` : '지금 위치의 날씨 불러오기'}</button>
+        <button className="btn ghost" disabled={loading} onClick={load}>{loading ? '불러오는 중…' : meta?.fetchedAt ? '지금 다시 불러오기' : place ? `${place.name} 날씨 불러오기` : '지금 위치의 날씨 불러오기'}</button>
         {err ? <div className="small err-text" role="alert">{err}</div>
-          : todayWeather?.windSpeed != null ? <div className="small muted">불러온 날씨{source && ` (${source})`}: {weatherLabel(todayWeather)}. 아래에서 고칠 수 있습니다.</div>
-          : <div className="small muted">{place ? '정해 둔 활터 위치로' : '휴대폰 위치로'} Open-Meteo에서 지금 기온·날씨·바람을 가져옵니다.</div>}
+          : meta?.fetchedAt ? (
+            <div className="small muted">
+              {ago(meta.fetchedAt)} 불러옴{meta.source && ` (${meta.source})`}: {weatherLabel(todayWeather)}.{' '}
+              {meta.manual ? '직접 고친 값이 있어 자동으로 바꾸지 않습니다. 다시 불러오면 자동 갱신이 다시 켜집니다.' : '앱을 켜 두면 30분마다 새로 불러옵니다.'}
+            </div>
+          )
+          : <div className="small muted">앱을 열 때와 30분마다 {place ? '정해 둔 활터 위치' : '휴대폰 위치'}의 기온·날씨·바람을 자동으로 불러옵니다. 직접 고친 값은 덮어쓰지 않습니다.</div>}
         <div className="row between small">
           <span className="muted">위치: {place ? place.name : '휴대폰 현재 위치'}</span>
           <button className="linkish" onClick={() => setPlaceOpen(!placeOpen)}>{placeOpen ? '닫기' : '활터 위치 정하기'}</button>
@@ -145,7 +155,7 @@ export function WeatherSheet({ onClose }: { onClose: () => void }) {
         {bearing == null && <div className="small muted">정해 두면 불러온 바람을 맞바람·뒷바람·왼쪽·오른쪽으로 바꿔 줍니다.</div>}
       </div>
       <div className="row between">
-        <button className="btn ghost small" disabled={!todayWeather} onClick={() => { setTempText(''); updateSettings({ weather: null }); }}>모두 비우기</button>
+        <button className="btn ghost small" disabled={!todayWeather} onClick={() => { setTempText(''); updateSettings({ weather: { ...EMPTY_WEATHER, date: today(), manual: true } }); }}>모두 비우기</button>
         <button className="btn small" onClick={onClose}>완료</button>
       </div>
     </Sheet>
