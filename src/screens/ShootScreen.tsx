@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ShotIcon } from '../components/ShotIcon';
 import { Target, type Mark } from '../components/Target';
 import { Sheet, toast } from '../components/ui';
 import { classifyTap, directionFor, hitShot, shotLabel } from '../domain/target';
@@ -22,7 +23,7 @@ export function EndLine({ end, index, children }: { end: End; index: number; chi
   return (
     <div className="end-line">
       <span className="idx">{index + 1}순</span>
-      <span className="dots">{end.shots.map((s, i) => <span key={i} className={`dot ${s.hit ? 'h' : ''}`} />)}</span>
+      <span className="dots">{end.shots.map((s, i) => <ShotIcon key={i} shot={s} index={i} />)}</span>
       <span className="cnt">{h}중{h === 5 && <span className="pill best">몰기</span>}</span>
       <span className="meta">{gearName(end.bowId)} · {gearName(end.ringId)}{end.tags.length ? ' · #' + end.tags.join(' #') : ''}</span>
       {children}

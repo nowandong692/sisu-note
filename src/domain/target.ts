@@ -57,3 +57,17 @@ export function shotLabel(s: Shot | null, showZone: boolean): string {
   if (s.hit) return s.zone && showZone ? `관중 ${s.zone}` : '관중';
   return s.direction && s.level ? `${s.direction} ${LEVEL_LABEL[s.level]}` : '불';
 }
+
+/** 과녁 중심에서 빠진 위치까지의 방향을 8방향(0 = 위, 시계 방향 45도씩)으로 나눈다. */
+export function missOctant(s: Shot): number | null {
+  if (s.hit) return null;
+  if (s.x != null && s.y != null) {
+    // 과녁이 세로로 길어서 가로·세로를 과녁 크기로 나눠 비율을 맞춘다
+    const dx = (s.x - (TX + TW / 2)) / (TW / 2);
+    const dy = (s.y - (TY + TH / 2)) / (TH / 2);
+    if (dx === 0 && dy === 0) return null;
+    const deg = (Math.atan2(dx, -dy) * 180) / Math.PI; // 위 = 0, 오른쪽 = 90
+    return ((Math.round(deg / 45) % 8) + 8) % 8;
+  }
+  return s.side === 'over' ? 0 : s.side === 'right' ? 2 : s.side === 'short' ? 4 : s.side === 'left' ? 6 : null;
+}

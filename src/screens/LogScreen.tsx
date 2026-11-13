@@ -1,10 +1,27 @@
 import { useState } from 'react';
+import { Target } from '../components/Target';
 import { ConfirmButton, toast } from '../components/ui';
 import { hitsOf } from '../domain/stats';
 import { shotLabel } from '../domain/target';
 import { formatDate } from '../domain/util';
+import type { End, Hand } from '../domain/types';
 import { useStore } from '../state/store';
 import { EndLine } from './ShootScreen';
+
+/** 그날 쏜 화살을 과녁 하나에 모두 찍는다 */
+function DayTarget({ ends, hand }: { ends: End[]; hand: Hand }) {
+  const shots = ends.flatMap((e) => e.shots);
+  const unplaced = shots.filter((s) => s.hit && s.x == null).length;
+  const hasZones = shots.some((s) => s.zone != null);
+  return (
+    <div className="day-target">
+      <Target hand={hand} grid={hasZones} small dotRadius={5} marks={shots} label="그날의 탄착" />
+      <div className="small muted">
+        파란 점은 관중, 회색 점은 불입니다.{unplaced > 0 && ` 위치 없이 기록한 관중 ${unplaced}시는 점으로 표시하지 않습니다.`}
+      </div>
+    </div>
+  );
+}
 
 export function LogScreen() {
   const { ends, gearName, deleteEnd, settings } = useStore();
@@ -33,6 +50,7 @@ export function LogScreen() {
             </button>
             {isOpen && (
               <div className="detail">
+                <DayTarget ends={list} hand={settings.hand} />
                 {list.map((e, i) => {
                   const misses = e.shots.flatMap((s, k) => (s.hit ? [] : [`${k + 1}시 ${shotLabel(s, settings.grid)}`]));
                   return (

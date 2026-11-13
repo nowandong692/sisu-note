@@ -139,7 +139,10 @@ textarea { resize: vertical; min-height: 44px; }
 .today-list { display: flex; flex-direction: column; gap: 6px; }
 .end-line { display: flex; align-items: center; gap: 10px; font-size: 14px; }
 .end-line .idx { width: 32px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.dots { display: inline-flex; gap: 4px; }
+.dots { display: inline-flex; gap: 3px; flex-shrink: 0; }
+.shot-icon { display: block; flex-shrink: 0; }
+.day-target { display: flex; flex-direction: column; align-items: center; gap: 6px; padding-bottom: 4px; }
+.day-target svg { width: 100%; max-width: 300px; height: auto; }
 .dot { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--muted); }
 .dot.h { background: var(--hong); border-color: var(--hong); }
 .end-line .cnt { font-weight: 600; font-variant-numeric: tabular-nums; }

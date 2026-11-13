@@ -19,13 +19,15 @@ interface Props {
   zoneCounts?: number[] | null;
   onTap?: (x: number, y: number) => void;
   label?: string;
+  /** small 모드 점 크기 */
+  dotRadius?: number;
 }
 
 const sx = TW / BOARD.w;
 const sy = TH / BOARD.h;
 
 /** 국궁 과녁 그림. 과녁 판 = 관중, 바깥 두 겹 띠 = 불 (안쪽 조금, 바깥 많이). */
-export function Target({ hand, grid, marks = [], small, zoneCounts, onTap, label }: Props) {
+export function Target({ hand, grid, marks = [], small, zoneCounts, onTap, label, dotRadius = 3.2 }: Props) {
   const left = directionFor('left', hand);
   const right = directionFor('right', hand);
 
@@ -74,7 +76,7 @@ export function Target({ hand, grid, marks = [], small, zoneCounts, onTap, label
       {marks.map((m, i) => {
         if (m.x == null || m.y == null) return null;
         if (small) {
-          return <circle key={i} cx={m.x} cy={m.y} r={3.2} fill={m.hit ? '#1E66D0' : 'var(--muted)'} fillOpacity={m.hit ? 0.85 : 0.6} stroke={m.hit ? '#FFFFFF' : 'none'} strokeWidth={0.8} />;
+          return <circle key={i} cx={m.x} cy={m.y} r={dotRadius} fill={m.hit ? '#1E66D0' : 'var(--muted)'} fillOpacity={m.hit ? 0.85 : 0.6} stroke={m.hit ? '#FFFFFF' : 'none'} strokeWidth={0.8} />;
         }
         return (
           <g key={i}>

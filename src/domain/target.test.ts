@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BAND, TH, TW, TX, TY, classifyTap, directionFor, shotLabel } from './target';
+import { BAND, TH, TW, TX, TY, classifyTap, directionFor, missOctant, shotLabel } from './target';
 
 const cx = TX + TW / 2;
 const cy = TY + TH / 2;
@@ -40,5 +40,18 @@ describe('과녁 판정', () => {
     expect(shotLabel(classifyTap(cx, cy, 'right', true), true)).toBe('관중 5');
     expect(shotLabel(classifyTap(cx, cy, 'right', true), false)).toBe('관중');
     expect(shotLabel(classifyTap(TX - BAND - 10, cy, 'right', true), true)).toBe('뒤남 많이');
+  });
+
+  it('불은 과녁 중심 기준 8방향으로 나눈다 (0 = 위, 시계 방향)', () => {
+    const at = (x: number, y: number) => missOctant(classifyTap(x, y, 'right', true));
+    expect(at(cx, TY - 10)).toBe(0);
+    expect(at(TX + TW + 30, TY - 30)).toBe(1);
+    expect(at(TX + TW + 10, cy)).toBe(2);
+    expect(at(TX + TW + 30, TY + TH + 30)).toBe(3);
+    expect(at(cx, TY + TH + 10)).toBe(4);
+    expect(at(TX - 30, TY + TH + 30)).toBe(5);
+    expect(at(TX - 10, cy)).toBe(6);
+    expect(at(TX - 30, TY - 30)).toBe(7);
+    expect(missOctant(classifyTap(cx, cy, 'right', true))).toBeNull();
   });
 });
