@@ -60,6 +60,15 @@ export default function App() {
           </header>
         )}
         {store.error && <div className="error" role="alert">{store.error}</div>}
+        {store.loaded && store.rangeOffer && (
+          <div className="banner range-offer" role="status">
+            <span>근처에 <b>{'range' in store.rangeOffer ? store.rangeOffer.range.name : store.rangeOffer.place.name}</b>이(가) 있습니다. 지금 활터{store.currentRange ? `(${store.currentRange.name})` : ''}를 바꿀까요?{'place' in store.rangeOffer && <span className="muted"> (새로 등록됩니다)</span>}</span>
+            <span className="row nowrap">
+              <button onClick={() => store.acceptOffer().then(() => toast('활터를 바꿨습니다'))}>바꾸기</button>
+              <button className="quiet" onClick={store.dismissOffer}>그대로</button>
+            </span>
+          </div>
+        )}
         {!store.loaded ? <div className="loading">불러오는 중…</div> : (
           <>
             {tab === 'shoot' && <ShootScreen />}

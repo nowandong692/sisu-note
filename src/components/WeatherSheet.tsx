@@ -16,7 +16,7 @@ export function WeatherSheet({ onClose }: { onClose: () => void }) {
   const { todayWeather, updateSettings, settings } = useStore();
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
-  const { currentRange, setUnknownSpot } = useStore();
+  const { currentRange, noticePosition } = useStore();
   const w = todayWeather ?? EMPTY_WEATHER;
   const meta = settings.weather?.date === today() ? settings.weather : null;
   const [tempText, setTempText] = useState(w.temp == null ? '' : String(w.temp));
@@ -37,7 +37,7 @@ export function WeatherSheet({ onClose }: { onClose: () => void }) {
   const load = async () => {
     setLoading(true); setErr('');
     try {
-      await loadWeather(settings, updateSettings, setUnknownSpot);
+      await loadWeather(settings, updateSettings, noticePosition);
     } catch (e) {
       setErr(e instanceof Error ? e.message : '날씨를 불러오지 못했습니다.');
     } finally {
