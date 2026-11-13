@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { RANGE_RADIUS_M } from '../domain/range';
 import type { Place, Range } from '../domain/types';
 import { today } from '../domain/util';
@@ -22,6 +22,26 @@ export function RangeSheet({ onClose }: { onClose: () => void }) {
   const [found, setFound] = useState<FoundRange[] | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [newName, setNewName] = useState('');
+  /** 창을 열자마자 찾아 둔 근처 국궁장 (null = 찾는 중) */
+  const [nearby, setNearby] = useState<FoundRange[] | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const here = unknownSpot ?? await currentPosition().catch(() => null) ?? currentRange;
+      if (!here) { if (alive) setNearby([]); return; }
+      const list = (await kakaoNearbyRanges(here.lat, here.lon, 20000))
+        ?? (await nearbyArcheryRanges(here.lat, here.lon)).map((x) => ({ ...x, address: '', distance: distanceM(here, x) }));
+      list.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+      if (alive) setNearby(list.slice(0, 10));
+    })().catch(() => alive && setNearby([]));
+    return () => { alive = false; };
+    // 창을 열 때 한 번만 찾는다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  /** 근처 목록의 곳이 이미 등록한 활터면 그 활터 */
+  const registeredAs = (p: FoundRange) => ranges.find((r) => distanceM(r, p) <= 150);
+  const fmtDist = (d?: number) => (d == null ? '' : d < 1000 ? `${Math.round(d)}m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)}km`);
 
   const startHere = async () => {
     setErr(''); setBusy(true); setFound(null);
@@ -48,7 +68,9 @@ export function RangeSheet({ onClose }: { onClose: () => void }) {
     if (!q.trim()) return;
     setErr(''); setFound(null);
     try {
-      const r = (await kakaoSearchRanges(q)) ?? (await searchPlaces(q)).map((x) => ({ ...x, address: '' }));
+      // 지금 위치(못 얻으면 지금 활터)를 기준으로 가까운 곳을 먼저 보여 준다
+      const here = unknownSpot ?? await currentPosition().catch(() => null) ?? currentRange;
+      const r = (await kakaoSearchRanges(q, here)) ?? (await searchPlaces(q)).map((x) => ({ ...x, address: '' }));
       setFound(r);
       if (!r.length) setErr('찾은 곳이 없습니다. 활터 이름이나 시·군·구 이름으로 찾아보세요 (예: 황학정, 전주).');
     } catch (e) {
@@ -124,10 +146,28 @@ export function RangeSheet({ onClose }: { onClose: () => void }) {
               <input type="text" placeholder="또는 이름·지역으로 찾기 (예: 황학정, 전주)" value={q} onChange={(e) => setQ(e.target.value)} />
               <button className="btn ghost small" type="submit">찾기</button>
             </form>
+            {!q.trim() && !found && (
+              <div className="nearby">
+                <div className="small muted">{nearby == null ? '근처 국궁장을 찾는 중…' : nearby.length ? '근처 국궁장' : '근처에서 국궁장을 찾지 못했습니다. 이름이나 지역으로 찾아보세요.'}</div>
+                {nearby && nearby.length > 0 && (
+                  <div className="found-list">{nearby.map((p) => {
+                    const reg = registeredAs(p);
+                    return (
+                      <button key={`${p.lat},${p.lon}`} className="found"
+                        onClick={() => (reg ? store.chooseRange(reg.id).then(() => toast(`${reg.name}(으)로 골랐습니다`)) : (setCand({ name: p.name, lat: p.lat, lon: p.lon }), setName(p.name)))}>
+                        <b>{p.name}{reg && <span className="pill">등록됨</span>}</b>
+                        <span>{[p.address, fmtDist(p.distance)].filter(Boolean).join(' · ')}</span>
+                      </button>
+                    );
+                  })}</div>
+                )}
+              </div>
+            )}
             {found && found.length > 0 && (
               <div className="found-list">{found.map((p) => (
                 <button key={`${p.lat},${p.lon}`} className="found" onClick={() => { setCand({ name: p.name, lat: p.lat, lon: p.lon }); setName(p.name); setFound(null); }}>
-                  <b>{p.name}</b>{p.address && <span>{p.address}</span>}
+                  <b>{p.name}</b>
+                  <span>{[p.address, fmtDist(p.distance)].filter(Boolean).join(' · ')}</span>
                 </button>
               ))}</div>
             )}

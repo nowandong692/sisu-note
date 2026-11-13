@@ -1,3 +1,5 @@
+import { distanceM } from '../domain/range';
+
 /**
  * 카카오맵 JavaScript SDK의 장소 검색으로 활터(궁도장)를 찾는다.
  * 키는 카카오 개발자 콘솔에 등록한 도메인에서만 동작하므로 앱에 넣어도 된다.
@@ -58,18 +60,42 @@ async function searchAll(k: KakaoNs, queries: string[], opts?: Record<string, un
   return lists.flat().filter((p) => looksLikeRange(p) && !seen.has(p.id) && seen.add(p.id)).map(toFound);
 }
 
-/** 이 위치 반경 3km 안의 활터, 가까운 순. 키가 없으면 null. */
-export async function kakaoNearbyRanges(lat: number, lon: number): Promise<FoundRange[] | null> {
+/** 이 위치 반경(기본 3km, 최대 20km) 안의 활터, 가까운 순. 키가 없으면 null. */
+export async function kakaoNearbyRanges(lat: number, lon: number, radius = 3000): Promise<FoundRange[] | null> {
   const k = await loadSdk();
   if (!k) return null;
-  const r = await searchAll(k, ['궁도장', '활터', '국궁장'], { location: new k.maps.LatLng(lat, lon), radius: 3000, sort: k.maps.services.SortBy.DISTANCE });
+  const r = await searchAll(k, ['궁도장', '활터', '국궁장'], { location: new k.maps.LatLng(lat, lon), radius: Math.min(radius, 20000), sort: k.maps.services.SortBy.DISTANCE });
   return r.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
 }
 
-/** 이름이나 지역으로 활터 찾기 (예: "황학정", "전주 활터"). 키가 없으면 null. */
-export async function kakaoSearchRanges(q: string): Promise<FoundRange[] | null> {
+/**
+ * 이름이나 지역으로 활터 찾기 (예: "계룡정", "전주 활터"). 키가 없으면 null.
+ * 위치를 주면 그 근처(20km)를 먼저 찾고 전국 결과를 덧붙인다.
+ * 이름이 검색어와 맞는 곳을 먼저, 그 안에서 가까운 순으로 정렬한다.
+ */
+export async function kakaoSearchRanges(q: string, near?: { lat: number; lon: number } | null): Promise<FoundRange[] | null> {
   const k = await loadSdk();
   if (!k) return null;
   const t = q.trim();
-  return searchAll(k, [t, `${t} 궁도장`, `${t} 활터`]);
+  const queries = [t, `${t} 궁도장`, `${t} 활터`];
+  const local = near
+    ? await searchAll(k, queries, { location: new k.maps.LatLng(near.lat, near.lon), radius: 20000, sort: k.maps.services.SortBy.DISTANCE })
+    : [];
+  const wide = await searchAll(k, queries);
+  return rankByQuery([...local, ...wide], t, near);
+}
+
+/** 같은 곳은 하나로, 이름이 검색어를 담은 곳 먼저, 그 안에서 가까운 순 */
+export function rankByQuery(list: FoundRange[], q: string, near?: { lat: number; lon: number } | null): FoundRange[] {
+  const key = (r: FoundRange) => `${r.name}|${r.lat.toFixed(4)}|${r.lon.toFixed(4)}`;
+  const seen = new Set<string>();
+  const norm = (s: string) => s.replace(/\s+/g, '');
+  const nq = norm(q);
+  return list
+    .filter((r) => !seen.has(key(r)) && seen.add(key(r)))
+    .map((r) => ({ ...r, distance: near ? distanceM(near, r) : r.distance }))
+    .sort((a, b) => {
+      const ma = norm(a.name).includes(nq) ? 0 : 1, mb = norm(b.name).includes(nq) ? 0 : 1;
+      return ma - mb || (a.distance ?? Infinity) - (b.distance ?? Infinity);
+    });
 }
