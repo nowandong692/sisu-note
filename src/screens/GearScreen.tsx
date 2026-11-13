@@ -1,11 +1,25 @@
 import { useState } from 'react';
-import { ConfirmButton, Sheet, toast } from '../components/ui';
+import { ConfirmButton, HelpButton, Sheet, toast } from '../components/ui';
 import { endsToCsv } from '../domain/csv';
 import { summarize } from '../domain/stats';
 import type { GearCategory } from '../domain/types';
 import { today } from '../domain/util';
 import { saveTextFile } from '../platform/files';
 import { useStore } from '../state/store';
+
+function ArchiveHelp() {
+  return (
+    <HelpButton title="보관이란?">
+      <p>더 이상 쓰지 않는 장비를 지우지 않고 치워 두는 기능입니다.</p>
+      <ul>
+        <li>오늘 장비를 고르는 목록과 이 화면에서 사라집니다.</li>
+        <li>그 장비로 쏜 예전 기록과 통계는 그대로 남고, 통계의 활 선택에는 "(보관)"으로 나옵니다.</li>
+        <li>아래 "보관한 장비 보기"를 누르면 다시 보이고, "다시 사용"으로 되돌릴 수 있습니다.</li>
+      </ul>
+      <p className="muted">장비를 지우면 예전 기록의 장비가 "미지정"이 되어 장비별 비교가 어긋나기 때문에, 삭제 대신 보관을 씁니다.</p>
+    </HelpButton>
+  );
+}
 
 const CATS: [GearCategory, string][] = [['bow', '활'], ['ring', '깍지'], ['arrow', '화살']];
 const PLACEHOLDER: Record<GearCategory, [string, string, string]> = {
@@ -74,7 +88,7 @@ export function GearScreen() {
         const items = gear.filter((g) => g.category === c && (showArchived || !g.archived));
         return (
           <section className="card" key={c}>
-            <h2>{label}</h2>
+            <div className="row between"><h2>{label}</h2>{c === 'bow' && <ArchiveHelp />}</div>
             {items.length === 0 && <div className="empty small">등록된 {label}이(가) 없습니다.</div>}
             {items.map((g) => {
               const s = statsFor(g.id);
@@ -94,9 +108,12 @@ export function GearScreen() {
           </section>
         );
       })}
-      <button className="btn ghost" style={{ alignSelf: 'center' }} onClick={() => setShowArchived(!showArchived)}>
-        {showArchived ? '보관한 장비 숨기기' : '보관한 장비 보기'}
-      </button>
+      <div className="row" style={{ justifyContent: 'center' }}>
+        <button className="btn ghost" onClick={() => setShowArchived(!showArchived)}>
+          {showArchived ? '보관한 장비 숨기기' : '보관한 장비 보기'}
+        </button>
+        <ArchiveHelp />
+      </div>
 
       <section className="card">
         <h2>데이터</h2>

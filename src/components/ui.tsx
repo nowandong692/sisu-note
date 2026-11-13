@@ -51,3 +51,19 @@ export function ConfirmButton({ label, confirmLabel, onConfirm, className = 'del
     </button>
   );
 }
+
+/** 물음표 버튼. 누르면 설명 창을 띄운다. 화면에 설명 글을 늘어놓지 않기 위한 것. */
+export function HelpButton({ title, children }: { title: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button className="help-btn" aria-label={`${title} 설명 보기`} onClick={() => setOpen(true)}>?</button>
+      {open && (
+        <Sheet title={title} onClose={() => setOpen(false)}>
+          <div className="help-body">{children}</div>
+          <button className="btn" onClick={() => setOpen(false)}>확인</button>
+        </Sheet>
+      )}
+    </>
+  );
+}
