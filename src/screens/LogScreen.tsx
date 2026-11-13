@@ -7,6 +7,7 @@ import { shotLabel } from '../domain/target';
 import { formatDate } from '../domain/util';
 import type { End, Hand } from '../domain/types';
 import { useStore } from '../state/store';
+import { endMeta } from '../domain/endMeta';
 import { EndLine } from './ShootScreen';
 import { MemoView } from './MemoView';
 
@@ -117,10 +118,15 @@ export function LogScreen() {
                   return (
                     <div key={e.id} id={`end-${e.id}`} className={`end-block ${selEnd === e.id ? 'selected' : ''}`} role="button" tabIndex={0} aria-pressed={selEnd === e.id}
                       onClick={() => toggle(e.id)} onKeyDown={(ev) => { if (ev.target === ev.currentTarget && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); toggle(e.id); } }}>
-                      <EndLine end={e} index={i}>
-                        <button className="act-btn" aria-label={`${i + 1}순 고치기`} title="고치기" onClick={() => { setEditId(e.id); location.hash = ''; window.scrollTo(0, 0); }}>{PENCIL}</button>
-                        <ConfirmButton className="act-btn danger" label={TRASH} ariaLabel={`${i + 1}순 삭제`} confirmLabel="삭제" onConfirm={() => deleteEnd(e.id).then(() => toast('순을 삭제했습니다'))} />
-                      </EndLine>
+                      <EndLine end={e} index={i} showMeta={false} />
+                      {/* 장비·태그와 고치기·삭제는 둘째 줄에 둔다. 첫 줄(시·몰기)이 길어도 버튼 자리가 늘 같다. */}
+                      <div className="end-sub">
+                        <span className="meta">{endMeta(e, gearName)}</span>
+                        <span className="end-acts" onClick={(ev) => ev.stopPropagation()}>
+                          <button className="act-btn" aria-label={`${i + 1}순 고치기`} title="고치기" onClick={() => { setEditId(e.id); location.hash = ''; window.scrollTo(0, 0); }}>{PENCIL}</button>
+                          <ConfirmButton className="act-btn danger" label={TRASH} ariaLabel={`${i + 1}순 삭제`} confirmLabel="삭제" onConfirm={() => deleteEnd(e.id).then(() => toast('순을 삭제했습니다'))} />
+                        </span>
+                      </div>
                       {misses.length > 0 && <div className="memo">{misses.join(', ')}</div>}
                       {e.memo && <div className="memo">{e.memo}</div>}
                     </div>
