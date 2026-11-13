@@ -34,7 +34,7 @@ export function EndLine({ end, index, children, selected, onSelect }: { end: End
       <span className="dots">{end.shots.map((s, i) => <ShotIcon key={i} shot={s} index={i} />)}</span>
       <span className="cnt">{h}중{h === 5 && <span className="pill best">몰기</span>}</span>
       <span className="meta">{gearName(end.bowId)} · {gearName(end.ringId)}{end.tags.length ? ' · #' + end.tags.join(' #') : ''}</span>
-      {children && <span onClick={(ev) => ev.stopPropagation()}>{children}</span>}
+      {children && <span className="end-acts" onClick={(ev) => ev.stopPropagation()}>{children}</span>}
     </div>
   );
 }

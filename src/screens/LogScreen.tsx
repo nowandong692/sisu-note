@@ -45,6 +45,9 @@ function DayTarget({ ends, hand, selEnd, selShot, onShot }: { ends: End[]; hand:
   );
 }
 
+const PENCIL = <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z" /><path d="M13.5 6.5l4 4" /></svg>;
+const TRASH = <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" /></svg>;
+
 /** 다른 화면(순 고치기)에서 돌아올 때 펼쳐 보여 줄 순 */
 let pendingFocus: { date: string; id: string } | null = null;
 // eslint-disable-next-line react-refresh/only-export-components
@@ -115,8 +118,8 @@ export function LogScreen() {
                     <div key={e.id} id={`end-${e.id}`} className={`end-block ${selEnd === e.id ? 'selected' : ''}`} role="button" tabIndex={0} aria-pressed={selEnd === e.id}
                       onClick={() => toggle(e.id)} onKeyDown={(ev) => { if (ev.target === ev.currentTarget && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); toggle(e.id); } }}>
                       <EndLine end={e} index={i}>
-                        <button className="del edit" onClick={() => { setEditId(e.id); location.hash = ''; window.scrollTo(0, 0); }}>고치기</button>
-                        <ConfirmButton label="삭제" confirmLabel="삭제 확인" onConfirm={() => deleteEnd(e.id).then(() => toast('순을 삭제했습니다'))} />
+                        <button className="act-btn" aria-label={`${i + 1}순 고치기`} title="고치기" onClick={() => { setEditId(e.id); location.hash = ''; window.scrollTo(0, 0); }}>{PENCIL}</button>
+                        <ConfirmButton className="act-btn danger" label={TRASH} ariaLabel={`${i + 1}순 삭제`} confirmLabel="삭제" onConfirm={() => deleteEnd(e.id).then(() => toast('순을 삭제했습니다'))} />
                       </EndLine>
                       {misses.length > 0 && <div className="memo">{misses.join(', ')}</div>}
                       {e.memo && <div className="memo">{e.memo}</div>}
