@@ -168,7 +168,7 @@ export function ShootScreen() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="label">오늘 장비</div>
           <div className="names">
-            {noGear ? '장비 탭에서 활을 추가하면 장비별 분석을 볼 수 있습니다' : `${gearName(settings.current.bow)} · ${gearName(settings.current.ring)} · ${gearName(settings.current.arrow)}`}
+            {noGear ? '장비 탭에서 활을 추가하면 장비별 분석을 볼 수 있습니다' : `${gearName(settings.current.bow)} · ${gearName(settings.current.ring)} · ${gearName(settings.current.arrow)}${settings.current.string ? ` · ${gearName(settings.current.string)}` : ''}`}
           </div>
         </div>
         <span className="change">바꾸기</span>
@@ -225,7 +225,7 @@ export function ShootScreen() {
       {picking && (
         <Sheet title="오늘 장비" onClose={() => setPicking(false)}>
           <div className="small muted">고른 장비는 다음 순부터 적용됩니다.</div>
-          {([['bow', '활'], ['ring', '깍지'], ['arrow', '화살']] as [GearCategory, string][]).map(([c, name]) => (
+          {([['bow', '활'], ['ring', '깍지'], ['arrow', '화살'], ['string', '현']] as [GearCategory, string][]).map(([c, name]) => (
             <div className="field" key={c}>
               <label>{name}</label>
               <div className="chips">

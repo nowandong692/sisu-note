@@ -19,7 +19,7 @@ interface Data {
 export interface Store extends Data {
   gearOf(c: GearCategory, includeArchived?: boolean): Gear[];
   gearName(id: string | null): string;
-  saveEnd(e: Omit<End, 'id' | 'date' | 'recordedAt' | 'updatedAt' | 'bowId' | 'ringId' | 'arrowId' | 'weather' | 'rangeId'>): Promise<End>;
+  saveEnd(e: Omit<End, 'id' | 'date' | 'recordedAt' | 'updatedAt' | 'bowId' | 'ringId' | 'arrowId' | 'stringId' | 'weather' | 'rangeId'>): Promise<End>;
   /** 등록한 활터 */
   ranges: Range[];
   rangeName(id: string | null | undefined): string;
@@ -49,7 +49,7 @@ export interface Store extends Data {
   /** 습사 화면에 불러와 고치는 중인 순 */
   editId: string | null;
   setEditId(id: string | null): void;
-  addGear(g: Pick<Gear, 'category' | 'nickname' | 'bowType' | 'detail'>): Promise<Gear>;
+  addGear(g: Pick<Gear, 'category' | 'nickname' | 'bowType' | 'stringType' | 'thickness' | 'detail'>): Promise<Gear>;
   setArchived(id: string, archived: boolean): Promise<void>;
   /** 별명, 구분, 상세 고치기 */
   updateGear(g: Gear): Promise<void>;
@@ -150,7 +150,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     async saveEnd(input) {
       const now = Date.now();
       const e: End = { ...input, id: newId(), date: today(), recordedAt: now, updatedAt: now,
-        bowId: data.settings.current.bow, ringId: data.settings.current.ring, arrowId: data.settings.current.arrow, weather: todayWeather,
+        bowId: data.settings.current.bow, ringId: data.settings.current.ring, arrowId: data.settings.current.arrow, stringId: data.settings.current.string ?? null, weather: todayWeather,
         rangeId: data.settings.currentRange ?? null };
       await repo.putEnd(e);
       setData((p) => ({ ...p, ends: [...p.ends, e] }));
@@ -204,8 +204,8 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       setData((p) => ({
         ...p,
         gear: p.gear.filter((x) => x.id !== id),
-        ends: p.ends.map((e) => (e.bowId === id || e.ringId === id || e.arrowId === id
-          ? { ...e, bowId: clear(e.bowId), ringId: clear(e.ringId), arrowId: clear(e.arrowId) } : e)),
+        ends: p.ends.map((e) => (e.bowId === id || e.ringId === id || e.arrowId === id || e.stringId === id
+          ? { ...e, bowId: clear(e.bowId), ringId: clear(e.ringId), arrowId: clear(e.arrowId), stringId: clear(e.stringId ?? null) } : e)),
       }));
       const cur = data.settings.current;
       if (cur[g.category] === id) {
@@ -218,7 +218,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       const { gear, ends, ranges: sampleRanges } = sampleData();
       await repo.replaceAll({ gear, ends });
       setData((p) => ({ ...p, gear, ends }));
-      await updateSettings({ hand: 'right', current: { bow: 'sample-b1', ring: 'sample-r1', arrow: 'sample-a1' }, ranges: sampleRanges, currentRange: 'sample-g1', currentRangeManual: true });
+      await updateSettings({ hand: 'right', current: { bow: 'sample-b1', ring: 'sample-r1', arrow: 'sample-a1', string: 'sample-s1' }, ranges: sampleRanges, currentRange: 'sample-g1', currentRangeManual: true });
     },
     async clearAll() {
       await repo.replaceAll({ gear: [], ends: [] });
