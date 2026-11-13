@@ -108,7 +108,7 @@ export interface GroupRow extends Summary {
 }
 
 function idOf(e: End, c: GearCategory): string {
-  return (c === 'bow' ? e.bowId : c === 'ring' ? e.ringId : e.arrowId) ?? '';
+  return (c === 'bow' ? e.bowId : c === 'ring' ? e.ringId : c === 'arrow' ? e.arrowId : e.stringId) ?? '';
 }
 
 /** 장비별(또는 활 × 깍지 조합별) 성적. 표본이 충분한 것 먼저, 그 안에서 순당 평균 높은 순. */

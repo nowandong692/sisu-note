@@ -1,5 +1,5 @@
-/** 장비 종류: 활, 깍지, 화살 */
-export type GearCategory = 'bow' | 'ring' | 'arrow';
+/** 장비 종류: 활, 깍지, 화살, 현 */
+export type GearCategory = 'bow' | 'ring' | 'arrow' | 'string';
 
 export interface Gear {
   id: string;
@@ -8,6 +8,10 @@ export interface Gear {
   nickname: string;
   /** 활만: 개량궁 / 각궁 / 기타 */
   bowType?: string;
+  /** 현만: 심고현 / 기계현 / 명주현 / 기타 */
+  stringType?: string;
+  /** 현만: 현 굵기 (예: 18합, 2.0mm). 쓰는 단위가 사람마다 달라 글자로 둔다. */
+  thickness?: string;
   /** 브랜드·모델, 호수, 재질, 무게 같은 자유 입력 */
   detail?: string;
   startedOn: string; // YYYY-MM-DD
@@ -64,6 +68,8 @@ export interface End {
   bowId: string | null;
   ringId: string | null;
   arrowId: string | null;
+  /** 현 (현을 기록하기 전 순은 없음) */
+  stringId?: string | null;
   shots: Shot[];
   tags: string[];
   memo: string;
@@ -93,7 +99,7 @@ export interface Range {
 export interface Settings {
   hand: Hand;
   grid: boolean;
-  current: { bow: string | null; ring: string | null; arrow: string | null };
+  current: { bow: string | null; ring: string | null; arrow: string | null; string?: string | null };
   /** 등록한 활터들 */
   ranges?: Range[];
   /** 지금 있는 활터. 다음에 저장하는 순에 들어간다. */

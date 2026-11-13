@@ -21,6 +21,7 @@ export function sampleData(now = new Date()): { gear: Gear[]; ends: End[]; range
     mk('sample-r1', 'ring', '소뿔 깍지', '소뿔, 중', dayOffset(-150, now)),
     mk('sample-r2', 'ring', '연습용 깍지', '플라스틱, 중', dayOffset(-300, now)),
     mk('sample-a1', 'arrow', '카본 7돈', '카본, 7돈, 5대', dayOffset(-200, now)),
+    mk('sample-s1', 'string', '기계현', '', dayOffset(-60, now), { stringType: '기계현', thickness: '18합' }),
   ];
 
   const hit = (): Shot => classifyTap(
@@ -68,7 +69,7 @@ export function sampleData(now = new Date()): { gear: Gear[]; ends: End[]; range
         shots.push(miss(dir));
       }
       ends.push({
-        id: newId(), date, recordedAt: t + day * 864e5 + k, bowId: bow, ringId: ring, arrowId: 'sample-a1', shots,
+        id: newId(), date, recordedAt: t + day * 864e5 + k, bowId: bow, ringId: ring, arrowId: 'sample-a1', stringId: 'sample-s1', shots,
         tags: r() < 0.3 ? [MEMO_TAGS[Math.floor(r() * MEMO_TAGS.length)]] : [],
         memo: r() < 0.18 ? memos[Math.floor(r() * memos.length)] : '',
         weather,

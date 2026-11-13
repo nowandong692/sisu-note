@@ -79,7 +79,7 @@ describe('통계', () => {
   it('CSV는 별명과 시별 결과를 담는다', () => {
     const csv = endsToCsv(ends, [{ id: 'b1', category: 'bow', nickname: '검은 활, 45호', startedOn: '', archived: false, updatedAt: 0 }]);
     const lines = csv.split('\n');
-    expect(lines[0]).toBe('날짜,활터,활,깍지,화살,중,1시,2시,3시,4시,5시,날씨,기온,바람,태그,메모');
+    expect(lines[0]).toBe('날짜,활터,활,깍지,화살,현,중,1시,2시,3시,4시,5시,날씨,기온,바람,태그,메모');
     expect(lines[1]).toContain('"검은 활, 45호"');
     expect(lines[2]).toContain('뒤남(많이)');
   });

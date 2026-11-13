@@ -20,7 +20,7 @@ export function searchMemos(ends: End[], query: string, tag: string | null, gear
     .filter((e) => !tag || e.tags.includes(tag))
     .filter((e) => {
       if (!terms.length) return true;
-      const hay = [e.memo, ...e.tags, gearName(e.bowId), gearName(e.ringId), gearName(e.arrowId), weatherLabel(e.weather), e.rangeId ? rangeName(e.rangeId) : ''].join(' ').toLowerCase();
+      const hay = [e.memo, ...e.tags, gearName(e.bowId), gearName(e.ringId), gearName(e.arrowId), e.stringId ? gearName(e.stringId) : '', weatherLabel(e.weather), e.rangeId ? rangeName(e.rangeId) : ''].join(' ').toLowerCase();
       return terms.every((t) => hay.includes(t.replace(/^#/, '')));
     })
     .sort((a, b) => (a.date === b.date ? b.recordedAt - a.recordedAt : a.date < b.date ? 1 : -1))

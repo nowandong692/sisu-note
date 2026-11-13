@@ -1,3 +1,4 @@
+import { PENCIL, TRASH } from '../components/icons';
 import { useState } from 'react';
 import { ConfirmButton, HelpButton, Sheet, toast } from '../components/ui';
 import { endsToCsv } from '../domain/csv';
@@ -21,11 +22,13 @@ function ArchiveHelp() {
   );
 }
 
-const CATS: [GearCategory, string][] = [['bow', '활'], ['ring', '깍지'], ['arrow', '화살']];
+const CATS: [GearCategory, string][] = [['bow', '활'], ['ring', '깍지'], ['arrow', '화살'], ['string', '현']];
+const STRING_TYPES = ['심고현', '기계현', '명주현', '기타'];
 const PLACEHOLDER: Record<GearCategory, [string, string, string]> = {
   bow: ['예: 검은 활', '브랜드·모델, 호수 (선택)', '예: OO궁 45호'],
   ring: ['예: 소뿔 깍지', '종류·재질, 크기 (선택)', '예: 소뿔, 중'],
   arrow: ['예: 카본 7돈', '종류, 무게, 개수 (선택)', '예: 카본, 7돈, 5대'],
+  string: ['예: 기계현 18합', '만든 곳, 맨 날 같은 메모 (선택)', '예: OO현, 11월 13일에 맴'],
 };
 
 /** 장비 추가, 또는 editing을 주면 그 장비 고치기 */
@@ -34,12 +37,15 @@ function GearFormSheet({ editing, onClose }: { editing?: Gear; onClose: () => vo
   const [cat, setCat] = useState<GearCategory>(editing?.category ?? 'bow');
   const [nickname, setNickname] = useState(editing?.nickname ?? '');
   const [bowType, setBowType] = useState<string | undefined>(editing?.bowType);
+  const [stringType, setStringType] = useState<string | undefined>(editing?.stringType);
+  const [thickness, setThickness] = useState(editing?.thickness ?? '');
   const [detail, setDetail] = useState(editing?.detail ?? '');
   const [err, setErr] = useState('');
 
   const submit = async () => {
     if (!nickname.trim()) { setErr('별명을 입력하세요. 목록과 통계에 이 이름으로 표시됩니다.'); return; }
-    const fields = { nickname: nickname.trim(), detail: detail.trim() || undefined, bowType: cat === 'bow' ? bowType : undefined };
+    const fields = { nickname: nickname.trim(), detail: detail.trim() || undefined, bowType: cat === 'bow' ? bowType : undefined,
+      stringType: cat === 'string' ? stringType : undefined, thickness: cat === 'string' ? thickness.trim() || undefined : undefined };
     if (editing) {
       await updateGear({ ...editing, ...fields });
       toast('고쳤습니다. 예전 기록과 통계에도 새 이름으로 나옵니다');
@@ -68,6 +74,20 @@ function GearFormSheet({ editing, onClose }: { editing?: Gear; onClose: () => vo
             {['개량궁', '각궁', '기타'].map((t) => <button key={t} className={`chip ${bowType === t ? 'on' : ''}`} onClick={() => setBowType(bowType === t ? undefined : t)}>{t}</button>)}
           </div>
         </div>
+      )}
+      {cat === 'string' && (
+        <>
+          <div className="field">
+            <label>종류 (선택)</label>
+            <div className="chips">
+              {STRING_TYPES.map((t) => <button key={t} className={`chip ${stringType === t ? 'on' : ''}`} onClick={() => setStringType(stringType === t ? undefined : t)}>{t}</button>)}
+            </div>
+          </div>
+          <div className="field">
+            <label htmlFor="f-thick">현 굵기 (선택)</label>
+            <input type="text" id="f-thick" maxLength={20} placeholder="예: 18합, 2.0mm" value={thickness} onChange={(e) => setThickness(e.target.value)} />
+          </div>
+        </>
       )}
       <div className="field">
         <label htmlFor="f-detail">{PLACEHOLDER[cat][1]}</label>
@@ -109,10 +129,10 @@ export function GearScreen() {
   const [showArchived, setShowArchived] = useState(false);
   const [deleting, setDeleting] = useState<Gear | null>(null);
   const [editingGear, setEditingGear] = useState<Gear | null>(null);
-  const usedCount = (id: string) => ends.filter((e) => e.bowId === id || e.ringId === id || e.arrowId === id).length;
+  const usedCount = (id: string) => ends.filter((e) => e.bowId === id || e.ringId === id || e.arrowId === id || e.stringId === id).length;
 
   const statsFor = (id: string) => {
-    const list = ends.filter((e) => e.bowId === id || e.ringId === id || e.arrowId === id);
+    const list = ends.filter((e) => e.bowId === id || e.ringId === id || e.arrowId === id || e.stringId === id);
     return list.length ? summarize(list) : null;
   };
 
@@ -127,7 +147,7 @@ export function GearScreen() {
             {items.length === 0 && <div className="empty small">등록된 {label}이(가) 없습니다.</div>}
             {items.map((g) => {
               const s = statsFor(g.id);
-              const detail = [g.bowType, g.detail].filter(Boolean).join(' · ') || '상세 정보 없음';
+              const detail = [g.bowType, g.stringType, g.thickness && `굵기 ${g.thickness}`, g.detail].filter(Boolean).join(' · ') || '상세 정보 없음';
               return (
                 <div key={g.id} className={`eq ${g.archived ? 'off' : ''}`}>
                   <div style={{ minWidth: 0, flex: 1, cursor: 'pointer' }} role="button" tabIndex={0} aria-label={`${g.nickname} 고치기`}
@@ -135,12 +155,12 @@ export function GearScreen() {
                     <div className="nm">{g.nickname}{g.archived && <span className="pill archived">보관</span>}</div>
                     <div className="dt">{detail} · {s ? `${s.ends}순 · 순당 ${s.perEnd.toFixed(1)}중` : '기록 없음'}</div>
                   </div>
-                  <button className="btn ghost small" onClick={() => setArchived(g.id, !g.archived).then(() => toast(g.archived ? '다시 사용합니다' : '보관했습니다. 기록은 그대로 남습니다'))}>
-                    {g.archived ? '다시 사용' : '보관'}
-                  </button>
-                  <span className="eq-acts">
-                    <button className="del edit" onClick={() => setEditingGear(g)}>고치기</button>
-                    <button className="del" aria-label={`${g.nickname} 삭제`} onClick={() => setDeleting(g)}>삭제</button>
+                  <span className="end-acts">
+                    <button className="act-btn" onClick={() => setArchived(g.id, !g.archived).then(() => toast(g.archived ? '다시 사용합니다' : '보관했습니다. 기록은 그대로 남습니다'))}>
+                      {g.archived ? '다시 사용' : '보관'}
+                    </button>
+                    <button className="act-btn" aria-label={`${g.nickname} 고치기`} title="고치기" onClick={() => setEditingGear(g)}>{PENCIL}</button>
+                    <button className="act-btn danger" aria-label={`${g.nickname} 삭제`} title="삭제" onClick={() => setDeleting(g)}>{TRASH}</button>
                   </span>
                 </div>
               );

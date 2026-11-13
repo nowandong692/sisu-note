@@ -46,6 +46,7 @@ export class IndexedDbRepository implements Repository {
         if (e.bowId === id) e.bowId = null;
         if (e.ringId === id) e.ringId = null;
         if (e.arrowId === id) e.arrowId = null;
+        if (e.stringId === id) e.stringId = null;
       });
     });
   }

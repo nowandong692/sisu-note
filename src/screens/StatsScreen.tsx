@@ -221,6 +221,7 @@ export function StatsScreen() {
       )}
       <section className="card"><h2>활별 비교</h2><GroupTable rows={byGear(ends, 'bow')} label="활" name={name} /></section>
       <section className="card"><h2>깍지별 비교</h2><GroupTable rows={byGear(ends, 'ring')} label="깍지" name={name} /></section>
+      {ends.some((e) => e.stringId) && <section className="card"><h2>현별 비교</h2><GroupTable rows={byGear(ends.filter((e) => e.stringId), 'string')} label="현" name={name} /></section>}
       <section className="card">
         <h2>활 × 깍지 조합</h2>
         <GroupTable compact rows={byBowAndRing(ends)} label="활 × 깍지" name={(k) => k.split('|').map((id) => gearName(id || null)).join(' × ')} />
