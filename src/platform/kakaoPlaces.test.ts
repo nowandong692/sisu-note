@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { looksLikeRange, rankByQuery } from './kakaoPlaces';
+import { looksLikeRange, rangeQueries, rankByQuery } from './kakaoPlaces';
 
 describe('카카오 장소 중 활터 고르기', () => {
   it('카테고리나 이름에 궁도·활터·국궁이 있으면 활터', () => {
@@ -19,5 +19,15 @@ describe('카카오 장소 중 활터 고르기', () => {
     const r = rankByQuery(list, '계룡정', geoje);
     expect(r.map((x) => x.address)).toEqual(['경남 거제시', '충남 계룡시', '충남']);
     expect(Math.round(r[0].distance! / 100)).toBe(7);
+  });
+
+  it('음식점은 이름이 비슷해도 뺀다', () => {
+    expect(looksLikeRange({ place_name: '유성갈비 계룡정', category_name: '음식점 > 한식 > 육류,고기 > 갈비' })).toBe(false);
+    expect(looksLikeRange({ place_name: '국궁장 앞 식당', category_name: '음식점 > 한식' })).toBe(false);
+  });
+
+  it('"계룡정"만 쳐도 붙여 쓴 "계룡정궁도장"을 찾는다', () => {
+    expect(rangeQueries('계룡정')).toContain('계룡정궁도장');
+    expect(rangeQueries('계룡정궁도장')).toEqual(['계룡정궁도장']);
   });
 });

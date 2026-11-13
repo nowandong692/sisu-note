@@ -11,6 +11,8 @@ export interface FoundRange {
   lat: number;
   lon: number;
   address: string;
+  /** 카카오 분류의 마지막 단계 (예: 궁도장) */
+  category?: string;
   /** 기준 위치에서의 거리 (미터, 위치를 주고 찾았을 때만) */
   distance?: number;
 }
@@ -38,13 +40,16 @@ function loadSdk(): Promise<KakaoNs | null> {
   return sdk;
 }
 
-/** 활터로 볼 장소인가: 카테고리나 이름에 궁도·활터·국궁이 들어간 곳 */
+const NOT_RANGE = /^(음식점|카페|숙박|부동산|가정,생활|교통,수송|의료|금융|교육,학문|문화,예술 > 공연)/;
+/** 활터로 볼 장소인가: 카테고리나 이름에 궁도·활터·국궁이 들어간 곳. 음식점·카페 같은 분류는 이름이 비슷해도 뺀다. */
 export function looksLikeRange(p: Pick<KakaoPlace, 'place_name' | 'category_name'>): boolean {
-  return /궁도|활터|국궁|사정/.test(p.category_name) || /궁도|활터|국궁/.test(p.place_name);
+  if (NOT_RANGE.test(p.category_name)) return false;
+  return /궁도|활터|국궁|활쏘기/.test(p.category_name) || /궁도|활터|국궁/.test(p.place_name);
 }
 
 function toFound(p: KakaoPlace): FoundRange {
-  return { name: p.place_name, lat: Number(p.y), lon: Number(p.x), address: p.road_address_name || p.address_name, distance: p.distance ? Number(p.distance) : undefined };
+  return { name: p.place_name, lat: Number(p.y), lon: Number(p.x), address: p.road_address_name || p.address_name,
+    category: p.category_name.split('>').pop()?.trim(), distance: p.distance ? Number(p.distance) : undefined };
 }
 
 function search(k: KakaoNs, q: string, opts?: Record<string, unknown>): Promise<KakaoPlace[]> {
@@ -60,12 +65,12 @@ async function searchAll(k: KakaoNs, queries: string[], opts?: Record<string, un
   return lists.flat().filter((p) => looksLikeRange(p) && !seen.has(p.id) && seen.add(p.id)).map(toFound);
 }
 
-/** 이 위치 반경(기본 3km, 최대 20km) 안의 활터, 가까운 순. 키가 없으면 null. */
-export async function kakaoNearbyRanges(lat: number, lon: number, radius = 3000): Promise<FoundRange[] | null> {
+/** 이 위치 반경(기본 2km, 최대 20km) 안의 활터, 가까운 순. 키가 없으면 null. */
+export async function kakaoNearbyRanges(lat: number, lon: number, radius = 2000): Promise<FoundRange[] | null> {
   const k = await loadSdk();
   if (!k) return null;
   const r = await searchAll(k, ['궁도장', '활터', '국궁장'], { location: new k.maps.LatLng(lat, lon), radius: Math.min(radius, 20000), sort: k.maps.services.SortBy.DISTANCE });
-  return r.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+  return r.map((x) => ({ ...x, distance: x.distance ?? distanceM({ lat, lon }, x) })).sort((a, b) => a.distance - b.distance);
 }
 
 /**
@@ -77,12 +82,19 @@ export async function kakaoSearchRanges(q: string, near?: { lat: number; lon: nu
   const k = await loadSdk();
   if (!k) return null;
   const t = q.trim();
-  const queries = [t, `${t} 궁도장`, `${t} 활터`];
+  // "계룡정"만 쳐도 "계룡정궁도장"이 걸리도록 붙여 쓴 것과 띄어 쓴 것을 함께 찾는다
+  const queries = rangeQueries(t);
   const local = near
     ? await searchAll(k, queries, { location: new k.maps.LatLng(near.lat, near.lon), radius: 20000, sort: k.maps.services.SortBy.DISTANCE })
     : [];
   const wide = await searchAll(k, queries);
   return rankByQuery([...local, ...wide], t, near);
+}
+
+/** 이름 검색어 조합. 이미 궁도장·활터가 들어 있으면 그대로만 찾는다. */
+export function rangeQueries(t: string): string[] {
+  if (/궁도장|활터|국궁장/.test(t)) return [t];
+  return [t, `${t}궁도장`, `${t} 궁도장`, `${t}활터`, `${t} 활터`, `${t}국궁장`];
 }
 
 /** 같은 곳은 하나로, 이름이 검색어를 담은 곳 먼저, 그 안에서 가까운 순 */
