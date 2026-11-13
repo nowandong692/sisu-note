@@ -48,7 +48,9 @@ export function RangeSheet({ onClose }: { onClose: () => void }) {
     if (!q.trim()) return;
     setErr(''); setFound(null);
     try {
-      const r = (await kakaoSearchRanges(q)) ?? (await searchPlaces(q)).map((x) => ({ ...x, address: '' }));
+      // 지금 위치(못 얻으면 지금 활터)를 기준으로 가까운 곳을 먼저 보여 준다
+      const here = unknownSpot ?? await currentPosition().catch(() => null) ?? currentRange;
+      const r = (await kakaoSearchRanges(q, here)) ?? (await searchPlaces(q)).map((x) => ({ ...x, address: '' }));
       setFound(r);
       if (!r.length) setErr('찾은 곳이 없습니다. 활터 이름이나 시·군·구 이름으로 찾아보세요 (예: 황학정, 전주).');
     } catch (e) {
@@ -127,7 +129,8 @@ export function RangeSheet({ onClose }: { onClose: () => void }) {
             {found && found.length > 0 && (
               <div className="found-list">{found.map((p) => (
                 <button key={`${p.lat},${p.lon}`} className="found" onClick={() => { setCand({ name: p.name, lat: p.lat, lon: p.lon }); setName(p.name); setFound(null); }}>
-                  <b>{p.name}</b>{p.address && <span>{p.address}</span>}
+                  <b>{p.name}</b>
+                  <span>{[p.address, p.distance != null ? (p.distance < 1000 ? `${Math.round(p.distance)}m` : `${(p.distance / 1000).toFixed(p.distance < 10000 ? 1 : 0)}km`) : ''].filter(Boolean).join(' · ')}</span>
                 </button>
               ))}</div>
             )}
