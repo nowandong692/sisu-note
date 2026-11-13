@@ -7,6 +7,10 @@ export interface Mark {
   y: number | null;
   hit: boolean;
   n?: number;
+  /** 선택되지 않은 화살: 흐리게 */
+  dim?: boolean;
+  /** 선택된 화살: 번호가 든 큰 원으로 */
+  big?: boolean;
 }
 
 interface Props {
@@ -73,9 +77,12 @@ export function Target({ hand, grid, marks = [], small, zoneCounts, onTap, label
           <line x1={TX} x2={TX + TW} y1={TY + (TH * k) / 3} y2={TY + (TH * k) / 3} />
         </g>
       ))}
-      {marks.map((m, i) => {
+      {[...marks].sort((a, b) => Number(!!b.dim) - Number(!!a.dim) || Number(!!a.big) - Number(!!b.big)).map((m, i) => {
         if (m.x == null || m.y == null) return null;
-        if (small) {
+        if (small && m.dim) {
+          return <circle key={i} cx={m.x} cy={m.y} r={dotRadius * 0.8} fill={m.hit ? '#1E66D0' : 'var(--muted)'} fillOpacity={0.18} />;
+        }
+        if (small && !m.big) {
           return <circle key={i} cx={m.x} cy={m.y} r={dotRadius} fill={m.hit ? '#1E66D0' : 'var(--muted)'} fillOpacity={m.hit ? 0.85 : 0.6} stroke={m.hit ? '#FFFFFF' : 'none'} strokeWidth={0.8} />;
         }
         return (

@@ -17,16 +17,17 @@ interface Draft {
 }
 const emptyDraft = (): Draft => ({ shots: Array(SHOTS_PER_END).fill(null), active: 0, tags: [], memo: '' });
 
-export function EndLine({ end, index, children }: { end: End; index: number; children?: React.ReactNode }) {
+export function EndLine({ end, index, children, selected, onSelect }: { end: End; index: number; children?: React.ReactNode; selected?: boolean; onSelect?: () => void }) {
   const { gearName } = useStore();
   const h = hitsOf(end);
   return (
-    <div className="end-line">
+    <div className={`end-line ${onSelect ? 'selectable' : ''} ${selected ? 'selected' : ''}`}
+      {...(onSelect ? { role: 'button', tabIndex: 0, 'aria-pressed': !!selected, onClick: onSelect, onKeyDown: (ev: React.KeyboardEvent) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onSelect(); } } } : {})}>
       <span className="idx">{index + 1}순</span>
       <span className="dots">{end.shots.map((s, i) => <ShotIcon key={i} shot={s} index={i} />)}</span>
       <span className="cnt">{h}중{h === 5 && <span className="pill best">몰기</span>}</span>
       <span className="meta">{gearName(end.bowId)} · {gearName(end.ringId)}{end.tags.length ? ' · #' + end.tags.join(' #') : ''}</span>
-      {children}
+      {children && <span onClick={(ev) => ev.stopPropagation()}>{children}</span>}
     </div>
   );
 }
