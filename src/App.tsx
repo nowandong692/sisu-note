@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ConfirmButton, ToastHost, toast } from './components/ui';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { ConfirmButton, Sheet, ToastHost, toast } from './components/ui';
 import { formatDate, today } from './domain/util';
 import { GearScreen } from './screens/GearScreen';
 import { LogScreen } from './screens/LogScreen';
@@ -33,19 +33,89 @@ export default function App() {
   const store = useStore();
   useAutoWeather();
   const [tab, setTab] = useState<Tab>(readTab);
+  const tabRef = useRef(tab);
+  const editingRef = useRef(!!store.editId);
+  editingRef.current = !!store.editId;
+  /** 탭마다 마지막 스크롤 위치. 돌아오면 그 자리에서 보여 준다. */
+  const scrolls = useRef<Partial<Record<Tab, number>>>({});
+  /** 고치는 중에 떠나려는 곳: 탭, 또는 뒤로 가기 */
+  const [leaving, setLeaving] = useState<Tab | 'back' | null>(null);
+  const skipGuardBack = useRef(false);
+
+  const show = (t: Tab) => {
+    if (t === tabRef.current) return;
+    scrolls.current[tabRef.current] = window.scrollY;
+    tabRef.current = t;
+    setTab(t);
+  };
+
+  // 화면은 모두 떠 있고 숨겨 둘 뿐이라, 스크롤 위치만 돌려놓으면 떠날 때 모습 그대로 보인다.
+  // 다른 탭에서 순 고치기를 눌러 습사 탭으로 왔을 때는 맨 위(입력 칸)에서 시작한다.
+  useLayoutEffect(() => {
+    window.scrollTo(0, tab === 'shoot' && editingRef.current ? 0 : scrolls.current[tab] ?? 0);
+  }, [tab]);
 
   useEffect(() => {
-    const on = () => setTab(readTab());
-    window.addEventListener('hashchange', on);
-    return () => window.removeEventListener('hashchange', on);
+    const onHash = () => {
+      const t = readTab();
+      if (t === tabRef.current) return;
+      if (tabRef.current === 'shoot' && editingRef.current) {
+        // 고치는 중이면 습사 탭에 머물게 되돌리고 물어본다
+        history.pushState(null, '', location.pathname + location.search);
+        setLeaving(t);
+        return;
+      }
+      show(t);
+    };
+    const onPop = () => {
+      // 고치기를 시작할 때 넣어 둔 기록 한 칸 덕분에, 뒤로 가기를 누르면 앱을 떠나기 전에 여기서 먼저 잡힌다
+      if (editingRef.current && tabRef.current === 'shoot' && readTab() === 'shoot' && !history.state?.editGuard) {
+        history.pushState({ editGuard: true }, '');
+        setLeaving('back');
+      }
+    };
+    window.addEventListener('hashchange', onHash);
+    window.addEventListener('popstate', onPop);
+    return () => { window.removeEventListener('hashchange', onHash); window.removeEventListener('popstate', onPop); };
   }, []);
+
+  // 고치기를 시작하면 뒤로 가기를 한 번 받아 낼 기록을 넣고, 끝나면 그 기록을 치운다
+  useEffect(() => {
+    if (store.editId && readTab() === 'shoot' && !history.state?.editGuard) history.pushState({ editGuard: true }, '');
+    if (!store.editId && history.state?.editGuard && !skipGuardBack.current && readTab() === 'shoot') history.back();
+    skipGuardBack.current = false;
+  }, [store.editId]);
+
+  // 고치는 중에 창을 닫거나 새로 고치면 브라우저가 한 번 확인한다
+  useEffect(() => {
+    if (!store.editId) return;
+    const on = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', on);
+    return () => window.removeEventListener('beforeunload', on);
+  }, [store.editId]);
 
   const go = (t: Tab) => {
     if (t === tab) return;
+    if (tab === 'shoot' && store.editId) { setLeaving(t); return; }
     location.hash = t === 'shoot' ? '' : t;
-    setTab(t);
-    window.scrollTo(0, 0);
+    show(t);
   };
+
+  const leave = async (saveFirst: boolean) => {
+    const target = leaving;
+    setLeaving(null);
+    if (!target) return;
+    if (saveFirst) await store.editSaver.current?.save();
+    skipGuardBack.current = true;
+    store.setEditId(null);
+    editingRef.current = false;
+    if (target === 'back') { history.go(-2); return; }
+    location.hash = target === 'shoot' ? '' : target;
+    show(target);
+  };
+  const editingEnd = store.editId ? store.ends.find((e) => e.id === store.editId) ?? null : null;
+  const editingNo = editingEnd ? store.ends.filter((e) => e.date === editingEnd.date && e.recordedAt <= editingEnd.recordedAt).length : 0;
+  const canSave = !!store.editSaver.current?.canSave;
 
   const firstRun = store.loaded && !store.ends.length && !store.gear.length;
 
@@ -71,10 +141,11 @@ export default function App() {
         )}
         {!store.loaded ? <div className="loading">불러오는 중…</div> : (
           <>
-            {tab === 'shoot' && <ShootScreen />}
-            {tab === 'log' && <LogScreen />}
-            {tab === 'stats' && <StatsScreen />}
-            {tab === 'gear' && <GearScreen />}
+            {/* 탭을 옮겨도 화면을 지우지 않고 숨겨 둔다. 펼친 날짜, 검색어, 스크롤 위치가 그대로 남는다. */}
+            <div className="screen" hidden={tab !== 'shoot'}><ShootScreen /></div>
+            <div className="screen" hidden={tab !== 'log'}><LogScreen /></div>
+            <div className="screen" hidden={tab !== 'stats'}><StatsScreen /></div>
+            <div className="screen" hidden={tab !== 'gear'}><GearScreen /></div>
             {firstRun && tab !== 'gear' && (
               <section className="card setup">
                 <h2>처음 오셨나요?</h2>
@@ -97,6 +168,15 @@ export default function App() {
           ))}
         </div>
       </nav>
+      {leaving && editingEnd && (
+        <Sheet title="고치는 중입니다" onClose={() => setLeaving(null)}>
+          <div className="small"><b>{formatDate(editingEnd.date)} {editingNo}순</b>을 고치고 있습니다. 고친 내용을 저장하고 이동할까요?</div>
+          <button className="btn" disabled={!canSave} onClick={() => leave(true)}>저장하고 이동</button>
+          {!canSave && <div className="small muted">5시를 모두 입력해야 저장할 수 있습니다.</div>}
+          <button className="btn ghost" onClick={() => leave(false)}>저장하지 않고 이동</button>
+          <button className="btn ghost small" onClick={() => setLeaving(null)}>계속 고치기</button>
+        </Sheet>
+      )}
       <ToastHost />
     </>
   );

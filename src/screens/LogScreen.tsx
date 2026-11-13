@@ -49,22 +49,30 @@ function DayTarget({ ends, hand, selEnd, selShot, onShot }: { ends: End[]; hand:
 
 
 /** 다른 화면(순 고치기)에서 돌아올 때 펼쳐 보여 줄 순 */
-let pendingFocus: { date: string; id: string } | null = null;
+const FOCUS_EVENT = 'log-focus';
 // eslint-disable-next-line react-refresh/only-export-components
-export function focusLogEnd(date: string, id: string) { pendingFocus = { date, id }; }
+export function focusLogEnd(date: string, id: string) { window.dispatchEvent(new CustomEvent(FOCUS_EVENT, { detail: { date, id } })); }
 
 export function LogScreen() {
   const { ends, gearName, deleteEnd, settings, setEditId, rangeName } = useStore();
-  const [focus] = useState(() => { const f = pendingFocus; pendingFocus = null; return f; });
-  const [open, setOpen] = useState<Record<string, boolean>>(focus ? { [focus.date]: true } : {});
-  const [selEnd, setSelEnd] = useState<string | null>(focus?.id ?? null);
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [selEnd, setSelEnd] = useState<string | null>(null);
+  const [view, setView] = useState<'date' | 'memo'>('date');
+  // 기록 탭은 늘 떠 있으므로(숨겨 둘 뿐) 다른 화면에서 고친 순을 보여 달라는 알림을 받아 펼친다
   useEffect(() => {
-    if (focus) setTimeout(() => document.getElementById(`end-${focus.id}`)?.scrollIntoView({ block: 'center' }), 50);
-  }, [focus]);
+    const on = (ev: Event) => {
+      const { date, id } = (ev as CustomEvent<{ date: string; id: string }>).detail;
+      setView('date');
+      setOpen((o) => ({ ...o, [date]: true }));
+      setSelEnd(id);
+      setTimeout(() => document.getElementById(`end-${id}`)?.scrollIntoView({ block: 'center' }), 80);
+    };
+    window.addEventListener(FOCUS_EVENT, on);
+    return () => window.removeEventListener(FOCUS_EVENT, on);
+  }, []);
   const [selShot, setSelShot] = useState<number | null>(null);
   /** 순 한 덩어리(첫 줄, 불 방향, 메모) 어디를 눌러도 그 순을 고른다 */
   const toggle = (id: string) => setSelEnd((cur) => (cur === id ? null : id));
-  const [view, setView] = useState<'date' | 'memo'>('date');
   const jump = (date: string, id: string) => {
     setView('date');
     setOpen((o) => ({ ...o, [date]: true }));
@@ -122,7 +130,7 @@ export function LogScreen() {
                       <div className="end-sub">
                         <span className="meta">{endMeta(e, gearName)}</span>
                         <span className="end-acts" onClick={(ev) => ev.stopPropagation()}>
-                          <button className="act-btn" aria-label={`${i + 1}순 고치기`} title="고치기" onClick={() => { setEditId(e.id); location.hash = ''; window.scrollTo(0, 0); }}>{PENCIL}</button>
+                          <button className="act-btn" aria-label={`${i + 1}순 고치기`} title="고치기" onClick={() => { setEditId(e.id); location.hash = ''; }}>{PENCIL}</button>
                           <ConfirmButton className="act-btn danger" label={TRASH} ariaLabel={`${i + 1}순 삭제`} confirmLabel="삭제" onConfirm={() => deleteEnd(e.id).then(() => toast('순을 삭제했습니다'))} />
                         </span>
                       </div>

@@ -45,6 +45,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--hong); outline-offset: 2px; }
 
+.screen { display: contents; }
+.screen[hidden] { display: none; }
 .app {
   max-width: 480px; margin: 0 auto;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
