@@ -1,11 +1,11 @@
-import type { End, Gear, MissDirection, Shot, Weather } from './types';
+import type { End, Gear, MissDirection, Range, Shot, Weather } from './types';
 import { SKIES, WIND_DIRS, WIND_LEVELS } from './weather';
 import { BAND, TH, TW, TX, TY, classifyTap } from './target';
 import { MEMO_TAGS, MISS_DIRECTIONS } from './types';
 import { dayOffset, newId } from './util';
 
 /** 처음 써 보는 사람을 위한 두 달치 예시 기록 (우궁 기준). 항상 같은 결과가 나오도록 고정 난수를 쓴다. */
-export function sampleData(now = new Date()): { gear: Gear[]; ends: End[] } {
+export function sampleData(now = new Date()): { gear: Gear[]; ends: End[]; ranges: Range[] } {
   let s = 20261112;
   const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
   const g = () => (r() + r() + r() - 1.5) / 1.5;
@@ -47,6 +47,7 @@ export function sampleData(now = new Date()): { gear: Gear[]; ends: End[] } {
     if (r() > 0.42) continue;
     const date = dayOffset(day, now);
     const n = 3 + Math.floor(r() * 4);
+    const rangeId = wr() < 0.8 ? 'sample-g1' : 'sample-g2';
     const wind = pick(WIND_LEVELS);
     const weather: Weather | null = wr() < 0.15 ? null : {
       sky: pick(SKIES.slice(0, 4)), temp: Math.round(18 + (day / 60) * 10 + (wr() - 0.5) * 8),
@@ -71,9 +72,14 @@ export function sampleData(now = new Date()): { gear: Gear[]; ends: End[] } {
         tags: r() < 0.3 ? [MEMO_TAGS[Math.floor(r() * MEMO_TAGS.length)]] : [],
         memo: r() < 0.18 ? memos[Math.floor(r() * memos.length)] : '',
         weather,
+        rangeId,
         updatedAt: t,
       });
     }
   }
-  return { gear, ends };
+  const ranges: Range[] = [
+    { id: 'sample-g1', name: '동네 활터', lat: 37.5796, lon: 126.9670, bearing: 0 },
+    { id: 'sample-g2', name: '원정 간 활터', lat: 35.8150, lon: 127.1530, bearing: 90 },
+  ];
+  return { gear, ends, ranges };
 }

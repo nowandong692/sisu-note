@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { End, Gear, GearCategory, Settings, Weather } from '../domain/types';
+import type { End, Gear, GearCategory, Range, Settings, Weather } from '../domain/types';
+import { migrateRanges, type LatLon } from '../domain/range';
 import { DEFAULT_SETTINGS } from '../domain/types';
 import { sampleData } from '../domain/sample';
 import { hasWeather } from '../domain/weather';
@@ -17,7 +18,20 @@ interface Data {
 export interface Store extends Data {
   gearOf(c: GearCategory, includeArchived?: boolean): Gear[];
   gearName(id: string | null): string;
-  saveEnd(e: Omit<End, 'id' | 'date' | 'recordedAt' | 'updatedAt' | 'bowId' | 'ringId' | 'arrowId' | 'weather'>): Promise<End>;
+  saveEnd(e: Omit<End, 'id' | 'date' | 'recordedAt' | 'updatedAt' | 'bowId' | 'ringId' | 'arrowId' | 'weather' | 'rangeId'>): Promise<End>;
+  /** 등록한 활터 */
+  ranges: Range[];
+  rangeName(id: string | null | undefined): string;
+  /** 지금 활터 (없으면 null) */
+  currentRange: Range | null;
+  addRange(r: Omit<Range, 'id'>): Promise<Range>;
+  updateRange(r: Range): Promise<void>;
+  deleteRange(id: string): Promise<void>;
+  /** 직접 활터 고르기 (null이면 활터 없이) */
+  chooseRange(id: string | null): Promise<void>;
+  /** 마지막 GPS 위치가 등록된 활터 근처가 아니면 그 위치 (새 활터 등록 제안용) */
+  unknownSpot: LatLon | null;
+  setUnknownSpot(p: LatLon | null): void;
   /** 오늘 날씨 (다른 날 입력한 것이면 null) */
   todayWeather: Weather | null;
   /** 이미 저장한 순 고치기 (시, 태그, 메모) */
@@ -44,10 +58,11 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
 
   const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
   const [editId, setEditId] = useState<string | null>(null);
+  const [unknownSpot, setUnknownSpot] = useState<LatLon | null>(null);
 
   useEffect(() => {
     repo.loadAll()
-      .then((d) => { settingsRef.current = d.settings; setData({ loaded: true, error: null, ...d }); })
+      .then((d) => { const settings = migrateRanges(d.settings); settingsRef.current = settings; setData({ loaded: true, error: null, ...d, settings }); })
       .catch(() => setData((p) => ({ ...p, loaded: true, error: '기기 저장소를 열 수 없습니다. 비공개 창이면 일반 창에서 열어 주세요.' })));
   }, [repo]);
 
@@ -62,15 +77,39 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
   const todayWeather = useMemo<Weather | null>(
     () => (w && w.date === today() && hasWeather(w) ? { sky: w.sky, temp: w.temp, wind: w.wind, windDir: w.windDir, windSpeed: w.windSpeed ?? null, windFrom: w.windFrom ?? null } : null), [w]);
 
+  const ranges = useMemo(() => data.settings.ranges ?? [], [data.settings.ranges]);
+
   const store = useMemo<Store>(() => ({
     ...data,
     todayWeather,
+    ranges,
+    rangeName: (id) => (id ? ranges.find((r) => r.id === id)?.name ?? '지운 활터' : '활터 미지정'),
+    currentRange: ranges.find((r) => r.id === data.settings.currentRange) ?? null,
+    async addRange(input) {
+      const r: Range = { ...input, id: newId() };
+      await updateSettings({ ranges: [...ranges, r], currentRange: r.id, currentRangeManual: false });
+      setUnknownSpot(null);
+      return r;
+    },
+    async updateRange(r) {
+      await updateSettings({ ranges: ranges.map((x) => (x.id === r.id ? r : x)) });
+    },
+    async deleteRange(id) {
+      const cur = data.settings.currentRange;
+      await updateSettings({ ranges: ranges.filter((x) => x.id !== id), ...(cur === id ? { currentRange: null, currentRangeManual: false } : {}) });
+    },
+    async chooseRange(id) {
+      await updateSettings({ currentRange: id, currentRangeManual: true });
+    },
+    unknownSpot,
+    setUnknownSpot,
     gearOf: (c, includeArchived = false) => data.gear.filter((g) => g.category === c && (includeArchived || !g.archived)),
     gearName: (id) => data.gear.find((g) => g.id === id)?.nickname ?? '미지정',
     async saveEnd(input) {
       const now = Date.now();
       const e: End = { ...input, id: newId(), date: today(), recordedAt: now, updatedAt: now,
-        bowId: data.settings.current.bow, ringId: data.settings.current.ring, arrowId: data.settings.current.arrow, weather: todayWeather };
+        bowId: data.settings.current.bow, ringId: data.settings.current.ring, arrowId: data.settings.current.arrow, weather: todayWeather,
+        rangeId: data.settings.currentRange ?? null };
       await repo.putEnd(e);
       setData((p) => ({ ...p, ends: [...p.ends, e] }));
       return e;
@@ -134,17 +173,17 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     },
     updateSettings,
     async loadSample() {
-      const d = sampleData();
-      await repo.replaceAll(d);
-      setData((p) => ({ ...p, ...d }));
-      await updateSettings({ hand: 'right', current: { bow: 'sample-b1', ring: 'sample-r1', arrow: 'sample-a1' } });
+      const { gear, ends, ranges: sampleRanges } = sampleData();
+      await repo.replaceAll({ gear, ends });
+      setData((p) => ({ ...p, gear, ends }));
+      await updateSettings({ hand: 'right', current: { bow: 'sample-b1', ring: 'sample-r1', arrow: 'sample-a1' }, ranges: sampleRanges, currentRange: 'sample-g1', currentRangeManual: true });
     },
     async clearAll() {
       await repo.replaceAll({ gear: [], ends: [] });
       setData((p) => ({ ...p, gear: [], ends: [] }));
       await updateSettings({ current: { bow: null, ring: null, arrow: null } });
     },
-  }), [data, repo, updateSettings, todayWeather, editId]);
+  }), [data, repo, updateSettings, todayWeather, editId, ranges, unknownSpot]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

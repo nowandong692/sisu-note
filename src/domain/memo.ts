@@ -7,8 +7,8 @@ export interface MemoHit {
   index: number;
 }
 
-/** 메모나 태그가 있는 순만 골라 최근 것부터. 검색어는 띄어쓰기로 나눠 모두 들어 있어야 맞는다 (메모, 태그, 장비 별명, 날씨에서 찾는다). */
-export function searchMemos(ends: End[], query: string, tag: string | null, gearName: (id: string | null) => string): MemoHit[] {
+/** 메모나 태그가 있는 순만 골라 최근 것부터. 검색어는 띄어쓰기로 나눠 모두 들어 있어야 맞는다 (메모, 태그, 장비 별명, 날씨, 활터에서 찾는다). */
+export function searchMemos(ends: End[], query: string, tag: string | null, gearName: (id: string | null) => string, rangeName: (id: string | null | undefined) => string = () => ''): MemoHit[] {
   const byDate = new Map<string, End[]>();
   for (const e of ends) byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]);
   const indexOf = new Map<string, number>();
@@ -20,7 +20,7 @@ export function searchMemos(ends: End[], query: string, tag: string | null, gear
     .filter((e) => !tag || e.tags.includes(tag))
     .filter((e) => {
       if (!terms.length) return true;
-      const hay = [e.memo, ...e.tags, gearName(e.bowId), gearName(e.ringId), gearName(e.arrowId), weatherLabel(e.weather)].join(' ').toLowerCase();
+      const hay = [e.memo, ...e.tags, gearName(e.bowId), gearName(e.ringId), gearName(e.arrowId), weatherLabel(e.weather), e.rangeId ? rangeName(e.rangeId) : ''].join(' ').toLowerCase();
       return terms.every((t) => hay.includes(t.replace(/^#/, '')));
     })
     .sort((a, b) => (a.date === b.date ? b.recordedAt - a.recordedAt : a.date < b.date ? 1 : -1))

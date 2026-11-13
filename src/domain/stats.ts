@@ -124,6 +124,7 @@ export function groupBy(ends: End[], keyOf: (e: End) => string): GroupRow[] {
 }
 
 export const byGear = (ends: End[], c: GearCategory) => groupBy(ends, (e) => idOf(e, c));
+export const byRange = (ends: End[]) => groupBy(ends.filter((e) => e.rangeId), (e) => e.rangeId!);
 export const byBowAndRing = (ends: End[]) => groupBy(ends, (e) => `${e.bowId ?? ''}|${e.ringId ?? ''}`);
 
 /** 기온 구간 이름. 기온을 남기지 않았으면 빈 문자열. */

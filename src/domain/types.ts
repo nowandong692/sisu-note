@@ -67,6 +67,8 @@ export interface End {
   shots: Shot[];
   tags: string[];
   memo: string;
+  /** 이 순을 쏜 활터 (모르면 없음) */
+  rangeId?: string | null;
   /** 이 순을 쏠 때의 날씨 (입력하지 않았으면 없음) */
   weather?: Weather | null;
   updatedAt: number;
@@ -78,13 +80,29 @@ export interface Place {
   lon: number;
 }
 
+/** 활터. 위치를 남겨 두면 GPS로 가까운 활터를 알아서 고른다. */
+export interface Range {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  /** 사대에서 과녁을 바라보는 방위 (0 = 북, 90 = 동). 바람 방향 계산에 쓴다. */
+  bearing: number | null;
+}
+
 export interface Settings {
   hand: Hand;
   grid: boolean;
   current: { bow: string | null; ring: string | null; arrow: string | null };
-  /** 사대에서 과녁을 바라보는 방위 (0 = 북, 90 = 동). 바람 방향을 맞바람·뒷바람으로 바꾸는 데 쓴다. */
+  /** 등록한 활터들 */
+  ranges?: Range[];
+  /** 지금 있는 활터. 다음에 저장하는 순에 들어간다. */
+  currentRange?: string | null;
+  /** 사용자가 직접 고른 활터면 true. GPS로 다른 등록 활터 근처가 아니면 그대로 둔다. */
+  currentRangeManual?: boolean;
+  /** @deprecated 예전 버전의 활터 하나 (불러올 때 ranges로 옮긴다) */
   rangeBearing?: number | null;
-  /** 날씨를 불러올 활터 위치. 정해 두면 휴대폰 위치 대신 이곳 날씨를 불러온다. */
+  /** @deprecated */
   rangePlace?: Place | null;
   /** 오늘 입력한 날씨. 날짜가 바뀌면 쓰지 않는다. */
   weather?: (Weather & {

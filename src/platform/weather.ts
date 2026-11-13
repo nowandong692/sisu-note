@@ -97,3 +97,23 @@ export async function searchPlaces(name: string): Promise<Place[]> {
   }
   throw new Error(`위치 검색 서비스에 연결하지 못했습니다 (${fails.join(', ')}). 활터에 있을 때 "지금 이 자리를 활터로" 를 눌러 정할 수도 있습니다.`);
 }
+
+/**
+ * 근처 활터 이름 찾기 (OpenStreetMap에 sport=archery로 올라간 곳). 새 활터를 등록할 때 이름 후보로만 쓴다.
+ * 못 찾거나 막혀 있으면 빈 목록.
+ */
+export async function nearbyArcheryRanges(lat: number, lon: number): Promise<Place[]> {
+  const q = `[out:json][timeout:8];nwr["sport"="archery"](around:1500,${lat.toFixed(4)},${lon.toFixed(4)});out center 8;`;
+  try {
+    const res = await getWithTimeout(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`, 9000);
+    if (!res.ok) return [];
+    const els: { tags?: Record<string, string>; lat?: number; lon?: number; center?: { lat: number; lon: number } }[] = (await res.json()).elements ?? [];
+    return els.flatMap((e) => {
+      const name = e.tags?.['name:ko'] ?? e.tags?.name;
+      const c = e.center ?? (e.lat != null && e.lon != null ? { lat: e.lat, lon: e.lon } : null);
+      return name && c ? [{ name, lat: c.lat, lon: c.lon }] : [];
+    });
+  } catch {
+    return [];
+  }
+}

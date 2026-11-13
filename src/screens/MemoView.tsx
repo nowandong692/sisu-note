@@ -13,18 +13,18 @@ function Marked({ text, query }: { text: string; query: string }) {
 
 /** 메모와 태그를 남긴 순을 한곳에 모아 보고 찾는다. 누르면 그날 기록으로 간다. */
 export function MemoView({ onJump }: { onJump: (date: string, id: string) => void }) {
-  const { ends, gearName } = useStore();
+  const { ends, gearName, rangeName } = useStore();
   const [q, setQ] = useState('');
   const [tag, setTag] = useState<string | null>(null);
   const tags = [...new Set([...MEMO_TAGS, ...ends.flatMap((e) => e.tags)])].filter((t) => ends.some((e) => e.tags.includes(t)));
-  const hits = searchMemos(ends, q, tag, gearName);
-  const total = searchMemos(ends, '', null, gearName).length;
+  const hits = searchMemos(ends, q, tag, gearName, rangeName);
+  const total = searchMemos(ends, '', null, gearName, rangeName).length;
 
   return (
     <section className="card memo-view">
       <div className="field">
         <label htmlFor="memoSearch" className="sr-only">메모 검색</label>
-        <input id="memoSearch" type="search" placeholder="메모 검색 (예: 만작, 바람, 활 별명)" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input id="memoSearch" type="search" placeholder="메모 검색 (예: 만작, 바람, 활 별명, 활터)" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       {tags.length > 0 && (
         <div className="chips" role="group" aria-label="태그로 거르기">
@@ -49,7 +49,7 @@ export function MemoView({ onJump }: { onJump: (date: string, id: string) => voi
               {e.memo && <div className="mi-text"><Marked text={e.memo} query={q} /></div>}
               <div className="mi-meta">
                 {e.tags.map((t) => <span key={t} className="pill">#{t}</span>)}
-                <span>{gearName(e.bowId)} · {gearName(e.ringId)}{w && ` · ${w}`}</span>
+                <span>{e.rangeId ? `${rangeName(e.rangeId)} · ` : ''}{gearName(e.bowId)} · {gearName(e.ringId)}{w && ` · ${w}`}</span>
               </div>
             </button>
           );
