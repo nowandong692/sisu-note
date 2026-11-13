@@ -301,3 +301,6 @@ input[type=search] { width: 100%; border: 1px solid var(--line); border-radius: 
 .place-pick { display: flex; flex-direction: column; gap: 8px; background: var(--paper); border-radius: 10px; padding: 10px; }
 .place-pick form { gap: 8px; flex-wrap: nowrap; }
 .place-pick input { flex: 1; min-width: 0; }
+.range-cur { display: flex; flex-direction: column; gap: 6px; border-left: 3px solid var(--line); padding-left: 10px; }
+.range-cur form input, .field form input { flex: 1; min-width: 0; }
+.field form.row { flex-wrap: nowrap; gap: 8px; }

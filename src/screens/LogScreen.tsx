@@ -51,7 +51,7 @@ let pendingFocus: { date: string; id: string } | null = null;
 export function focusLogEnd(date: string, id: string) { pendingFocus = { date, id }; }
 
 export function LogScreen() {
-  const { ends, gearName, deleteEnd, settings, setEditId } = useStore();
+  const { ends, gearName, deleteEnd, settings, setEditId, rangeName } = useStore();
   const [focus] = useState(() => { const f = pendingFocus; pendingFocus = null; return f; });
   const [open, setOpen] = useState<Record<string, boolean>>(focus ? { [focus.date]: true } : {});
   const [selEnd, setSelEnd] = useState<string | null>(focus?.id ?? null);
@@ -94,11 +94,12 @@ export function LogScreen() {
         const list = byDate.get(date)!.sort((a, b) => a.recordedAt - b.recordedAt);
         const h = list.reduce((a, e) => a + hitsOf(e), 0);
         const bows = [...new Set(list.map((e) => gearName(e.bowId)))].join(', ');
+        const where = [...new Set(list.flatMap((e) => (e.rangeId ? [rangeName(e.rangeId)] : [])))].join(', ');
         const isOpen = !!open[date];
         return (
           <div className="session" key={date}>
             <button aria-expanded={isOpen} onClick={() => setOpen({ ...open, [date]: !isOpen })}>
-              <span><span className="d">{formatDate(date)}</span> <span className="muted small">{bows}</span></span>
+              <span><span className="d">{formatDate(date)}</span> <span className="muted small">{where ? `${where} · ` : ''}{bows}</span></span>
               <span className="s">{list.length}순 {h}중 · {Math.round((h / (list.length * 5)) * 100)}%</span>
             </button>
             {isOpen && (

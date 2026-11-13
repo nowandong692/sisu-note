@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Target } from '../components/Target';
 import {
-  MIN_ENDS_FOR_RANKING, byWeather, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weeklyTrend, zoneCounts,
+  MIN_ENDS_FOR_RANKING, byRange, byWeather, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weeklyTrend, zoneCounts,
   type GroupRow,
 } from '../domain/stats';
 import { MISS_DIRECTIONS } from '../domain/types';
@@ -104,7 +104,7 @@ function GroupTable({ rows, label, name, compact }: { rows: GroupRow[]; label: s
 }
 
 export function StatsScreen() {
-  const { ends: allEnds, gear, gearName, settings } = useStore();
+  const { ends: allEnds, gear, gearName, settings, rangeName } = useStore();
   const [period, setPeriod] = useState(30);
   const [bow, setBow] = useState('all');
 
@@ -215,6 +215,9 @@ export function StatsScreen() {
           {weatherGroups.map(([label, rows]) => <GroupTable key={label} compact rows={rows} label={label} name={(k) => k} />)}
           <div className="small muted">날씨를 남긴 순만 셉니다. {MIN_ENDS_FOR_RANKING}순 미만은 흐리게 표시합니다.</div>
         </section>
+      )}
+      {ends.some((e) => e.rangeId) && (
+        <section className="card"><h2>활터별 비교</h2><GroupTable rows={byRange(ends)} label="활터" name={(k) => rangeName(k)} /></section>
       )}
       <section className="card"><h2>활별 비교</h2><GroupTable rows={byGear(ends, 'bow')} label="활" name={name} /></section>
       <section className="card"><h2>깍지별 비교</h2><GroupTable rows={byGear(ends, 'ring')} label="깍지" name={name} /></section>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ShotIcon } from '../components/ShotIcon';
 import { WeatherSheet } from '../components/WeatherSheet';
+import { RangeSheet } from '../components/RangeSheet';
 import { Target, type Mark } from '../components/Target';
 import { Sheet, toast } from '../components/ui';
 import { classifyTap, directionFor, hitShot, shotLabel } from '../domain/target';
@@ -50,6 +51,7 @@ export function ShootScreen() {
   const editIndex = editing ? ends.filter((e) => e.date === editing.date && e.recordedAt <= editing.recordedAt).length : 0;
   const cancelEdit = () => store.setEditId(null);
   const [weathering, setWeathering] = useState(false);
+  const [rangeOpen, setRangeOpen] = useState(false);
 
   const todays = ends.filter((e) => e.date === today()).sort((a, b) => a.recordedAt - b.recordedAt);
   const todayHits = todays.reduce((a, e) => a + hitsOf(e), 0);
@@ -171,6 +173,15 @@ export function ShootScreen() {
         </div>
         <span className="change">바꾸기</span>
       </button>
+      <button className="gear" onClick={() => setRangeOpen(true)}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="label">활터 <span className="opt">선택</span>{store.currentRange && !settings.currentRangeManual && <span className="opt">위치로 고름</span>}</div>
+          <div className={`names ${store.currentRange ? '' : 'muted-names'}`}>
+            {store.currentRange ? store.currentRange.name : store.unknownSpot ? '등록되지 않은 곳입니다. 활터라면 눌러서 등록하세요' : '활터를 등록하면 위치로 알아서 고르고, 활터별로 비교할 수 있습니다'}
+          </div>
+        </div>
+        <span className="change">{store.currentRange ? '바꾸기' : '등록'}</span>
+      </button>
       <button className="gear" onClick={() => setWeathering(true)}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="label">오늘 날씨 <span className="opt">선택</span></div>
@@ -210,6 +221,7 @@ export function ShootScreen() {
         </Sheet>
       )}
       {weathering && <WeatherSheet onClose={() => setWeathering(false)} />}
+      {rangeOpen && <RangeSheet onClose={() => setRangeOpen(false)} />}
       {picking && (
         <Sheet title="오늘 장비" onClose={() => setPicking(false)}>
           <div className="small muted">고른 장비는 다음 순부터 적용됩니다.</div>
