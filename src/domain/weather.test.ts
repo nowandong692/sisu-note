@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { relativeWindDir, skyFromCode, toWeather, weatherLabel, windLevelFromSpeed } from './weather';
+import { parseMetNo, parseWttr, relativeWindDir, skyFromCode, toWeather, weatherLabel, windLevelFromSpeed } from './weather';
 
 describe('날씨 불러오기', () => {
   it('날씨 코드와 풍속을 앱의 선택지로 바꾼다', () => {
@@ -22,5 +22,13 @@ describe('날씨 불러오기', () => {
     expect(toWeather(c, null)).toEqual({ sky: '구름', temp: 12, wind: '약함', windDir: null, windSpeed: 3.2, windFrom: 200 });
     expect(toWeather(c, 0).windDir).toBe('뒷바람');
     expect(weatherLabel(toWeather(c, 0))).toBe('구름 · 12° · 바람 약함 3.2m/s(뒷바람)');
+  });
+
+  it('예비 날씨 서비스 응답도 같은 모양으로 바꾼다', () => {
+    const met = { properties: { timeseries: [{ data: { instant: { details: { air_temperature: 8.4, wind_speed: 5.1, wind_from_direction: 180 } }, next_1_hours: { summary: { symbol_code: 'lightrainshowers_day' } } } }] } };
+    expect(toWeather(parseMetNo(met), 0)).toMatchObject({ sky: '비', temp: 8, wind: '보통', windDir: '뒷바람' });
+    const wttr = { current_condition: [{ temp_C: '-3', windspeedKmph: '11', winddirDegree: '270', weatherCode: '326' }] };
+    expect(toWeather(parseWttr(wttr), null)).toMatchObject({ sky: '눈', temp: -3, wind: '약함', windSpeed: 3.1 });
+    expect(skyFromCode(parseMetNo({ properties: { timeseries: [{ data: { instant: { details: { air_temperature: 1, wind_speed: 0, wind_from_direction: 0 } }, next_1_hours: { summary: { symbol_code: 'partlycloudy_night' } } } }] } }).code)).toBe('구름');
   });
 });

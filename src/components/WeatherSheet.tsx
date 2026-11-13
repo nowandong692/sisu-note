@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { Weather } from '../domain/types';
 import { BEARINGS, EMPTY_WEATHER, SKIES, WIND_DIRS, WIND_LEVELS, relativeWindDir, toWeather, weatherLabel } from '../domain/weather';
-import { currentPosition, fetchCurrentWeather } from '../platform/weather';
+import { currentPosition, fetchCurrentWeather, searchPlaces } from '../platform/weather';
+import type { Place } from '../domain/types';
 import { today } from '../domain/util';
 import { useStore } from '../state/store';
 import { Sheet } from './ui';
@@ -12,6 +13,33 @@ export function WeatherSheet({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const bearing = settings.rangeBearing ?? null;
+  const place = settings.rangePlace ?? null;
+  const [placeOpen, setPlaceOpen] = useState(false);
+  const [placeQ, setPlaceQ] = useState('');
+  const [places, setPlaces] = useState<Place[] | null>(null);
+  const [placeErr, setPlaceErr] = useState('');
+  const [source, setSource] = useState('');
+  const hereAsRange = async () => {
+    setPlaceErr('');
+    try {
+      const p = await currentPosition();
+      choosePlace({ name: `내 활터 (${p.lat.toFixed(3)}, ${p.lon.toFixed(3)})`, lat: p.lat, lon: p.lon });
+    } catch (e) {
+      setPlaceErr(e instanceof Error ? e.message : '위치를 찾지 못했습니다.');
+    }
+  };
+  const findPlaces = async () => {
+    if (!placeQ.trim()) return;
+    setPlaceErr(''); setPlaces(null);
+    try {
+      const r = await searchPlaces(placeQ);
+      setPlaces(r);
+      if (!r.length) setPlaceErr('찾은 곳이 없습니다. 시·군·구 이름으로 찾아보세요 (예: 종로구, 전주).');
+    } catch (e) {
+      setPlaceErr(e instanceof Error ? e.message : '위치를 찾지 못했습니다.');
+    }
+  };
+  const choosePlace = (p: Place | null) => { updateSettings({ rangePlace: p }); setPlaceOpen(false); setPlaces(null); setPlaceQ(''); setErr(''); };
   const w = todayWeather ?? EMPTY_WEATHER;
   const [tempText, setTempText] = useState(w.temp == null ? '' : String(w.temp));
 
@@ -27,12 +55,15 @@ export function WeatherSheet({ onClose }: { onClose: () => void }) {
   const load = async () => {
     setLoading(true); setErr('');
     try {
-      const pos = await currentPosition();
-      const next = toWeather(await fetchCurrentWeather(pos.lat, pos.lon), bearing);
+      const pos = place ?? await currentPosition();
+      const got = await fetchCurrentWeather(pos.lat, pos.lon);
+      setSource(got.source);
+      const next = toWeather(got, bearing);
       setTempText(next.temp == null ? '' : String(next.temp));
       await updateSettings({ weather: { ...next, date: today() } });
     } catch (e) {
       setErr(e instanceof Error ? e.message : '날씨를 불러오지 못했습니다.');
+      if (!place) setPlaceOpen(true);
     } finally {
       setLoading(false);
     }
@@ -51,10 +82,28 @@ export function WeatherSheet({ onClose }: { onClose: () => void }) {
     <Sheet title="오늘 날씨" onClose={onClose}>
       <div className="small muted">모두 선택 사항입니다. 다음에 저장하는 순부터 들어가고, 날짜가 바뀌면 비워집니다.</div>
       <div className="fetch-weather">
-        <button className="btn ghost" disabled={loading} onClick={load}>{loading ? '불러오는 중…' : '지금 위치의 날씨 불러오기'}</button>
+        <button className="btn ghost" disabled={loading} onClick={load}>{loading ? '불러오는 중…' : place ? `${place.name} 날씨 불러오기` : '지금 위치의 날씨 불러오기'}</button>
         {err ? <div className="small err-text" role="alert">{err}</div>
-          : todayWeather?.windSpeed != null ? <div className="small muted">불러온 날씨: {weatherLabel(todayWeather)}. 아래에서 고칠 수 있습니다.</div>
-          : <div className="small muted">위치 권한을 허용하면 Open-Meteo에서 지금 기온·날씨·바람을 가져옵니다.</div>}
+          : todayWeather?.windSpeed != null ? <div className="small muted">불러온 날씨{source && ` (${source})`}: {weatherLabel(todayWeather)}. 아래에서 고칠 수 있습니다.</div>
+          : <div className="small muted">{place ? '정해 둔 활터 위치로' : '휴대폰 위치로'} Open-Meteo에서 지금 기온·날씨·바람을 가져옵니다.</div>}
+        <div className="row between small">
+          <span className="muted">위치: {place ? place.name : '휴대폰 현재 위치'}</span>
+          <button className="linkish" onClick={() => setPlaceOpen(!placeOpen)}>{placeOpen ? '닫기' : '활터 위치 정하기'}</button>
+        </div>
+        {placeOpen && (
+          <div className="place-pick">
+            <form className="row" onSubmit={(e) => { e.preventDefault(); findPlaces(); }}>
+              <input type="text" placeholder="동네 이름 (예: 종로구, 전주)" value={placeQ} onChange={(e) => setPlaceQ(e.target.value)} />
+              <button className="btn small" type="submit">찾기</button>
+            </form>
+            {placeErr && <div className="small err-text">{placeErr}</div>}
+            <button className="btn ghost small" onClick={hereAsRange}>지금 이 자리를 활터로</button>
+            {places && places.length > 0 && (
+              <div className="chips">{places.map((p) => <button key={`${p.lat},${p.lon}`} className="chip" onClick={() => choosePlace(p)}>{p.name}</button>)}</div>
+            )}
+            {place && <button className="linkish small" onClick={() => choosePlace(null)}>정해 둔 위치 지우고 휴대폰 위치 쓰기</button>}
+          </div>
+        )}
       </div>
       <div className="field">
         <label>날씨</label>
