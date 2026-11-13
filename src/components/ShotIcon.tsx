@@ -18,14 +18,15 @@ export function ShotIcon({ shot, index }: { shot: Shot; index: number }) {
     );
   }
   const o = missOctant(shot);
+  const far = shot.level === 2; // 많이 빠진 것은 굵고 주황색으로
   return (
     <svg className="shot-icon" width={SIZE} height={SIZE} viewBox="0 0 20 20" role="img" aria-label={title}>
       <title>{title}</title>
-      <circle cx={10} cy={10} r={8.5} fill="none" style={{ stroke: 'var(--muted)' }} strokeWidth={1.5} />
+      <circle cx={10} cy={10} r={8.5} style={{ fill: far ? 'var(--warn-soft)' : 'none', stroke: far ? 'var(--warn)' : 'var(--muted)' }} strokeWidth={1.5} />
       {o == null ? (
         <circle cx={10} cy={10} r={2} style={{ fill: 'var(--muted)' }} />
       ) : (
-        <g transform={`rotate(${o * 45} 10 10)`} style={{ stroke: 'var(--ink)' }} strokeWidth={shot.level === 2 ? 2.2 : 1.6} strokeLinecap="round" strokeLinejoin="round" fill="none">
+        <g transform={`rotate(${o * 45} 10 10)`} style={{ stroke: far ? 'var(--warn)' : 'var(--ink)' }} strokeWidth={far ? 2.4 : 1.6} strokeLinecap="round" strokeLinejoin="round" fill="none">
           <path d="M10 15V5" />
           <path d="M6.5 8.5L10 5l3.5 3.5" />
         </g>

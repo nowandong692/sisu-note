@@ -42,17 +42,24 @@ export function ShootScreen() {
   const filled = d.shots.filter(Boolean).length;
   const hitCount = d.shots.filter((s) => s?.hit).length;
 
+  const [asking, setAsking] = useState(false);
+
+  /** 5시가 처음 다 채워지는 순간 저장할지 묻는다 */
+  const applyShots = (shots: (Shot | null)[], active: number) => {
+    const wasFull = d.shots.every(Boolean);
+    setD({ ...d, shots, active });
+    if (!wasFull && shots.every(Boolean)) setAsking(true);
+  };
+
   const tap = (x: number, y: number) => {
-    setD((p) => {
-      const shots = [...p.shots];
-      shots[p.active] = classifyTap(x, y, settings.hand, settings.grid);
-      let active = p.active;
-      for (let q = 1; q <= SHOTS_PER_END; q++) {
-        const c = (p.active + q) % SHOTS_PER_END;
-        if (!shots[c]) { active = c; break; }
-      }
-      return { ...p, shots, active };
-    });
+    const shots = [...d.shots];
+    shots[d.active] = classifyTap(x, y, settings.hand, settings.grid);
+    let active = d.active;
+    for (let q = 1; q <= SHOTS_PER_END; q++) {
+      const c = (d.active + q) % SHOTS_PER_END;
+      if (!shots[c]) { active = c; break; }
+    }
+    applyShots(shots, active);
   };
 
   const setHand = (hand: 'right' | 'left') => {
@@ -66,6 +73,7 @@ export function ShootScreen() {
     const h = hitsOf(e);
     toast(`${todays.length + 1}순 저장 · ${h}중${h === 5 ? ' 몰기!' : ''}`);
     setD(emptyDraft());
+    setAsking(false);
   };
 
   const marks: Mark[] = d.shots.flatMap((s, i) => (s ? [{ x: s.x, y: s.y, hit: s.hit, n: i + 1 }] : []));
@@ -92,6 +100,13 @@ export function ShootScreen() {
             </button>
           ))}
         </div>
+        <div className="row between">
+          <span className="row">
+            <button className="btn ghost small" onClick={() => applyShots(Array.from({ length: SHOTS_PER_END }, hitShot), d.active)}>몰기</button>
+            <button className="btn ghost small" disabled={!filled} onClick={() => setD(emptyDraft())}>다시 입력</button>
+          </span>
+          <button className="btn small" disabled={filled < SHOTS_PER_END} onClick={save}>{filled === SHOTS_PER_END ? `저장 · ${hitCount}중` : `저장 (${filled}/5)`}</button>
+        </div>
         <div className="target-wrap">
           <Target hand={settings.hand} grid={settings.grid} marks={marks} onTap={tap} label={`과녁을 눌러 ${d.active + 1}시 입력`} />
           <div className="hint">
@@ -99,10 +114,6 @@ export function ShootScreen() {
               ? '5시 입력 완료. 고칠 시를 위에서 고르고 다시 누르세요.'
               : `${d.active + 1}시: 과녁을 누르면 관중${settings.grid ? '(칸 위치 기록)' : ''}, 바깥 띠를 누르면 불입니다. 안쪽 띠는 조금, 바깥 띠는 많이 빠진 것입니다.`}
           </div>
-        </div>
-        <div className="row between">
-          <button className="btn ghost small" onClick={() => setD((p) => ({ ...p, shots: Array.from({ length: SHOTS_PER_END }, hitShot) }))}>몰기</button>
-          <button className="btn ghost small" disabled={!filled} onClick={() => setD(emptyDraft())}>다시 입력</button>
         </div>
         <div className="field">
           <label>메모 태그</label>
@@ -142,6 +153,20 @@ export function ShootScreen() {
           : <div className="today-list">{todays.map((e, i) => <EndLine key={e.id} end={e} index={i} />).reverse()}</div>}
       </section>
 
+      {asking && (
+        <Sheet title={`${todays.length + 1}순 저장할까요?`} onClose={() => setAsking(false)}>
+          <div className="confirm-end">
+            <span className="dots">{(d.shots as Shot[]).map((s, i) => <ShotIcon key={i} shot={s} index={i} />)}</span>
+            <b>{hitCount}중{hitCount === 5 ? ' · 몰기' : ''}</b>
+          </div>
+          <div className="small muted">{d.shots.map((s, i) => `${i + 1}시 ${shotLabel(s, settings.grid)}`).join(', ')}</div>
+          <button className="btn" onClick={save}>저장</button>
+          <div className="row between">
+            <button className="btn ghost small" onClick={() => { setAsking(false); setTimeout(() => document.getElementById('memo')?.focus(), 50); }}>메모 쓰고 저장</button>
+            <button className="btn ghost small" onClick={() => setAsking(false)}>고치기</button>
+          </div>
+        </Sheet>
+      )}
       {picking && (
         <Sheet title="오늘 장비" onClose={() => setPicking(false)}>
           <div className="small muted">고른 장비는 다음 순부터 적용됩니다.</div>
