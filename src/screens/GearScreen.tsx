@@ -179,7 +179,7 @@ export function GearScreen() {
         <h2>데이터</h2>
         <div className="small muted">기록은 이 기기에만 저장됩니다. 가끔 CSV로 내보내 백업해 두세요.</div>
         <div className="row">
-          <button className="btn ghost small" disabled={!ends.length} onClick={() => saveTextFile(`시수노트-${today()}.csv`, endsToCsv(ends, gear, store.ranges))}>CSV 내보내기</button>
+          <button className="btn ghost small" disabled={!ends.length} onClick={() => saveTextFile(`국궁록-${today()}.csv`, endsToCsv(ends, gear, store.ranges))}>CSV 내보내기</button>
           <ConfirmButton className="btn ghost small" label="예시 기록 불러오기" confirmLabel="지금 기록을 지우고 불러오기" onConfirm={() => store.loadSample().then(() => toast('예시 기록을 불러왔습니다'))} />
           <ConfirmButton className="btn ghost small" label="모든 기록 지우기" confirmLabel="정말 지우기" onConfirm={() => store.clearAll().then(() => toast('모든 기록과 장비를 지웠습니다'))} />
         </div>
