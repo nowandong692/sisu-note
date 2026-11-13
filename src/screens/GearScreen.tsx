@@ -1,3 +1,4 @@
+import { PENCIL, TRASH } from '../components/icons';
 import { useState } from 'react';
 import { ConfirmButton, HelpButton, Sheet, toast } from '../components/ui';
 import { endsToCsv } from '../domain/csv';
@@ -154,12 +155,12 @@ export function GearScreen() {
                     <div className="nm">{g.nickname}{g.archived && <span className="pill archived">보관</span>}</div>
                     <div className="dt">{detail} · {s ? `${s.ends}순 · 순당 ${s.perEnd.toFixed(1)}중` : '기록 없음'}</div>
                   </div>
-                  <button className="btn ghost small" onClick={() => setArchived(g.id, !g.archived).then(() => toast(g.archived ? '다시 사용합니다' : '보관했습니다. 기록은 그대로 남습니다'))}>
-                    {g.archived ? '다시 사용' : '보관'}
-                  </button>
-                  <span className="eq-acts">
-                    <button className="del edit" onClick={() => setEditingGear(g)}>고치기</button>
-                    <button className="del" aria-label={`${g.nickname} 삭제`} onClick={() => setDeleting(g)}>삭제</button>
+                  <span className="end-acts">
+                    <button className="act-btn" onClick={() => setArchived(g.id, !g.archived).then(() => toast(g.archived ? '다시 사용합니다' : '보관했습니다. 기록은 그대로 남습니다'))}>
+                      {g.archived ? '다시 사용' : '보관'}
+                    </button>
+                    <button className="act-btn" aria-label={`${g.nickname} 고치기`} title="고치기" onClick={() => setEditingGear(g)}>{PENCIL}</button>
+                    <button className="act-btn danger" aria-label={`${g.nickname} 삭제`} title="삭제" onClick={() => setDeleting(g)}>{TRASH}</button>
                   </span>
                 </div>
               );
