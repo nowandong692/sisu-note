@@ -28,6 +28,10 @@ export interface Store extends Data {
   setEditId(id: string | null): void;
   addGear(g: Pick<Gear, 'category' | 'nickname' | 'bowType' | 'detail'>): Promise<Gear>;
   setArchived(id: string, archived: boolean): Promise<void>;
+  /** 별명, 구분, 상세 고치기 */
+  updateGear(g: Gear): Promise<void>;
+  /** 장비 삭제. 그 장비를 쓴 기록은 남고 장비만 "미지정"이 된다. */
+  deleteGear(id: string): Promise<void>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
   loadSample(): Promise<void>;
   clearAll(): Promise<void>;
@@ -102,6 +106,28 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       setData((p) => ({ ...p, gear: p.gear.map((x) => (x.id === id ? next : x)) }));
       const cur = data.settings.current;
       if (archived && cur[g.category] === id) {
+        const other = data.gear.find((x) => x.category === g.category && !x.archived && x.id !== id);
+        await updateSettings({ current: { ...cur, [g.category]: other?.id ?? null } });
+      }
+    },
+    async updateGear(g) {
+      const next = { ...g, updatedAt: Date.now() };
+      await repo.putGear(next);
+      setData((p) => ({ ...p, gear: p.gear.map((x) => (x.id === g.id ? next : x)) }));
+    },
+    async deleteGear(id) {
+      const g = data.gear.find((x) => x.id === id);
+      if (!g) return;
+      await repo.deleteGear(id);
+      const clear = (v: string | null) => (v === id ? null : v);
+      setData((p) => ({
+        ...p,
+        gear: p.gear.filter((x) => x.id !== id),
+        ends: p.ends.map((e) => (e.bowId === id || e.ringId === id || e.arrowId === id
+          ? { ...e, bowId: clear(e.bowId), ringId: clear(e.ringId), arrowId: clear(e.arrowId) } : e)),
+      }));
+      const cur = data.settings.current;
+      if (cur[g.category] === id) {
         const other = data.gear.find((x) => x.category === g.category && !x.archived && x.id !== id);
         await updateSettings({ current: { ...cur, [g.category]: other?.id ?? null } });
       }

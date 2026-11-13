@@ -26,6 +26,17 @@ describe('IndexedDB 저장소', () => {
     expect((await repo.loadAll()).ends).toEqual([]);
   });
 
+  it('장비를 지우면 그 장비를 쓴 기록은 남고 장비만 비운다', async () => {
+    const repo = new IndexedDbRepository('t-delgear');
+    await repo.putGear(gear);
+    await repo.putEnd(end);
+    await repo.putEnd({ ...end, id: 'e2', bowId: 'g2', ringId: 'g1' });
+    await repo.deleteGear('g1');
+    const d = await repo.loadAll();
+    expect(d.gear).toEqual([]);
+    expect(d.ends.map((e) => [e.id, e.bowId, e.ringId])).toEqual([['e1', null, null], ['e2', 'g2', null]]);
+  });
+
   it('replaceAll은 기존 기록을 모두 바꾼다', async () => {
     const repo = new IndexedDbRepository('t-replace');
     await repo.putEnd(end);
