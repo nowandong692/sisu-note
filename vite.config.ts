@@ -14,8 +14,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: '시수 노트',
-        short_name: '시수 노트',
+        name: '국궁록',
+        short_name: '국궁록',
         description: '국궁 시수를 순 단위로 기록하고 활·깍지별로 분석합니다.',
         lang: 'ko',
         theme_color: '#1A2130',
