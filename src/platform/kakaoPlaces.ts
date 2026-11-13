@@ -60,11 +60,11 @@ async function searchAll(k: KakaoNs, queries: string[], opts?: Record<string, un
   return lists.flat().filter((p) => looksLikeRange(p) && !seen.has(p.id) && seen.add(p.id)).map(toFound);
 }
 
-/** 이 위치 반경 3km 안의 활터, 가까운 순. 키가 없으면 null. */
-export async function kakaoNearbyRanges(lat: number, lon: number): Promise<FoundRange[] | null> {
+/** 이 위치 반경(기본 3km, 최대 20km) 안의 활터, 가까운 순. 키가 없으면 null. */
+export async function kakaoNearbyRanges(lat: number, lon: number, radius = 3000): Promise<FoundRange[] | null> {
   const k = await loadSdk();
   if (!k) return null;
-  const r = await searchAll(k, ['궁도장', '활터', '국궁장'], { location: new k.maps.LatLng(lat, lon), radius: 3000, sort: k.maps.services.SortBy.DISTANCE });
+  const r = await searchAll(k, ['궁도장', '활터', '국궁장'], { location: new k.maps.LatLng(lat, lon), radius: Math.min(radius, 20000), sort: k.maps.services.SortBy.DISTANCE });
   return r.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
 }
 
