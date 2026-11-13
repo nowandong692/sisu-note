@@ -6,7 +6,7 @@ import { classifyTap, directionFor, hitShot, shotLabel } from '../domain/target'
 import { hitsOf } from '../domain/stats';
 import type { End, GearCategory, Shot } from '../domain/types';
 import { MEMO_TAGS, SHOTS_PER_END } from '../domain/types';
-import { today } from '../domain/util';
+import { formatDate, today } from '../domain/util';
 import { useStore } from '../state/store';
 
 interface Draft {
@@ -82,9 +82,9 @@ export function ShootScreen() {
 
   return (
     <>
-      <section className="card">
+      <section className="card shoot-card">
         <div className="end-head">
-          <span className="title">{todays.length + 1}순</span>
+          <span className="title">{todays.length + 1}순 <span className="end-date">{formatDate(today())}</span></span>
           <span className="row">
             <span className="seg" role="group" aria-label="우궁 좌궁">
               <button className={settings.hand === 'right' ? 'on' : ''} onClick={() => setHand('right')}>우궁</button>

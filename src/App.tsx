@@ -50,10 +50,13 @@ export default function App() {
   return (
     <>
       <div className="app">
-        <header className="top">
-          <h1>{TABS.find(([t]) => t === tab)![2]}</h1>
-          <span className="date">{formatDate(today())}</span>
-        </header>
+        {/* 습사 화면은 과녁이 한 화면에 들어오도록 제목 줄을 빼고, 날짜는 순 제목 옆에 둔다 */}
+        {tab !== 'shoot' && (
+          <header className="top">
+            <h1>{TABS.find(([t]) => t === tab)![2]}</h1>
+            <span className="date">{formatDate(today())}</span>
+          </header>
+        )}
         {store.error && <div className="error" role="alert">{store.error}</div>}
         {!store.loaded ? <div className="loading">불러오는 중…</div> : (
           <>

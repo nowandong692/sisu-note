@@ -249,3 +249,13 @@ img, svg { max-width: 100%; }
 .help-body { font-size: 14px; line-height: 1.6; }
 .help-body p { margin: 0 0 8px; }
 .help-body ul { margin: 0 0 8px; padding-left: 20px; }
+/* 습사 화면: 과녁 위쪽을 촘촘하게 (작은 휴대폰에서도 과녁까지 한 화면에) */
+.shoot-card { padding: 12px; gap: 8px; }
+.shoot-card .end-head { align-items: center; }
+.shoot-card .end-head .title { font-size: 18px; }
+.end-date { font-family: var(--font-body); font-size: 12px; color: var(--muted); margin-left: 4px; }
+.shoot-card .seg button, .shoot-card .chip { min-height: 30px; padding: 4px 10px; font-size: 12.5px; }
+.shoot-card .st { min-height: 42px; padding: 3px 2px; }
+.shoot-card .st b { font-size: 14px; }
+.shoot-card .btn.small { padding: 6px 12px; }
+.shoot-card .target-wrap { gap: 4px; }
