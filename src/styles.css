@@ -290,3 +290,5 @@ input[type=search] { width: 100%; border: 1px solid var(--line); border-radius: 
 .today-list .end-line.selectable { cursor: pointer; border-radius: 8px; padding: 4px 6px; margin: 0 -6px; }
 .today-list .end-line.selected { background: var(--warn-soft); }
 .del.edit { color: var(--ink); font-weight: 600; }
+.fetch-weather { display: flex; flex-direction: column; gap: 6px; }
+.err-text { color: var(--hong); }

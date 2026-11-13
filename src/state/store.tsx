@@ -56,7 +56,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
 
   const w = data.settings.weather;
   const todayWeather = useMemo<Weather | null>(
-    () => (w && w.date === today() && hasWeather(w) ? { sky: w.sky, temp: w.temp, wind: w.wind, windDir: w.windDir } : null), [w]);
+    () => (w && w.date === today() && hasWeather(w) ? { sky: w.sky, temp: w.temp, wind: w.wind, windDir: w.windDir, windSpeed: w.windSpeed ?? null, windFrom: w.windFrom ?? null } : null), [w]);
 
   const store = useMemo<Store>(() => ({
     ...data,

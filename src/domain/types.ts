@@ -50,6 +50,10 @@ export interface Weather {
   temp: number | null;
   wind: WindLevel | null;
   windDir: WindDir | null;
+  /** 날씨 서비스에서 불러온 풍속 (m/s). 직접 입력했으면 없음. */
+  windSpeed?: number | null;
+  /** 날씨 서비스에서 불러온 바람이 불어오는 방위 (도). 사대 방향을 나중에 정해도 다시 계산할 수 있게 둔다. */
+  windFrom?: number | null;
 }
 
 /** 한 순 = 5시 */
@@ -72,6 +76,8 @@ export interface Settings {
   hand: Hand;
   grid: boolean;
   current: { bow: string | null; ring: string | null; arrow: string | null };
+  /** 사대에서 과녁을 바라보는 방위 (0 = 북, 90 = 동). 바람 방향을 맞바람·뒷바람으로 바꾸는 데 쓴다. */
+  rangeBearing?: number | null;
   /** 오늘 입력한 날씨. 날짜가 바뀌면 쓰지 않는다. */
   weather?: (Weather & { date: string }) | null;
 }
