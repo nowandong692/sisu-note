@@ -2,17 +2,21 @@ import type { Hand, MissDirection, MissSide, Shot } from './types';
 import { LEVEL_LABEL } from './types';
 
 /**
- * 과녁 그림 좌표계: 300 x 360.
+ * 과녁 그림 좌표계.
  * 가운데 과녁 판(120 x 160) 바깥으로 35씩 두 겹의 띠가 있다.
  * 안쪽 띠 = 조금 빠짐, 바깥 띠 = 많이 빠짐.
  */
-export const VIEW_W = 300;
-export const VIEW_H = 360;
 export const TX = 90;
 export const TY = 100;
 export const TW = 120;
 export const TH = 160;
 export const BAND = 35;
+
+/** 화면에 그리는 범위: 바깥 띠까지만 (위아래 빈 여백 없이) */
+export const VIEW_X = TX - 2 * BAND - 2;
+export const VIEW_Y = TY - 2 * BAND - 2;
+export const VIEW_W = TW + 4 * BAND + 4;
+export const VIEW_H = TH + 4 * BAND + 4;
 
 /** 과녁 판 그림 비율 (실제 과녁 사진 기준 280 x 363) */
 export const BOARD = {

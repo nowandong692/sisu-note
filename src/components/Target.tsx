@@ -1,6 +1,6 @@
 import type { MouseEvent } from 'react';
 import type { Hand } from '../domain/types';
-import { BAND, BOARD, TH, TW, TX, TY, VIEW_H, VIEW_W, directionFor } from '../domain/target';
+import { BAND, BOARD, TH, TW, TX, TY, VIEW_H, VIEW_W, VIEW_X, VIEW_Y, directionFor } from '../domain/target';
 
 export interface Mark {
   x: number | null;
@@ -38,7 +38,7 @@ export function Target({ hand, grid, marks = [], small, zoneCounts, onTap, label
   const handle = (ev: MouseEvent<SVGSVGElement>) => {
     if (!onTap) return;
     const rc = ev.currentTarget.getBoundingClientRect();
-    onTap(((ev.clientX - rc.left) / rc.width) * VIEW_W, ((ev.clientY - rc.top) / rc.height) * VIEW_H);
+    onTap(VIEW_X + ((ev.clientX - rc.left) / rc.width) * VIEW_W, VIEW_Y + ((ev.clientY - rc.top) / rc.height) * VIEW_H);
   };
 
   const textStyle = { fill: 'var(--muted)', stroke: 'var(--band2)' };
@@ -58,7 +58,7 @@ export function Target({ hand, grid, marks = [], small, zoneCounts, onTap, label
 
   return (
     <svg
-      viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+      viewBox={`${VIEW_X} ${VIEW_Y} ${VIEW_W} ${VIEW_H}`}
       role={onTap ? 'button' : 'img'}
       aria-label={label ?? (onTap ? '과녁을 눌러 입력' : '탄착 분포')}
       onClick={onTap ? handle : undefined}
