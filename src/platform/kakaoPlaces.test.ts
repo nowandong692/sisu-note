@@ -24,6 +24,8 @@ describe('카카오 장소 중 활터 고르기', () => {
   it('음식점은 이름이 비슷해도 뺀다', () => {
     expect(looksLikeRange({ place_name: '유성갈비 계룡정', category_name: '음식점 > 한식 > 육류,고기 > 갈비' })).toBe(false);
     expect(looksLikeRange({ place_name: '국궁장 앞 식당', category_name: '음식점 > 한식' })).toBe(false);
+    expect(looksLikeRange({ place_name: '거제 국궁양궁장', category_name: '스포츠,레저 > 양궁장' })).toBe(false);
+    expect(looksLikeRange({ place_name: '시민 양궁장', category_name: '스포츠,레저 > 궁도장' })).toBe(false);
   });
 
   it('"계룡정"만 쳐도 붙여 쓴 "계룡정궁도장"을 찾는다', () => {
