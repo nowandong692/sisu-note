@@ -35,7 +35,7 @@ export function WeatherSheet({ onClose }: { onClose: () => void }) {
         <label htmlFor="temp">기온</label>
         <div className="row temp-row">
           <button className="btn ghost small" aria-label="1도 내리기" onClick={() => setTemp((w.temp ?? 16) - 1)}>−</button>
-          <span className="temp-input"><input id="temp" inputMode="numeric" placeholder="—" value={tempText} onChange={(e) => onTempText(e.target.value)} /><span>°C</span></span>
+          <span className="temp-input"><input id="temp" type="text" inputMode="numeric" placeholder="—" value={tempText} onChange={(e) => onTempText(e.target.value)} /><span>°C</span></span>
           <button className="btn ghost small" aria-label="1도 올리기" onClick={() => setTemp((w.temp ?? 14) + 1)}>+</button>
           {w.temp != null && <button className="btn ghost small" onClick={() => setTemp(null)}>지우기</button>}
         </div>

@@ -84,7 +84,8 @@ header.top .date { color: var(--muted); font-size: 13px; font-variant-numeric: t
 .temp-row { gap: 8px; align-items: center; }
 .temp-row .btn { min-width: 40px; font-size: 18px; }
 .temp-input { display: inline-flex; align-items: center; gap: 4px; }
-.temp-input input { width: 64px; text-align: center; font-size: 17px; font-variant-numeric: tabular-nums; }
+.temp-row { flex-wrap: nowrap; }
+.temp-input input[type=text] { width: 72px; flex: none; text-align: center; font-size: 17px; font-variant-numeric: tabular-nums; }
 .weather-line { font-size: 13px; color: var(--muted); padding: 2px 0 6px; }
 
 /* shot buttons */
@@ -268,3 +269,17 @@ img, svg { max-width: 100%; }
 .shoot-card .btn.small { padding: 6px 12px; }
 .shoot-card .target-wrap { gap: 4px; }
 .monthly th, .monthly td { padding: 8px 4px; }
+
+/* 기록: 날짜별 / 메모 모아보기 */
+.view-switch { align-self: flex-start; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+input[type=search] { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--surface); font-size: 16px; }
+.memo-list { display: flex; flex-direction: column; }
+.memo-item { display: flex; flex-direction: column; gap: 4px; text-align: left; background: none; border: none; border-top: 1px solid var(--line); padding: 10px 0; width: 100%; cursor: pointer; }
+.memo-item:first-child { border-top: none; }
+.memo-item .mi-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.memo-item .mi-head .dots { display: inline-flex; gap: 2px; }
+.memo-item .mi-head .cnt { margin-left: auto; color: var(--muted); }
+.memo-item .mi-text { font-size: 15px; line-height: 1.5; }
+.memo-item .mi-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+.memo-item mark { background: var(--warn-soft, #fde9c8); color: inherit; border-radius: 3px; padding: 0 1px; }

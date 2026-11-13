@@ -8,6 +8,7 @@ import { formatDate } from '../domain/util';
 import type { End, Hand } from '../domain/types';
 import { useStore } from '../state/store';
 import { EndLine } from './ShootScreen';
+import { MemoView } from './MemoView';
 
 /**
  * 그날 쏜 화살을 과녁 하나에 모두 찍는다.
@@ -51,16 +52,34 @@ export function LogScreen() {
   const [selShot, setSelShot] = useState<number | null>(null);
   /** 순 한 덩어리(첫 줄, 불 방향, 메모) 어디를 눌러도 그 순을 고른다 */
   const toggle = (id: string) => setSelEnd((cur) => (cur === id ? null : id));
+  const [view, setView] = useState<'date' | 'memo'>('date');
+  const jump = (date: string, id: string) => {
+    setView('date');
+    setOpen((o) => ({ ...o, [date]: true }));
+    setSelEnd(id);
+    setSelShot(null);
+    setTimeout(() => document.getElementById(`end-${id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60);
+  };
+  const viewSwitch = (
+    <div className="seg view-switch" role="group" aria-label="보기">
+      <button className={view === 'date' ? 'on' : ''} aria-pressed={view === 'date'} onClick={() => setView('date')}>날짜별</button>
+      <button className={view === 'memo' ? 'on' : ''} aria-pressed={view === 'memo'} onClick={() => setView('memo')}>메모 모아보기</button>
+    </div>
+  );
 
   const byDate = new Map<string, typeof ends>();
   for (const e of ends) byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]);
   const dates = [...byDate.keys()].sort().reverse();
+
+  if (view === 'memo') return <>{viewSwitch}<MemoView onJump={jump} /></>;
 
   if (!dates.length) {
     return <section className="card"><div className="empty">아직 기록이 없습니다. 습사 탭에서 첫 순을 저장해 보세요.</div></section>;
   }
 
   return (
+    <>
+    {viewSwitch}
     <section className="card">
       {dates.map((date) => {
         const list = byDate.get(date)!.sort((a, b) => a.recordedAt - b.recordedAt);
@@ -83,7 +102,7 @@ export function LogScreen() {
                 {list.map((e, i) => {
                   const misses = e.shots.flatMap((s, k) => (s.hit ? [] : [`${k + 1}시 ${shotLabel(s, settings.grid)}`]));
                   return (
-                    <div key={e.id} className={`end-block ${selEnd === e.id ? 'selected' : ''}`} role="button" tabIndex={0} aria-pressed={selEnd === e.id}
+                    <div key={e.id} id={`end-${e.id}`} className={`end-block ${selEnd === e.id ? 'selected' : ''}`} role="button" tabIndex={0} aria-pressed={selEnd === e.id}
                       onClick={() => toggle(e.id)} onKeyDown={(ev) => { if (ev.target === ev.currentTarget && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); toggle(e.id); } }}>
                       <EndLine end={e} index={i}>
                         <ConfirmButton label="삭제" confirmLabel="삭제 확인" onConfirm={() => deleteEnd(e.id).then(() => toast('순을 삭제했습니다'))} />
@@ -99,5 +118,6 @@ export function LogScreen() {
         );
       })}
     </section>
+    </>
   );
 }
