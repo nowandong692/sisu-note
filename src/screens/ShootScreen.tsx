@@ -83,12 +83,14 @@ export function ShootScreen() {
     setD((p) => ({ ...p, shots: p.shots.map((s) => (s && !s.hit && s.side ? { ...s, direction: directionFor(s.side, hand) } : s)) }));
   };
 
-  const save = async () => {
+  /** stay: 다른 탭으로 가면서 저장할 때는 기록 탭으로 데려가지 않는다 */
+  const save = async (stay = false) => {
     if (filled < SHOTS_PER_END) return;
     if (editing) {
       await store.updateEnd({ ...editing, shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim() });
       toast(`${editing.date === today() ? '' : formatDate(editing.date) + ' '}${editIndex}순을 고쳤습니다 · ${hitCount}중`);
       setAsking(false);
+      if (stay) return;
       store.setEditId(null);
       if (editing.date !== today()) { focusLogEnd(editing.date, editing.id); location.hash = 'log'; }
       return;
@@ -99,6 +101,9 @@ export function ShootScreen() {
     setD(emptyDraft());
     setAsking(false);
   };
+
+  // 고치는 중에 다른 탭으로 가려 할 때 App이 "저장하고 이동"을 할 수 있게 알려 둔다
+  store.editSaver.current = editing ? { canSave: filled === SHOTS_PER_END, save: () => save(true) } : null;
 
   const marks: Mark[] = d.shots.flatMap((s, i) => (s ? [{ x: s.x, y: s.y, hit: s.hit, n: i + 1 }] : []));
   const noGear = !gearOf('bow').length;
@@ -135,7 +140,7 @@ export function ShootScreen() {
             <button className="btn ghost small" onClick={() => applyShots(Array.from({ length: SHOTS_PER_END }, hitShot), d.active)}>몰기</button>
             <button className="btn ghost small" disabled={!filled} onClick={() => setD((p) => ({ ...p, shots: Array(SHOTS_PER_END).fill(null), active: 0 }))}>다시 입력</button>
           </span>
-          <button className="btn small" disabled={filled < SHOTS_PER_END} onClick={save}>{filled === SHOTS_PER_END ? `${editing ? '고친 내용 저장' : '저장'} · ${hitCount}중` : `저장 (${filled}/5)`}</button>
+          <button className="btn small" disabled={filled < SHOTS_PER_END} onClick={() => save()}>{filled === SHOTS_PER_END ? `${editing ? '고친 내용 저장' : '저장'} · ${hitCount}중` : `저장 (${filled}/5)`}</button>
         </div>
         <div className="target-wrap">
           <Target hand={settings.hand} grid={settings.grid} marks={marks} onTap={tap} label={`과녁을 눌러 ${d.active + 1}시 입력`} />
@@ -158,7 +163,7 @@ export function ShootScreen() {
           <label htmlFor="memo">순 메모</label>
           <textarea id="memo" rows={2} placeholder="예: 만작을 길게 가져가니 좋았음" value={d.memo} onChange={(e) => setD({ ...d, memo: e.target.value })} />
         </div>
-        <button className="btn" disabled={filled < SHOTS_PER_END} onClick={save}>
+        <button className="btn" disabled={filled < SHOTS_PER_END} onClick={() => save()}>
           {filled === SHOTS_PER_END ? `${editing ? `${editIndex}순 고친 내용 저장` : `${todays.length + 1}순 저장`} · ${hitCount}중` : `5시를 모두 입력하세요 (${filled}/5)`}
         </button>
         {editing && <button className="btn ghost" onClick={cancelEdit}>고치지 않고 돌아가기</button>}
@@ -213,7 +218,7 @@ export function ShootScreen() {
             <b>{hitCount}중{hitCount === 5 ? ' · 몰기' : ''}</b>
           </div>
           <div className="small muted">{d.shots.map((s, i) => `${i + 1}시 ${shotLabel(s, settings.grid)}`).join(', ')}</div>
-          <button className="btn" onClick={save}>저장</button>
+          <button className="btn" onClick={() => save()}>저장</button>
           <div className="row between">
             <button className="btn ghost small" onClick={() => { setAsking(false); setTimeout(() => document.getElementById('memo')?.focus(), 50); }}>메모 쓰고 저장</button>
             <button className="btn ghost small" onClick={() => setAsking(false)}>고치기</button>

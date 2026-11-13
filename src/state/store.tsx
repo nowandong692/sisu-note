@@ -49,6 +49,8 @@ export interface Store extends Data {
   /** 습사 화면에 불러와 고치는 중인 순 */
   editId: string | null;
   setEditId(id: string | null): void;
+  /** 습사 화면이 고치는 중인 순을 저장하는 방법 (다른 탭으로 갈 때 "저장하고 이동"에 쓴다) */
+  editSaver: { current: { canSave: boolean; save(): Promise<void> } | null };
   addGear(g: Pick<Gear, 'category' | 'nickname' | 'bowType' | 'stringType' | 'thickness' | 'detail'>): Promise<Gear>;
   setArchived(id: string, archived: boolean): Promise<void>;
   /** 별명, 구분, 상세 고치기 */
@@ -69,6 +71,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
 
   const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
   const [editId, setEditId] = useState<string | null>(null);
+  const editSaver = useRef<{ canSave: boolean; save(): Promise<void> } | null>(null);
   const [unknownSpot, setUnknownSpot] = useState<LatLon | null>(null);
   const [rangeOffer, setRangeOffer] = useState<RangeOffer | null>(null);
   const declined = useRef(new Set<string>());
@@ -163,6 +166,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     },
     editId,
     setEditId,
+    editSaver,
     async deleteEnd(id) {
       if (id === editId) setEditId(null);
       await repo.deleteEnd(id);
