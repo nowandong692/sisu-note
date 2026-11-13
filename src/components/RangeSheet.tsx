@@ -4,7 +4,7 @@ import type { Place, Range } from '../domain/types';
 import { today } from '../domain/util';
 import { BEARINGS, relativeWindDir } from '../domain/weather';
 import { currentPosition, nearbyArcheryRanges, searchPlaces } from '../platform/weather';
-import { kakaoNearbyRanges, kakaoSearchRanges, type FoundRange } from '../platform/kakaoPlaces';
+import { kakaoAvailable, kakaoNearbyRanges, kakaoSearchRanges, type FoundRange } from '../platform/kakaoPlaces';
 import { distanceM } from '../domain/range';
 import { useStore } from '../state/store';
 import { ConfirmButton, Sheet, toast } from './ui';
@@ -30,7 +30,7 @@ export function RangeSheet({ onClose }: { onClose: () => void }) {
     (async () => {
       const here = unknownSpot ?? await currentPosition().catch(() => null) ?? currentRange;
       if (!here) { if (alive) setNearby([]); return; }
-      const list = (await kakaoNearbyRanges(here.lat, here.lon, 20000))
+      const list = (await kakaoNearbyRanges(here.lat, here.lon, 2000))
         ?? (await nearbyArcheryRanges(here.lat, here.lon)).map((x) => ({ ...x, address: '', distance: distanceM(here, x) }));
       list.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
       if (alive) setNearby(list.slice(0, 10));
@@ -70,7 +70,9 @@ export function RangeSheet({ onClose }: { onClose: () => void }) {
     try {
       // 지금 위치(못 얻으면 지금 활터)를 기준으로 가까운 곳을 먼저 보여 준다
       const here = unknownSpot ?? await currentPosition().catch(() => null) ?? currentRange;
-      const r = (await kakaoSearchRanges(q, here)) ?? (await searchPlaces(q)).map((x) => ({ ...x, address: '' }));
+      const k = await kakaoSearchRanges(q, here);
+      if (!k && kakaoAvailable()) setErr('카카오 장소 검색을 불러오지 못해 OpenStreetMap에서 찾았습니다. 활터가 아닌 곳이 섞일 수 있습니다.');
+      const r = k ?? (await searchPlaces(q)).map((x) => ({ ...x, address: '' }));
       setFound(r);
       if (!r.length) setErr('찾은 곳이 없습니다. 활터 이름이나 시·군·구 이름으로 찾아보세요 (예: 황학정, 전주).');
     } catch (e) {
@@ -148,7 +150,7 @@ export function RangeSheet({ onClose }: { onClose: () => void }) {
             </form>
             {!q.trim() && !found && (
               <div className="nearby">
-                <div className="small muted">{nearby == null ? '근처 국궁장을 찾는 중…' : nearby.length ? '근처 국궁장' : '근처에서 국궁장을 찾지 못했습니다. 이름이나 지역으로 찾아보세요.'}</div>
+                <div className="small muted">{nearby == null ? '근처 국궁장을 찾는 중…' : nearby.length ? '2km 안의 국궁장' : '2km 안에서 국궁장을 찾지 못했습니다. 이름이나 지역으로 찾아보세요.'}</div>
                 {nearby && nearby.length > 0 && (
                   <div className="found-list">{nearby.map((p) => {
                     const reg = registeredAs(p);
@@ -156,7 +158,7 @@ export function RangeSheet({ onClose }: { onClose: () => void }) {
                       <button key={`${p.lat},${p.lon}`} className="found"
                         onClick={() => (reg ? store.chooseRange(reg.id).then(() => toast(`${reg.name}(으)로 골랐습니다`)) : (setCand({ name: p.name, lat: p.lat, lon: p.lon }), setName(p.name)))}>
                         <b>{p.name}{reg && <span className="pill">등록됨</span>}</b>
-                        <span>{[p.address, fmtDist(p.distance)].filter(Boolean).join(' · ')}</span>
+                        <span>{[p.category, p.address, fmtDist(p.distance)].filter(Boolean).join(' · ')}</span>
                       </button>
                     );
                   })}</div>
@@ -167,7 +169,7 @@ export function RangeSheet({ onClose }: { onClose: () => void }) {
               <div className="found-list">{found.map((p) => (
                 <button key={`${p.lat},${p.lon}`} className="found" onClick={() => { setCand({ name: p.name, lat: p.lat, lon: p.lon }); setName(p.name); setFound(null); }}>
                   <b>{p.name}</b>
-                  <span>{[p.address, fmtDist(p.distance)].filter(Boolean).join(' · ')}</span>
+                  <span>{[p.category, p.address, fmtDist(p.distance)].filter(Boolean).join(' · ')}</span>
                 </button>
               ))}</div>
             )}
