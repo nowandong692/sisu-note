@@ -259,3 +259,4 @@ img, svg { max-width: 100%; }
 .shoot-card .st b { font-size: 14px; }
 .shoot-card .btn.small { padding: 6px 12px; }
 .shoot-card .target-wrap { gap: 4px; }
+.monthly th, .monthly td { padding: 8px 4px; }

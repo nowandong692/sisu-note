@@ -49,6 +49,24 @@ export function weeklyTrend(ends: End[]): { week: string; perEnd: number; ends: 
   });
 }
 
+export interface MonthRow extends Summary {
+  month: string; // YYYY-MM
+  days: number; // 습사한 날 수
+}
+
+/** 월별 통계, 최근 달이 위로 */
+export function monthlyStats(ends: End[]): MonthRow[] {
+  const m = new Map<string, End[]>();
+  for (const e of ends) {
+    const k = e.date.slice(0, 7);
+    m.set(k, [...(m.get(k) ?? []), e]);
+  }
+  return [...m.keys()].sort().reverse().map((month) => {
+    const list = m.get(month)!;
+    return { month, days: new Set(list.map((e) => e.date)).size, ...summarize(list) };
+  });
+}
+
 /** 0중~5중이 각각 몇 순인지 */
 export function hitDistribution(ends: End[]): number[] {
   const d = [0, 0, 0, 0, 0, 0];

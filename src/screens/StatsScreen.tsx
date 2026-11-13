@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Target } from '../components/Target';
 import {
-  MIN_ENDS_FOR_RANKING, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weeklyTrend, zoneCounts,
+  MIN_ENDS_FOR_RANKING, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weeklyTrend, zoneCounts,
   type GroupRow,
 } from '../domain/stats';
 import { MISS_DIRECTIONS } from '../domain/types';
@@ -41,6 +41,39 @@ function TrendChart({ data }: { data: { week: string; perEnd: number }[] }) {
         return <text key={d.week} x={x(i)} y={H - 8} textAnchor="middle" fontSize={10} style={{ fill: 'var(--muted)' }}>{m}/{dd}</text>;
       })}
     </svg>
+  );
+}
+
+/** 월별 표. 위쪽 기간 선택과 상관없이 전체 기록으로 계산한다 (활 선택은 따른다). */
+function MonthlyCard({ rows }: { rows: ReturnType<typeof monthlyStats> }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? rows : rows.slice(0, 12);
+  const best = Math.max(...rows.filter((r) => r.ends >= 10).map((r) => r.perEnd), 0);
+  return (
+    <section className="card">
+      <div className="row between"><h2>월별 통계</h2><span className="small muted">전체 기간</span></div>
+      <div className="scroll-x">
+        <table className="monthly">
+          <thead><tr><th>월</th><th>습사일</th><th>순</th><th>순당</th><th>중률</th><th>몰기</th></tr></thead>
+          <tbody>
+            {shown.map((r) => {
+              const [y, m] = r.month.split('-').map(Number);
+              return (
+                <tr key={r.month}>
+                  <td>{String(y).slice(2)}년 {m}월{best > 0 && r.perEnd === best && <span className="pill best">최고</span>}</td>
+                  <td>{r.days}일</td>
+                  <td>{r.ends}</td>
+                  <td>{r.perEnd.toFixed(2)}</td>
+                  <td>{Math.round(r.rate * 100)}%</td>
+                  <td>{r.perfect}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {rows.length > 12 && <button className="btn ghost small" style={{ alignSelf: 'center' }} onClick={() => setAll(!all)}>{all ? '최근 12개월만' : `전체 ${rows.length}개월 보기`}</button>}
+    </section>
   );
 }
 
@@ -118,6 +151,7 @@ export function StatsScreen() {
         </div>
       </section>
       <section className="card"><h2>주별 순당 평균</h2><TrendChart data={weeklyTrend(ends)} /></section>
+      <MonthlyCard rows={monthlyStats(allEnds.filter((e) => bow === 'all' || e.bowId === bow))} />
       <section className="card">
         <h2>순별 중 수 분포</h2>
         <div className="cols">

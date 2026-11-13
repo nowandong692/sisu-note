@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weekStart, weeklyTrend } from './stats';
+import { monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weekStart, weeklyTrend } from './stats';
 import { endsToCsv } from './csv';
 import { sampleData } from './sample';
 import type { End, Shot } from './types';
@@ -28,6 +28,13 @@ describe('통계', () => {
     expect(weekStart('2026-11-09')).toBe('2026-11-09');
     expect(weekStart('2026-11-08')).toBe('2026-11-02');
     expect(weeklyTrend(ends).map((w) => w.week)).toEqual(['2026-11-02', '2026-11-09']);
+  });
+
+  it('월별 통계: 습사일 수와 순당 평균, 최근 달이 먼저', () => {
+    const rows = monthlyStats([...ends, end('2026-10-30', [H, H, H, M('짧음'), M('짧음')])]);
+    expect(rows.map((r) => r.month)).toEqual(['2026-11', '2026-10']);
+    expect(rows[0]).toMatchObject({ days: 3, ends: 3, hits: 10, perfect: 1 });
+    expect(rows[1]).toMatchObject({ days: 1, ends: 1, perEnd: 3 });
   });
 
   it('중 수 분포와 시 위치별 중률', () => {
