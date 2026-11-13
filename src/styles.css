@@ -78,6 +78,14 @@ header.top .date { color: var(--muted); font-size: 13px; font-variant-numeric: t
 .gear .label { font-size: 11px; letter-spacing: .06em; color: var(--muted); }
 .gear .names { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gear .change { font-size: 13px; color: var(--hong); white-space: nowrap; }
+.gear + .gear { margin-top: -4px; }
+.gear .opt { font-size: 10px; border: 1px solid var(--line); border-radius: 999px; padding: 0 5px; margin-left: 4px; letter-spacing: 0; }
+.gear .names.muted-names { font-weight: 400; color: var(--muted); font-size: 13px; }
+.temp-row { gap: 8px; align-items: center; }
+.temp-row .btn { min-width: 40px; font-size: 18px; }
+.temp-input { display: inline-flex; align-items: center; gap: 4px; }
+.temp-input input { width: 64px; text-align: center; font-size: 17px; font-variant-numeric: tabular-nums; }
+.weather-line { font-size: 13px; color: var(--muted); padding: 2px 0 6px; }
 
 /* shot buttons */
 .end-head { display: flex; align-items: baseline; justify-content: space-between; }

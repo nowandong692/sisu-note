@@ -125,3 +125,19 @@ export function groupBy(ends: End[], keyOf: (e: End) => string): GroupRow[] {
 
 export const byGear = (ends: End[], c: GearCategory) => groupBy(ends, (e) => idOf(e, c));
 export const byBowAndRing = (ends: End[]) => groupBy(ends, (e) => `${e.bowId ?? ''}|${e.ringId ?? ''}`);
+
+/** 기온 구간 이름. 기온을 남기지 않았으면 빈 문자열. */
+export function tempBand(t: number | null | undefined): string {
+  if (t == null) return '';
+  if (t < 0) return '영하';
+  if (t < 10) return '0~9°';
+  if (t < 20) return '10~19°';
+  if (t < 30) return '20~29°';
+  return '30° 이상';
+}
+
+/** 날씨 항목별 성적. 그 항목을 남긴 순만 센다. */
+export function byWeather(ends: End[], k: 'sky' | 'wind' | 'temp'): GroupRow[] {
+  const keyOf = (e: End) => (k === 'temp' ? tempBand(e.weather?.temp) : e.weather?.[k] ?? '');
+  return groupBy(ends.filter((e) => keyOf(e) !== ''), keyOf);
+}

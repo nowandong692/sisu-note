@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Target, type Mark } from '../components/Target';
 import { ConfirmButton, toast } from '../components/ui';
 import { hitsOf } from '../domain/stats';
+import { weatherLabel } from '../domain/weather';
 import { shotLabel } from '../domain/target';
 import { formatDate } from '../domain/util';
 import type { End, Hand } from '../domain/types';
@@ -74,6 +75,10 @@ export function LogScreen() {
             </button>
             {isOpen && (
               <div className="detail">
+                {(() => {
+                  const ws = [...new Set(list.map((e) => weatherLabel(e.weather)).filter(Boolean))];
+                  return ws.length > 0 && <div className="weather-line">날씨 {ws.join(' → ')}</div>;
+                })()}
                 <DayTarget ends={list} hand={settings.hand} selEnd={list.some((e) => e.id === selEnd) ? selEnd : null} selShot={selShot} onShot={setSelShot} />
                 {list.map((e, i) => {
                   const misses = e.shots.flatMap((s, k) => (s.hit ? [] : [`${k + 1}시 ${shotLabel(s, settings.grid)}`]));

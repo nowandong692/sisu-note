@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { End, Gear, GearCategory, Settings } from '../domain/types';
+import type { End, Gear, GearCategory, Settings, Weather } from '../domain/types';
 import { DEFAULT_SETTINGS } from '../domain/types';
 import { sampleData } from '../domain/sample';
+import { hasWeather } from '../domain/weather';
 import { newId, today } from '../domain/util';
 import type { Repository } from '../storage/repository';
 
@@ -16,7 +17,9 @@ interface Data {
 export interface Store extends Data {
   gearOf(c: GearCategory, includeArchived?: boolean): Gear[];
   gearName(id: string | null): string;
-  saveEnd(e: Omit<End, 'id' | 'date' | 'recordedAt' | 'updatedAt' | 'bowId' | 'ringId' | 'arrowId'>): Promise<End>;
+  saveEnd(e: Omit<End, 'id' | 'date' | 'recordedAt' | 'updatedAt' | 'bowId' | 'ringId' | 'arrowId' | 'weather'>): Promise<End>;
+  /** 오늘 날씨 (다른 날 입력한 것이면 null) */
+  todayWeather: Weather | null;
   deleteEnd(id: string): Promise<void>;
   addGear(g: Pick<Gear, 'category' | 'nickname' | 'bowType' | 'detail'>): Promise<Gear>;
   setArchived(id: string, archived: boolean): Promise<void>;
@@ -45,14 +48,19 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     await repo.saveSettings(next);
   }, [repo]);
 
+  const w = data.settings.weather;
+  const todayWeather = useMemo<Weather | null>(
+    () => (w && w.date === today() && hasWeather(w) ? { sky: w.sky, temp: w.temp, wind: w.wind, windDir: w.windDir } : null), [w]);
+
   const store = useMemo<Store>(() => ({
     ...data,
+    todayWeather,
     gearOf: (c, includeArchived = false) => data.gear.filter((g) => g.category === c && (includeArchived || !g.archived)),
     gearName: (id) => data.gear.find((g) => g.id === id)?.nickname ?? '미지정',
     async saveEnd(input) {
       const now = Date.now();
       const e: End = { ...input, id: newId(), date: today(), recordedAt: now, updatedAt: now,
-        bowId: data.settings.current.bow, ringId: data.settings.current.ring, arrowId: data.settings.current.arrow };
+        bowId: data.settings.current.bow, ringId: data.settings.current.ring, arrowId: data.settings.current.arrow, weather: todayWeather };
       await repo.putEnd(e);
       setData((p) => ({ ...p, ends: [...p.ends, e] }));
       return e;
@@ -96,7 +104,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       setData((p) => ({ ...p, gear: [], ends: [] }));
       await updateSettings({ current: { bow: null, ring: null, arrow: null } });
     },
-  }), [data, repo, updateSettings]);
+  }), [data, repo, updateSettings, todayWeather]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

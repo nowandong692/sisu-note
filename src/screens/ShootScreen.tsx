@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ShotIcon } from '../components/ShotIcon';
+import { WeatherSheet } from '../components/WeatherSheet';
 import { Target, type Mark } from '../components/Target';
 import { Sheet, toast } from '../components/ui';
 import { classifyTap, directionFor, hitShot, shotLabel } from '../domain/target';
@@ -7,6 +8,7 @@ import { hitsOf } from '../domain/stats';
 import type { End, GearCategory, Shot } from '../domain/types';
 import { MEMO_TAGS, SHOTS_PER_END } from '../domain/types';
 import { formatDate, today } from '../domain/util';
+import { weatherLabel } from '../domain/weather';
 import { useStore } from '../state/store';
 
 interface Draft {
@@ -37,6 +39,7 @@ export function ShootScreen() {
   const { settings, ends, gearName, gearOf } = store;
   const [d, setD] = useState<Draft>(emptyDraft);
   const [picking, setPicking] = useState(false);
+  const [weathering, setWeathering] = useState(false);
 
   const todays = ends.filter((e) => e.date === today()).sort((a, b) => a.recordedAt - b.recordedAt);
   const todayHits = todays.reduce((a, e) => a + hitsOf(e), 0);
@@ -143,6 +146,13 @@ export function ShootScreen() {
         </div>
         <span className="change">바꾸기</span>
       </button>
+      <button className="gear" onClick={() => setWeathering(true)}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="label">오늘 날씨 <span className="opt">선택</span></div>
+          <div className={`names ${store.todayWeather ? '' : 'muted-names'}`}>{weatherLabel(store.todayWeather) || '날씨·기온·바람을 남기면 날씨별로 비교할 수 있습니다'}</div>
+        </div>
+        <span className="change">{store.todayWeather ? '바꾸기' : '입력'}</span>
+      </button>
 
       <section className="card">
         <div className="row between">
@@ -168,6 +178,7 @@ export function ShootScreen() {
           </div>
         </Sheet>
       )}
+      {weathering && <WeatherSheet onClose={() => setWeathering(false)} />}
       {picking && (
         <Sheet title="오늘 장비" onClose={() => setPicking(false)}>
           <div className="small muted">고른 장비는 다음 순부터 적용됩니다.</div>

@@ -39,6 +39,19 @@ export interface Shot {
   direction: MissDirection | null;
 }
 
+export type Sky = '맑음' | '구름' | '흐림' | '비' | '눈';
+export type WindLevel = '없음' | '약함' | '보통' | '강함';
+export type WindDir = '맞바람' | '뒷바람' | '왼쪽에서' | '오른쪽에서';
+
+/** 날씨는 모두 선택 입력. 모르는 칸은 null. */
+export interface Weather {
+  sky: Sky | null;
+  /** 섭씨 */
+  temp: number | null;
+  wind: WindLevel | null;
+  windDir: WindDir | null;
+}
+
 /** 한 순 = 5시 */
 export interface End {
   id: string;
@@ -50,6 +63,8 @@ export interface End {
   shots: Shot[];
   tags: string[];
   memo: string;
+  /** 이 순을 쏠 때의 날씨 (입력하지 않았으면 없음) */
+  weather?: Weather | null;
   updatedAt: number;
 }
 
@@ -57,6 +72,8 @@ export interface Settings {
   hand: Hand;
   grid: boolean;
   current: { bow: string | null; ring: string | null; arrow: string | null };
+  /** 오늘 입력한 날씨. 날짜가 바뀌면 쓰지 않는다. */
+  weather?: (Weather & { date: string }) | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {

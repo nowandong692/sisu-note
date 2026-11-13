@@ -1,4 +1,5 @@
-import type { End, Gear, MissDirection, Shot } from './types';
+import type { End, Gear, MissDirection, Shot, Weather } from './types';
+import { SKIES, WIND_DIRS, WIND_LEVELS } from './weather';
 import { BAND, TH, TW, TX, TY, classifyTap } from './target';
 import { MEMO_TAGS, MISS_DIRECTIONS } from './types';
 import { dayOffset, newId } from './util';
@@ -36,16 +37,28 @@ export function sampleData(now = new Date()): { gear: Gear[]; ends: End[] } {
   const memos = ['줌손이 흔들림', '만작을 길게 가져가니 좋았음', '앞바람이 셌음', '깍지손 떼는 타이밍이 빨랐음', '호흡 고르고 쏘니 안정적', '어깨에 힘이 들어감'];
   const dirW: Record<string, number[]> = { 'sample-b1': [.2, .4, .2, .2], 'sample-b2': [.15, .2, .45, .2] };
 
+  // 날씨는 따로 고정 난수를 써서 다른 값에 영향을 주지 않게 한다
+  let ws = 777;
+  const wr = () => { ws = (ws * 16807) % 2147483647; return ws / 2147483647; };
+  const pick = <T,>(a: readonly T[]) => a[Math.floor(wr() * a.length)];
+
   const ends: End[] = [];
   for (let day = -60; day <= -1; day++) {
     if (r() > 0.42) continue;
     const date = dayOffset(day, now);
     const n = 3 + Math.floor(r() * 4);
+    const wind = pick(WIND_LEVELS);
+    const weather: Weather | null = wr() < 0.15 ? null : {
+      sky: pick(SKIES.slice(0, 4)), temp: Math.round(18 + (day / 60) * 10 + (wr() - 0.5) * 8),
+      wind, windDir: wind === '없음' ? null : pick(WIND_DIRS),
+    };
     for (let k = 0; k < n; k++) {
       const bow = day >= -7 && r() < 0.75 ? 'sample-b2' : 'sample-b1';
       const ring = r() < 0.6 ? 'sample-r1' : 'sample-r2';
       let p = bow === 'sample-b1' ? 0.5 + ((day + 60) / 60) * 0.08 : 0.42 + ((day + 7) / 7) * 0.08;
       if (ring === 'sample-r1') p += 0.05;
+      if (weather?.wind === '강함') p -= 0.1;
+      else if (weather?.wind === '보통') p -= 0.04;
       const shots: Shot[] = [];
       for (let i = 0; i < 5; i++) {
         if (r() < p - (i === 4 ? 0.08 : 0) + (i === 0 ? 0.03 : 0)) { shots.push(hit()); continue; }
@@ -57,6 +70,7 @@ export function sampleData(now = new Date()): { gear: Gear[]; ends: End[] } {
         id: newId(), date, recordedAt: t + day * 864e5 + k, bowId: bow, ringId: ring, arrowId: 'sample-a1', shots,
         tags: r() < 0.3 ? [MEMO_TAGS[Math.floor(r() * MEMO_TAGS.length)]] : [],
         memo: r() < 0.18 ? memos[Math.floor(r() * memos.length)] : '',
+        weather,
         updatedAt: t,
       });
     }

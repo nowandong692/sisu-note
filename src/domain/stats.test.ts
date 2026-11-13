@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weekStart, weeklyTrend } from './stats';
+import { byWeather, tempBand, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weekStart, weeklyTrend } from './stats';
 import { endsToCsv } from './csv';
 import { sampleData } from './sample';
 import type { End, Shot } from './types';
@@ -55,6 +55,19 @@ describe('통계', () => {
     expect(byBowAndRing(ends).map((r) => r.key)).toContain('b2|r2');
   });
 
+  it('날씨별 비교는 그 항목을 남긴 순만 센다', () => {
+    const w = (wind: '약함' | '강함', temp: number | null) => ({ sky: null, temp, wind, windDir: null });
+    const list = [
+      { ...end('2026-11-02', [H, H, H, H, H]), weather: w('약함', 12) },
+      { ...end('2026-11-03', [H, M('앞남'), H, H, H]), weather: w('강함', -2) },
+      end('2026-11-04', [H, H, M('짧음'), H, H]),
+    ];
+    expect(byWeather(list, 'wind').map((r) => [r.key, r.ends])).toEqual([['약함', 1], ['강함', 1]]);
+    expect(byWeather(list, 'sky')).toEqual([]);
+    expect(byWeather(list, 'temp').map((r) => r.key).sort()).toEqual(['10~19°', '영하']);
+    expect(tempBand(null)).toBe('');
+  });
+
   it('예시 데이터는 매번 같은 기록을 만든다', () => {
     const now = new Date(2026, 10, 12);
     const a = sampleData(now), b = sampleData(now);
@@ -66,7 +79,7 @@ describe('통계', () => {
   it('CSV는 별명과 시별 결과를 담는다', () => {
     const csv = endsToCsv(ends, [{ id: 'b1', category: 'bow', nickname: '검은 활, 45호', startedOn: '', archived: false, updatedAt: 0 }]);
     const lines = csv.split('\n');
-    expect(lines[0]).toBe('날짜,활,깍지,화살,중,1시,2시,3시,4시,5시,태그,메모');
+    expect(lines[0]).toBe('날짜,활,깍지,화살,중,1시,2시,3시,4시,5시,날씨,기온,바람,태그,메모');
     expect(lines[1]).toContain('"검은 활, 45호"');
     expect(lines[2]).toContain('뒤남(많이)');
   });

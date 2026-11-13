@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Target } from '../components/Target';
 import {
-  MIN_ENDS_FOR_RANKING, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weeklyTrend, zoneCounts,
+  MIN_ENDS_FOR_RANKING, byWeather, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weeklyTrend, zoneCounts,
   type GroupRow,
 } from '../domain/stats';
 import { MISS_DIRECTIONS } from '../domain/types';
@@ -138,6 +138,8 @@ export function StatsScreen() {
   const zones = zoneCounts(ends);
   const hasZones = zones.some((z) => z > 0);
   const name = (k: string) => gearName(k || null);
+  const weatherGroups = ([['sky', '날씨'], ['temp', '기온'], ['wind', '바람']] as const)
+    .map(([k, label]) => [label, byWeather(ends, k)] as const).filter(([, rows]) => rows.length > 0);
 
   return (
     <>
@@ -205,6 +207,13 @@ export function StatsScreen() {
             })}
           </div>
           <div className="small muted">불 {miss.total}시 기준. 연한 막대는 조금, 진한 막대는 많이 빠진 것입니다.</div>
+        </section>
+      )}
+      {weatherGroups.length > 0 && (
+        <section className="card">
+          <h2>날씨별 비교</h2>
+          {weatherGroups.map(([label, rows]) => <GroupTable key={label} compact rows={rows} label={label} name={(k) => k} />)}
+          <div className="small muted">날씨를 남긴 순만 셉니다. {MIN_ENDS_FOR_RANKING}순 미만은 흐리게 표시합니다.</div>
         </section>
       )}
       <section className="card"><h2>활별 비교</h2><GroupTable rows={byGear(ends, 'bow')} label="활" name={name} /></section>
