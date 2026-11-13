@@ -111,7 +111,7 @@ export async function nearbyArcheryRanges(lat: number, lon: number): Promise<Pla
     return els.flatMap((e) => {
       const name = e.tags?.['name:ko'] ?? e.tags?.name;
       const c = e.center ?? (e.lat != null && e.lon != null ? { lat: e.lat, lon: e.lon } : null);
-      return name && c ? [{ name, lat: c.lat, lon: c.lon }] : [];
+      return name && c && !/양궁/.test(name) ? [{ name, lat: c.lat, lon: c.lon }] : [];
     });
   } catch {
     return [];

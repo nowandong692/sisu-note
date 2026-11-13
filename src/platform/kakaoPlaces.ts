@@ -41,9 +41,12 @@ function loadSdk(): Promise<KakaoNs | null> {
 }
 
 const NOT_RANGE = /^(음식점|카페|숙박|부동산|가정,생활|교통,수송|의료|금융|교육,학문|문화,예술 > 공연)/;
-/** 활터로 볼 장소인가: 카테고리나 이름에 궁도·활터·국궁이 들어간 곳. 음식점·카페 같은 분류는 이름이 비슷해도 뺀다. */
+/** 양궁·양궁장은 국궁 활터가 아니므로 뺀다 */
+export const isWesternArchery = (s: string) => /양궁/.test(s);
+/** 활터로 볼 장소인가: 카테고리나 이름에 궁도·활터·국궁이 들어간 곳. 음식점·카페 같은 분류나 양궁장은 뺀다. */
 export function looksLikeRange(p: Pick<KakaoPlace, 'place_name' | 'category_name'>): boolean {
   if (NOT_RANGE.test(p.category_name)) return false;
+  if (isWesternArchery(p.place_name) || isWesternArchery(p.category_name)) return false;
   return /궁도|활터|국궁|활쏘기/.test(p.category_name) || /궁도|활터|국궁/.test(p.place_name);
 }
 
