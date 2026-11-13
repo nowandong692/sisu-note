@@ -72,12 +72,20 @@ export interface End {
   updatedAt: number;
 }
 
+export interface Place {
+  name: string;
+  lat: number;
+  lon: number;
+}
+
 export interface Settings {
   hand: Hand;
   grid: boolean;
   current: { bow: string | null; ring: string | null; arrow: string | null };
   /** 사대에서 과녁을 바라보는 방위 (0 = 북, 90 = 동). 바람 방향을 맞바람·뒷바람으로 바꾸는 데 쓴다. */
   rangeBearing?: number | null;
+  /** 날씨를 불러올 활터 위치. 정해 두면 휴대폰 위치 대신 이곳 날씨를 불러온다. */
+  rangePlace?: Place | null;
   /** 오늘 입력한 날씨. 날짜가 바뀌면 쓰지 않는다. */
   weather?: (Weather & { date: string }) | null;
 }
