@@ -8,6 +8,8 @@ import type { End, Gear, Settings } from '../domain/types';
 export interface Repository {
   loadAll(): Promise<{ gear: Gear[]; ends: End[]; settings: Settings }>;
   putGear(g: Gear): Promise<void>;
+  /** 장비를 지우고, 그 장비를 쓴 기록에서는 장비를 "미지정"(null)으로 바꾼다 */
+  deleteGear(id: string): Promise<void>;
   putEnd(e: End): Promise<void>;
   deleteEnd(id: string): Promise<void>;
   saveSettings(s: Settings): Promise<void>;

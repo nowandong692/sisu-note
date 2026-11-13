@@ -39,6 +39,17 @@ export class IndexedDbRepository implements Repository {
     await this.db.gear.put(g);
   }
 
+  async deleteGear(id: string) {
+    await this.db.transaction('rw', this.db.gear, this.db.ends, async () => {
+      await this.db.gear.delete(id);
+      await this.db.ends.toCollection().modify((e) => {
+        if (e.bowId === id) e.bowId = null;
+        if (e.ringId === id) e.ringId = null;
+        if (e.arrowId === id) e.arrowId = null;
+      });
+    });
+  }
+
   async putEnd(e: End) {
     await this.db.ends.put(e);
   }
