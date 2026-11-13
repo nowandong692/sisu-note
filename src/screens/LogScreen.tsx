@@ -48,6 +48,8 @@ export function LogScreen() {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [selEnd, setSelEnd] = useState<string | null>(null);
   const [selShot, setSelShot] = useState<number | null>(null);
+  /** 순 한 덩어리(첫 줄, 불 방향, 메모) 어디를 눌러도 그 순을 고른다 */
+  const toggle = (id: string) => setSelEnd((cur) => (cur === id ? null : id));
 
   const byDate = new Map<string, typeof ends>();
   for (const e of ends) byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]);
@@ -76,8 +78,9 @@ export function LogScreen() {
                 {list.map((e, i) => {
                   const misses = e.shots.flatMap((s, k) => (s.hit ? [] : [`${k + 1}시 ${shotLabel(s, settings.grid)}`]));
                   return (
-                    <div key={e.id}>
-                      <EndLine end={e} index={i} selected={selEnd === e.id} onSelect={() => setSelEnd(selEnd === e.id ? null : e.id)}>
+                    <div key={e.id} className={`end-block ${selEnd === e.id ? 'selected' : ''}`} role="button" tabIndex={0} aria-pressed={selEnd === e.id}
+                      onClick={() => toggle(e.id)} onKeyDown={(ev) => { if (ev.target === ev.currentTarget && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); toggle(e.id); } }}>
+                      <EndLine end={e} index={i}>
                         <ConfirmButton label="삭제" confirmLabel="삭제 확인" onConfirm={() => deleteEnd(e.id).then(() => toast('순을 삭제했습니다'))} />
                       </EndLine>
                       {misses.length > 0 && <div className="memo">{misses.join(', ')}</div>}

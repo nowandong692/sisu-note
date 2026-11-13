@@ -235,7 +235,8 @@ img, svg { max-width: 100%; }
 .setup { display: flex; flex-direction: column; gap: 8px; }
 .confirm-end { display: flex; align-items: center; gap: 12px; font-size: 18px; }
 .confirm-end .shot-icon { width: 28px; height: 28px; }
-.end-line.selectable { cursor: pointer; border-radius: 8px; padding: 4px 6px; margin: 0 -6px; }
-.end-line.selectable:hover { background: var(--paper); }
-.end-line.selected { background: var(--hong-soft); }
+.end-block { cursor: pointer; border-radius: 8px; padding: 4px 6px; margin: 0 -6px; display: flex; flex-direction: column; gap: 4px; }
+.end-block:hover { background: var(--paper); }
+.end-block.selected { background: var(--hong-soft); }
+.end-block .memo { margin-top: 0; }
 .day-target .chips { justify-content: center; }
