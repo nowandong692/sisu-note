@@ -38,7 +38,7 @@ export function ToastHost() {
 }
 
 /** 두 번 눌러야 실행되는 버튼 (삭제처럼 되돌릴 수 없는 동작) */
-export function ConfirmButton({ label, confirmLabel, onConfirm, className = 'del' }: { label: string; confirmLabel: string; onConfirm: () => void; className?: string }) {
+export function ConfirmButton({ label, confirmLabel, onConfirm, className = 'del', ariaLabel }: { label: ReactNode; confirmLabel: string; onConfirm: () => void; className?: string; ariaLabel?: string }) {
   const [armed, setArmed] = useState(false);
   useEffect(() => {
     if (!armed) return;
@@ -46,7 +46,7 @@ export function ConfirmButton({ label, confirmLabel, onConfirm, className = 'del
     return () => clearTimeout(t);
   }, [armed]);
   return (
-    <button className={`${className} ${armed ? 'confirm' : ''}`} onClick={() => (armed ? (setArmed(false), onConfirm()) : setArmed(true))}>
+    <button className={`${className} ${armed ? 'confirm' : ''}`} aria-label={armed ? undefined : ariaLabel} title={armed ? undefined : ariaLabel} onClick={() => (armed ? (setArmed(false), onConfirm()) : setArmed(true))}>
       {armed ? confirmLabel : label}
     </button>
   );
