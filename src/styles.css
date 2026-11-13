@@ -292,3 +292,7 @@ input[type=search] { width: 100%; border: 1px solid var(--line); border-radius: 
 .del.edit { color: var(--ink); font-weight: 600; }
 .fetch-weather { display: flex; flex-direction: column; gap: 6px; }
 .err-text { color: var(--hong); }
+.linkish { background: none; border: none; padding: 4px 0; color: var(--hong); font-size: 13px; text-decoration: underline; text-underline-offset: 2px; }
+.place-pick { display: flex; flex-direction: column; gap: 8px; background: var(--paper); border-radius: 10px; padding: 10px; }
+.place-pick form { gap: 8px; flex-wrap: nowrap; }
+.place-pick input { flex: 1; min-width: 0; }
