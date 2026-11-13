@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Target, type Mark } from '../components/Target';
 import { ConfirmButton, toast } from '../components/ui';
 import { hitsOf } from '../domain/stats';
@@ -45,10 +45,19 @@ function DayTarget({ ends, hand, selEnd, selShot, onShot }: { ends: End[]; hand:
   );
 }
 
+/** 다른 화면(순 고치기)에서 돌아올 때 펼쳐 보여 줄 순 */
+let pendingFocus: { date: string; id: string } | null = null;
+// eslint-disable-next-line react-refresh/only-export-components
+export function focusLogEnd(date: string, id: string) { pendingFocus = { date, id }; }
+
 export function LogScreen() {
-  const { ends, gearName, deleteEnd, settings } = useStore();
-  const [open, setOpen] = useState<Record<string, boolean>>({});
-  const [selEnd, setSelEnd] = useState<string | null>(null);
+  const { ends, gearName, deleteEnd, settings, setEditId } = useStore();
+  const [focus] = useState(() => { const f = pendingFocus; pendingFocus = null; return f; });
+  const [open, setOpen] = useState<Record<string, boolean>>(focus ? { [focus.date]: true } : {});
+  const [selEnd, setSelEnd] = useState<string | null>(focus?.id ?? null);
+  useEffect(() => {
+    if (focus) setTimeout(() => document.getElementById(`end-${focus.id}`)?.scrollIntoView({ block: 'center' }), 50);
+  }, [focus]);
   const [selShot, setSelShot] = useState<number | null>(null);
   /** 순 한 덩어리(첫 줄, 불 방향, 메모) 어디를 눌러도 그 순을 고른다 */
   const toggle = (id: string) => setSelEnd((cur) => (cur === id ? null : id));
@@ -105,6 +114,7 @@ export function LogScreen() {
                     <div key={e.id} id={`end-${e.id}`} className={`end-block ${selEnd === e.id ? 'selected' : ''}`} role="button" tabIndex={0} aria-pressed={selEnd === e.id}
                       onClick={() => toggle(e.id)} onKeyDown={(ev) => { if (ev.target === ev.currentTarget && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); toggle(e.id); } }}>
                       <EndLine end={e} index={i}>
+                        <button className="del edit" onClick={() => { setEditId(e.id); location.hash = ''; window.scrollTo(0, 0); }}>고치기</button>
                         <ConfirmButton label="삭제" confirmLabel="삭제 확인" onConfirm={() => deleteEnd(e.id).then(() => toast('순을 삭제했습니다'))} />
                       </EndLine>
                       {misses.length > 0 && <div className="memo">{misses.join(', ')}</div>}

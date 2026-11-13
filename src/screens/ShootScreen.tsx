@@ -10,14 +10,18 @@ import { MEMO_TAGS, SHOTS_PER_END } from '../domain/types';
 import { formatDate, today } from '../domain/util';
 import { weatherLabel } from '../domain/weather';
 import { useStore } from '../state/store';
+import { focusLogEnd } from './LogScreen';
 
 interface Draft {
+  /** 고치는 중인 순 id (새 순이면 null) */
+  editId: string | null;
   shots: (Shot | null)[];
   active: number;
   tags: string[];
   memo: string;
 }
-const emptyDraft = (): Draft => ({ shots: Array(SHOTS_PER_END).fill(null), active: 0, tags: [], memo: '' });
+const emptyDraft = (): Draft => ({ editId: null, shots: Array(SHOTS_PER_END).fill(null), active: 0, tags: [], memo: '' });
+const draftOf = (e: End): Draft => ({ editId: e.id, shots: [...e.shots], active: 0, tags: [...e.tags], memo: e.memo });
 
 export function EndLine({ end, index, children, selected, onSelect }: { end: End; index: number; children?: React.ReactNode; selected?: boolean; onSelect?: () => void }) {
   const { gearName } = useStore();
@@ -39,6 +43,12 @@ export function ShootScreen() {
   const { settings, ends, gearName, gearOf } = store;
   const [d, setD] = useState<Draft>(emptyDraft);
   const [picking, setPicking] = useState(false);
+
+  /** 다른 곳(오늘 기록, 기록 탭)에서 고칠 순을 고르면 입력 칸에 그 순을 불러온다 */
+  const editing = store.editId ? ends.find((e) => e.id === store.editId) ?? null : null;
+  if ((editing?.id ?? null) !== d.editId) setD(editing ? draftOf(editing) : emptyDraft());
+  const editIndex = editing ? ends.filter((e) => e.date === editing.date && e.recordedAt <= editing.recordedAt).length : 0;
+  const cancelEdit = () => store.setEditId(null);
   const [weathering, setWeathering] = useState(false);
 
   const todays = ends.filter((e) => e.date === today()).sort((a, b) => a.recordedAt - b.recordedAt);
@@ -73,6 +83,14 @@ export function ShootScreen() {
 
   const save = async () => {
     if (filled < SHOTS_PER_END) return;
+    if (editing) {
+      await store.updateEnd({ ...editing, shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim() });
+      toast(`${editing.date === today() ? '' : formatDate(editing.date) + ' '}${editIndex}순을 고쳤습니다 · ${hitCount}중`);
+      setAsking(false);
+      store.setEditId(null);
+      if (editing.date !== today()) { focusLogEnd(editing.date, editing.id); location.hash = 'log'; }
+      return;
+    }
     const e = await store.saveEnd({ shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim() });
     const h = hitsOf(e);
     toast(`${todays.length + 1}순 저장 · ${h}중${h === 5 ? ' 몰기!' : ''}`);
@@ -85,9 +103,15 @@ export function ShootScreen() {
 
   return (
     <>
-      <section className="card shoot-card">
+      <section className={`card shoot-card ${editing ? 'editing' : ''}`}>
+        {editing && (
+          <div className="edit-banner">
+            <span><b>{formatDate(editing.date)} {editIndex}순</b> 고치는 중</span>
+            <button className="btn ghost small" onClick={cancelEdit}>그만 고치기</button>
+          </div>
+        )}
         <div className="end-head">
-          <span className="title">{todays.length + 1}순 <span className="end-date">{formatDate(today())}</span></span>
+          <span className="title">{editing ? `${editIndex}순 고치기` : `${todays.length + 1}순`} {!editing && <span className="end-date">{formatDate(today())}</span>}</span>
           <span className="row">
             <span className="seg" role="group" aria-label="우궁 좌궁">
               <button className={settings.hand === 'right' ? 'on' : ''} onClick={() => setHand('right')}>우궁</button>
@@ -107,9 +131,9 @@ export function ShootScreen() {
         <div className="row between">
           <span className="row">
             <button className="btn ghost small" onClick={() => applyShots(Array.from({ length: SHOTS_PER_END }, hitShot), d.active)}>몰기</button>
-            <button className="btn ghost small" disabled={!filled} onClick={() => setD(emptyDraft())}>다시 입력</button>
+            <button className="btn ghost small" disabled={!filled} onClick={() => setD((p) => ({ ...p, shots: Array(SHOTS_PER_END).fill(null), active: 0 }))}>다시 입력</button>
           </span>
-          <button className="btn small" disabled={filled < SHOTS_PER_END} onClick={save}>{filled === SHOTS_PER_END ? `저장 · ${hitCount}중` : `저장 (${filled}/5)`}</button>
+          <button className="btn small" disabled={filled < SHOTS_PER_END} onClick={save}>{filled === SHOTS_PER_END ? `${editing ? '고친 내용 저장' : '저장'} · ${hitCount}중` : `저장 (${filled}/5)`}</button>
         </div>
         <div className="target-wrap">
           <Target hand={settings.hand} grid={settings.grid} marks={marks} onTap={tap} label={`과녁을 눌러 ${d.active + 1}시 입력`} />
@@ -133,8 +157,9 @@ export function ShootScreen() {
           <textarea id="memo" rows={2} placeholder="예: 만작을 길게 가져가니 좋았음" value={d.memo} onChange={(e) => setD({ ...d, memo: e.target.value })} />
         </div>
         <button className="btn" disabled={filled < SHOTS_PER_END} onClick={save}>
-          {filled === SHOTS_PER_END ? `${todays.length + 1}순 저장 · ${hitCount}중` : `5시를 모두 입력하세요 (${filled}/5)`}
+          {filled === SHOTS_PER_END ? `${editing ? `${editIndex}순 고친 내용 저장` : `${todays.length + 1}순 저장`} · ${hitCount}중` : `5시를 모두 입력하세요 (${filled}/5)`}
         </button>
+        {editing && <button className="btn ghost" onClick={cancelEdit}>고치지 않고 돌아가기</button>}
       </section>
 
       <button className="gear" onClick={() => setPicking(true)}>
@@ -161,11 +186,17 @@ export function ShootScreen() {
         </div>
         {todays.length === 0
           ? <div className="empty">첫 순을 저장하면 여기에 쌓입니다.</div>
-          : <div className="today-list">{todays.map((e, i) => <EndLine key={e.id} end={e} index={i} />).reverse()}</div>}
+          : <>
+            <div className="today-list">{todays.map((e, i) => (
+              <EndLine key={e.id} end={e} index={i} selected={e.id === store.editId}
+                onSelect={() => { store.setEditId(e.id === store.editId ? null : e.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
+            )).reverse()}</div>
+            <div className="small muted">저장한 순을 누르면 위 입력 칸에 불러와 고칠 수 있습니다.</div>
+          </>}
       </section>
 
       {asking && (
-        <Sheet title={`${todays.length + 1}순 저장할까요?`} onClose={() => setAsking(false)}>
+        <Sheet title={editing ? `${editIndex}순 고친 내용을 저장할까요?` : `${todays.length + 1}순 저장할까요?`} onClose={() => setAsking(false)}>
           <div className="confirm-end">
             <span className="dots">{(d.shots as Shot[]).map((s, i) => <ShotIcon key={i} shot={s} index={i} />)}</span>
             <b>{hitCount}중{hitCount === 5 ? ' · 몰기' : ''}</b>

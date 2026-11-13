@@ -20,7 +20,12 @@ export interface Store extends Data {
   saveEnd(e: Omit<End, 'id' | 'date' | 'recordedAt' | 'updatedAt' | 'bowId' | 'ringId' | 'arrowId' | 'weather'>): Promise<End>;
   /** 오늘 날씨 (다른 날 입력한 것이면 null) */
   todayWeather: Weather | null;
+  /** 이미 저장한 순 고치기 (시, 태그, 메모) */
+  updateEnd(e: End): Promise<void>;
   deleteEnd(id: string): Promise<void>;
+  /** 습사 화면에 불러와 고치는 중인 순 */
+  editId: string | null;
+  setEditId(id: string | null): void;
   addGear(g: Pick<Gear, 'category' | 'nickname' | 'bowType' | 'detail'>): Promise<Gear>;
   setArchived(id: string, archived: boolean): Promise<void>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
@@ -34,6 +39,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
   const [data, setData] = useState<Data>({ loaded: false, error: null, gear: [], ends: [], settings: DEFAULT_SETTINGS });
 
   const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
+  const [editId, setEditId] = useState<string | null>(null);
 
   useEffect(() => {
     repo.loadAll()
@@ -65,7 +71,15 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       setData((p) => ({ ...p, ends: [...p.ends, e] }));
       return e;
     },
+    async updateEnd(e) {
+      const next = { ...e, updatedAt: Date.now() };
+      await repo.putEnd(next);
+      setData((p) => ({ ...p, ends: p.ends.map((x) => (x.id === e.id ? next : x)) }));
+    },
+    editId,
+    setEditId,
     async deleteEnd(id) {
+      if (id === editId) setEditId(null);
       await repo.deleteEnd(id);
       setData((p) => ({ ...p, ends: p.ends.filter((e) => e.id !== id) }));
     },
@@ -104,7 +118,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       setData((p) => ({ ...p, gear: [], ends: [] }));
       await updateSettings({ current: { bow: null, ring: null, arrow: null } });
     },
-  }), [data, repo, updateSettings, todayWeather]);
+  }), [data, repo, updateSettings, todayWeather, editId]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }
