@@ -60,6 +60,8 @@ header.top .date { color: var(--muted); font-size: 13px; font-variant-numeric: t
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   background: var(--warn-soft); color: var(--ink); border-radius: 10px; padding: 10px 12px; font-size: 13px;
 }
+.range-offer .nowrap { flex-wrap: nowrap; gap: 6px; }
+.banner button.quiet { border-color: var(--line, #ccc); color: var(--muted); }
 .banner button { background: none; border: 1px solid var(--warn); color: var(--warn); border-radius: 999px; padding: 4px 10px; font-size: 12px; white-space: nowrap; }
 
 .card { background: var(--surface); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 12px; min-width: 0; }

@@ -23,12 +23,25 @@ export function nearestRange(ranges: Range[], pos: LatLon, radius = RANGE_RADIUS
   return best;
 }
 
-/** GPS 위치로 지금 활터를 정한다. 등록 활터 근처면 그곳, 아니면 직접 고른 활터만 남기고 비운다. */
-export function detectRange(s: Settings, pos: LatLon): Pick<Settings, 'currentRange' | 'currentRangeManual'> {
-  const near = nearestRange(s.ranges ?? [], pos);
-  if (near) return { currentRange: near.id, currentRangeManual: false };
-  if (s.currentRangeManual) return { currentRange: s.currentRange ?? null, currentRangeManual: true };
-  return { currentRange: null, currentRangeManual: false };
+/** 지금 활터를 바꾸자고 물어볼 곳: 등록한 활터이거나, 아직 등록하지 않은 국궁장 */
+export type RangeOffer = { range: Range } | { place: LatLon & { name: string } };
+
+/**
+ * GPS 위치 근처(300m)에 지금 활터와 다른 국궁장이 있으면 그곳을 돌려준다.
+ * 등록한 활터를 먼저 보고, 없으면 지도에서 찾은 국궁장(found) 중 가장 가까운 곳.
+ * 찾은 국궁장이 이미 등록한 활터와 같은 곳(150m 안)이면 등록한 활터로 본다.
+ */
+export function pickOffer(ranges: Range[], currentId: string | null | undefined, pos: LatLon, found: (LatLon & { name: string })[] = []): RangeOffer | null {
+  const near = nearestRange(ranges, pos);
+  if (near) return near.id === currentId ? null : { range: near };
+  const f = found
+    .map((x) => ({ x, d: distanceM(x, pos) }))
+    .filter(({ d }) => d <= RANGE_RADIUS_M)
+    .sort((a, b) => a.d - b.d)[0]?.x;
+  if (!f) return null;
+  const reg = nearestRange(ranges, f, 150);
+  if (reg) return reg.id === currentId ? null : { range: reg };
+  return { place: { name: f.name, lat: f.lat, lon: f.lon } };
 }
 
 /** 예전 버전에서 하나만 정해 두던 활터 위치·사대 방향을 활터 목록으로 옮긴다 */
