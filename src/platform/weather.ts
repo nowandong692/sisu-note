@@ -1,5 +1,5 @@
 import type { Place } from '../domain/types';
-import type { CurrentWeather } from '../domain/weather';
+import { parseMetNo, parseWttr, type CurrentWeather } from '../domain/weather';
 
 /**
  * 현재 위치를 얻는다. 웹은 브라우저 위치 권한을 쓰고,
@@ -19,42 +19,81 @@ export function currentPosition(): Promise<{ lat: number; lon: number }> {
   });
 }
 
-/** Open-Meteo(무료, 키 없음)에서 지금 날씨를 가져온다. 위치는 소수 둘째 자리(약 1km)까지만 보낸다. */
-export async function fetchCurrentWeather(lat: number, lon: number): Promise<CurrentWeather> {
-  const q = new URLSearchParams({
-    latitude: lat.toFixed(2), longitude: lon.toFixed(2),
+/**
+ * 지금 날씨를 가져온다. 어느 한 서비스가 그 망에서 막혀 있어도 되도록
+ * Open-Meteo → MET Norway → wttr.in 순서로 시도하고, 처음 성공한 것을 쓴다.
+ * 위치는 소수 둘째 자리(약 1km)까지만 보낸다. 셋 다 키가 필요 없다.
+ */
+export async function fetchCurrentWeather(lat: number, lon: number): Promise<CurrentWeather & { source: string }> {
+  const la = lat.toFixed(2), lo = lon.toFixed(2);
+  const om = new URLSearchParams({
+    latitude: la, longitude: lo,
     current: 'temperature_2m,weather_code,wind_speed_10m,wind_direction_10m',
     wind_speed_unit: 'ms', timezone: 'auto',
   });
-  const res = await getWithRetry(`https://api.open-meteo.com/v1/forecast?${q}`, '날씨 서비스');
-  if (!res.ok) throw new Error('날씨를 불러오지 못했습니다. 잠시 뒤 다시 해 보세요.');
-  const c = (await res.json()).current;
-  return { temperature: c.temperature_2m, code: c.weather_code, windSpeed: c.wind_speed_10m, windFrom: c.wind_direction_10m };
-}
-
-/** 지명으로 위치 찾기 (Open-Meteo 지오코딩). 예: "황학정", "종로구", "전주" */
-export async function searchPlaces(name: string): Promise<Place[]> {
-  const q = new URLSearchParams({ name: name.trim(), count: '6', language: 'ko', format: 'json' });
-  const res = await getWithRetry(`https://geocoding-api.open-meteo.com/v1/search?${q}`, '위치 검색 서비스');
-  if (!res.ok) throw new Error('위치를 찾지 못했습니다. 잠시 뒤 다시 해 보세요.');
-  const list: { name: string; latitude: number; longitude: number; admin1?: string; admin2?: string; country?: string }[] = (await res.json()).results ?? [];
-  return list.map((r) => ({
-    name: [r.admin1, r.admin2, r.name].filter((x, i, a) => x && a.indexOf(x) === i).join(' ') || r.name,
-    lat: r.latitude, lon: r.longitude,
-  }));
-}
-
-/** 한 번 실패하면 잠깐 쉬고 다시 시도한다. 그래도 안 되면 브라우저가 알려 준 원인을 함께 보여 준다. */
-async function getWithRetry(url: string, what: string): Promise<Response> {
-  let last: unknown;
-  for (let i = 0; i < 2; i++) {
+  const providers: [string, string, (j: unknown) => CurrentWeather][] = [
+    ['Open-Meteo', `https://api.open-meteo.com/v1/forecast?${om}`, (j) => {
+      const c = (j as { current: Record<string, number> }).current;
+      return { temperature: c.temperature_2m, code: c.weather_code, windSpeed: c.wind_speed_10m, windFrom: c.wind_direction_10m };
+    }],
+    ['MET Norway', `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${la}&lon=${lo}`, parseMetNo],
+    ['wttr.in', `https://wttr.in/${la},${lo}?format=j1`, parseWttr],
+  ];
+  const fails: string[] = [];
+  for (const [name, url, parse] of providers) {
     try {
-      return await fetch(url, { cache: 'no-store' });
+      const res = await getWithTimeout(url, 7000);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const w = parse(await res.json());
+      if (![w.temperature, w.windSpeed].every(Number.isFinite)) throw new Error('응답 형식이 다릅니다');
+      return { ...w, source: name };
     } catch (e) {
-      last = e;
-      await new Promise((r) => setTimeout(r, 800));
+      fails.push(`${name}: ${e instanceof Error ? e.message : '실패'}`);
     }
   }
-  const why = last instanceof Error && last.message ? ` (${last.message})` : '';
-  throw new Error(`${what}에 연결하지 못했습니다${why}. 광고·콘텐츠 차단 앱이 켜져 있으면 끄고 다시 해 보세요.`);
+  throw new Error(`날씨 서비스에 연결하지 못했습니다 (${fails.join(', ')}). 잠시 뒤 다시 해 보거나 직접 입력해 주세요.`);
+}
+
+async function getWithTimeout(url: string, ms: number): Promise<Response> {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  try {
+    return await fetch(url, { cache: 'no-store', signal: ctl.signal });
+  } catch (e) {
+    throw new Error(ctl.signal.aborted ? '시간 초과' : e instanceof Error ? e.message : '연결 실패');
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/** 지명으로 위치 찾기. Open-Meteo 지오코딩이 막히면 OpenStreetMap(Nominatim)으로 찾는다. 예: "종로구", "전주" */
+export async function searchPlaces(name: string): Promise<Place[]> {
+  const fails: string[] = [];
+  try {
+    const q = new URLSearchParams({ name: name.trim(), count: '6', language: 'ko', format: 'json' });
+    const res = await getWithTimeout(`https://geocoding-api.open-meteo.com/v1/search?${q}`, 7000);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const list: { name: string; latitude: number; longitude: number; admin1?: string; admin2?: string }[] = (await res.json()).results ?? [];
+    if (list.length) {
+      return list.map((r) => ({
+        name: [r.admin1, r.admin2, r.name].filter((x, i, a) => x && a.indexOf(x) === i).join(' ') || r.name,
+        lat: r.latitude, lon: r.longitude,
+      }));
+    }
+  } catch (e) {
+    fails.push(`Open-Meteo: ${e instanceof Error ? e.message : '실패'}`);
+  }
+  try {
+    const q = new URLSearchParams({ q: name.trim(), format: 'json', limit: '6', 'accept-language': 'ko', countrycodes: 'kr' });
+    const res = await getWithTimeout(`https://nominatim.openstreetmap.org/search?${q}`, 8000);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const list: { display_name: string; lat: string; lon: string }[] = await res.json();
+    return list.map((r) => ({
+      name: r.display_name.split(',').map((x) => x.trim()).filter((x) => x !== '대한민국' && !/^\d{5}$/.test(x)).slice(0, 3).reverse().join(' '),
+      lat: Number(r.lat), lon: Number(r.lon),
+    }));
+  } catch (e) {
+    fails.push(`OpenStreetMap: ${e instanceof Error ? e.message : '실패'}`);
+  }
+  throw new Error(`위치 검색 서비스에 연결하지 못했습니다 (${fails.join(', ')}). 활터에 있을 때 "지금 이 자리를 활터로" 를 눌러 정할 수도 있습니다.`);
 }

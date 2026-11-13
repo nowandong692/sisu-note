@@ -18,6 +18,16 @@ export function WeatherSheet({ onClose }: { onClose: () => void }) {
   const [placeQ, setPlaceQ] = useState('');
   const [places, setPlaces] = useState<Place[] | null>(null);
   const [placeErr, setPlaceErr] = useState('');
+  const [source, setSource] = useState('');
+  const hereAsRange = async () => {
+    setPlaceErr('');
+    try {
+      const p = await currentPosition();
+      choosePlace({ name: `내 활터 (${p.lat.toFixed(3)}, ${p.lon.toFixed(3)})`, lat: p.lat, lon: p.lon });
+    } catch (e) {
+      setPlaceErr(e instanceof Error ? e.message : '위치를 찾지 못했습니다.');
+    }
+  };
   const findPlaces = async () => {
     if (!placeQ.trim()) return;
     setPlaceErr(''); setPlaces(null);
@@ -46,7 +56,9 @@ export function WeatherSheet({ onClose }: { onClose: () => void }) {
     setLoading(true); setErr('');
     try {
       const pos = place ?? await currentPosition();
-      const next = toWeather(await fetchCurrentWeather(pos.lat, pos.lon), bearing);
+      const got = await fetchCurrentWeather(pos.lat, pos.lon);
+      setSource(got.source);
+      const next = toWeather(got, bearing);
       setTempText(next.temp == null ? '' : String(next.temp));
       await updateSettings({ weather: { ...next, date: today() } });
     } catch (e) {
@@ -72,7 +84,7 @@ export function WeatherSheet({ onClose }: { onClose: () => void }) {
       <div className="fetch-weather">
         <button className="btn ghost" disabled={loading} onClick={load}>{loading ? '불러오는 중…' : place ? `${place.name} 날씨 불러오기` : '지금 위치의 날씨 불러오기'}</button>
         {err ? <div className="small err-text" role="alert">{err}</div>
-          : todayWeather?.windSpeed != null ? <div className="small muted">불러온 날씨: {weatherLabel(todayWeather)}. 아래에서 고칠 수 있습니다.</div>
+          : todayWeather?.windSpeed != null ? <div className="small muted">불러온 날씨{source && ` (${source})`}: {weatherLabel(todayWeather)}. 아래에서 고칠 수 있습니다.</div>
           : <div className="small muted">{place ? '정해 둔 활터 위치로' : '휴대폰 위치로'} Open-Meteo에서 지금 기온·날씨·바람을 가져옵니다.</div>}
         <div className="row between small">
           <span className="muted">위치: {place ? place.name : '휴대폰 현재 위치'}</span>
@@ -85,6 +97,7 @@ export function WeatherSheet({ onClose }: { onClose: () => void }) {
               <button className="btn small" type="submit">찾기</button>
             </form>
             {placeErr && <div className="small err-text">{placeErr}</div>}
+            <button className="btn ghost small" onClick={hereAsRange}>지금 이 자리를 활터로</button>
             {places && places.length > 0 && (
               <div className="chips">{places.map((p) => <button key={`${p.lat},${p.lon}`} className="chip" onClick={() => choosePlace(p)}>{p.name}</button>)}</div>
             )}

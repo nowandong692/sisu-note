@@ -75,3 +75,31 @@ export function toWeather(c: CurrentWeather, rangeBearing: number | null | undef
     windFrom: c.windFrom,
   };
 }
+
+/** MET Norway(노르웨이 기상청) 응답 → 현재 날씨 */
+export function parseMetNo(json: unknown): CurrentWeather {
+  type T = { properties: { timeseries: { data: { instant: { details: Record<string, number> }; next_1_hours?: { summary: { symbol_code: string } }; next_6_hours?: { summary: { symbol_code: string } } } }[] } };
+  const t = (json as T).properties.timeseries[0].data;
+  const d = t.instant.details;
+  const sym = (t.next_1_hours ?? t.next_6_hours)?.summary.symbol_code ?? '';
+  return { temperature: d.air_temperature, windSpeed: d.wind_speed, windFrom: d.wind_from_direction, code: codeFromSymbol(sym) };
+}
+
+/** MET Norway 날씨 기호 → WMO 코드 (skyFromCode에 넘기기 위한 대표값) */
+function codeFromSymbol(sym: string): number {
+  const s = sym.replace(/_(day|night|polartwilight)$/, '');
+  if (s.includes('snow')) return 73;
+  if (s.includes('rain') || s.includes('sleet') || s.includes('thunder')) return 61;
+  if (s === 'clearsky' || s === 'fair') return 0;
+  if (s === 'partlycloudy') return 2;
+  return 3;
+}
+
+const WWO_SNOW = new Set([179, 227, 230, 323, 326, 329, 332, 335, 338, 350, 368, 371, 374, 377, 392, 395]);
+/** wttr.in(j1) 응답 → 현재 날씨 */
+export function parseWttr(json: unknown): CurrentWeather {
+  const c = (json as { current_condition: Record<string, string>[] }).current_condition[0];
+  const w = Number(c.weatherCode);
+  const code = w === 113 ? 0 : w === 116 ? 2 : [119, 122, 143, 248, 260].includes(w) ? 3 : WWO_SNOW.has(w) ? 73 : 61;
+  return { temperature: Number(c.temp_C), windSpeed: Number(c.windspeedKmph) / 3.6, windFrom: Number(c.winddirDegree), code };
+}
