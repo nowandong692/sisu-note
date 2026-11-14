@@ -1,21 +1,19 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ConfirmButton, Sheet, ToastHost, toast } from './components/ui';
 import { formatDate, today } from './domain/util';
-import { GearScreen } from './screens/GearScreen';
 import { RankingScreen } from './screens/RankingScreen';
-import { ShootScreen } from './screens/ShootScreen';
+import { ShootScreen, openGearManager } from './screens/ShootScreen';
 import { RecordsScreen } from './screens/RecordsScreen';
 import { useStore } from './state/store';
 import { useAutoWeather } from './state/weatherSync';
 import { applyAppearance } from './platform/theme';
 import { SettingsScreen } from './screens/SettingsScreen';
 
-type Tab = 'shoot' | 'log' | 'rank' | 'gear' | 'settings';
+type Tab = 'shoot' | 'log' | 'rank' | 'settings';
 const TABS: [Tab, string, string][] = [
   ['shoot', '습사', '오늘 습사'],
   ['log', '기록과 통계', '기록과 통계'],
   ['rank', '겨루기', '겨루기'],
-  ['gear', '장비', '내 장비'],
   ['settings', '설정', '설정'],
 ];
 
@@ -23,14 +21,15 @@ const ICONS: Record<Tab, React.ReactNode> = {
   shoot: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="5" y="3" width="14" height="18" rx="1" /><rect x="8" y="5.5" width="8" height="2.5" /><circle cx="12" cy="15" r="3" /></svg>,
   log: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M8 9h8M8 13h8M8 17h5" /></svg>,
   rank: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M8 4h8v5a4 4 0 0 1-8 0V4z" /><path d="M8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3M12 13v4M8 20h8M10 17h4" /></svg>,
-  gear: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6 3c6 4 6 14 0 18M6 3v18" /><path d="M6 12h14M17 9l3 3-3 3" /></svg>,
   settings: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" /><circle cx="16" cy="6" r="2" /><circle cx="10" cy="12" r="2" /><circle cx="18" cy="18" r="2" /></svg>,
 };
 
 /** 탭은 주소 끝(#log 같은)에 남겨서 새로 고쳐도, 앱 뒤로가기를 눌러도 자연스럽게 움직이게 한다. */
 function readTab(): Tab {
   // 통계는 기록 탭 안으로 옮겼다 (#stats는 기록 탭의 통계 보기)
-  const h = location.hash.slice(1) === 'stats' ? 'log' : location.hash.slice(1);
+  // 장비는 습사 화면의 "오늘 장비" 안으로 옮겼다 (#gear는 습사로)
+  const raw = location.hash.slice(1);
+  const h = raw === 'stats' ? 'log' : raw === 'gear' ? 'shoot' : raw;
   return (TABS.some(([t]) => t === h) ? h : 'shoot') as Tab;
 }
 
@@ -154,14 +153,13 @@ export default function App() {
             <div className="screen" hidden={tab !== 'shoot'}><ShootScreen /></div>
             <div className="screen" hidden={tab !== 'log'}><RecordsScreen /></div>
             <div className="screen" hidden={tab !== 'rank'}><RankingScreen active={tab === 'rank'} /></div>
-            <div className="screen" hidden={tab !== 'gear'}><GearScreen /></div>
             <div className="screen" hidden={tab !== 'settings'}><SettingsScreen /></div>
-            {firstRun && tab !== 'gear' && tab !== 'rank' && tab !== 'settings' && (
+            {firstRun && tab !== 'rank' && tab !== 'settings' && (
               <section className="card setup">
                 <h2>처음 오셨나요?</h2>
-                <div className="small muted">장비 탭에서 활·깍지·화살·현을 별명으로 등록하면 장비별로 시수를 비교할 수 있습니다. 먼저 둘러보려면 두 달치 예시 기록을 넣어 보세요. 나중에 장비 탭에서 지울 수 있습니다.</div>
+                <div className="small muted">습사 화면의 "오늘 장비"에서 활·깍지·화살·현을 별명으로 등록하면 장비별로 시수를 비교할 수 있습니다. 먼저 둘러보려면 두 달치 예시 기록을 넣어 보세요. 나중에 설정 탭에서 지울 수 있습니다.</div>
                 <div className="row">
-                  <button className="btn ghost small" onClick={() => go('gear')}>장비 등록하기</button>
+                  <button className="btn ghost small" onClick={() => { go('shoot'); setTimeout(openGearManager, 0); }}>장비 등록하기</button>
                   <ConfirmButton className="btn ghost small" label="예시 기록 넣기" confirmLabel="예시 기록 넣기 (확인)" onConfirm={() => store.loadSample().then(() => toast('예시 기록을 불러왔습니다'))} />
                 </div>
               </section>
