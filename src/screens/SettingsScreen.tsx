@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { ClubSheet } from '../components/ClubSheet';
 import { ConfirmButton, toast } from '../components/ui';
 import { endsToCsv } from '../domain/csv';
 import { PALETTES, type Palette, type ThemeMode } from '../domain/types';
@@ -32,12 +34,38 @@ function AppearanceSection() {
   );
 }
 
-/** 설정 탭: 화면 밝기·테마, 데이터 */
+/** 내 소속 활터 */
+function ClubSection() {
+  const { settings, updateSettings } = useStore();
+  const [open, setOpen] = useState(false);
+  const club = settings.club;
+  return (
+    <section className="card">
+      <h2>내 소속</h2>
+      {club ? (
+        <div className="club-now">
+          <b>{club.name}</b>
+          {club.address && <span className="small muted">{club.region ? `${club.region} · ` : ''}{club.address}</span>}
+        </div>
+      ) : (
+        <div className="small muted">소속 활터를 정해 두면 대회 일정과 활터 찾기에서 표시해 주고, 랭킹에 함께 보일 활터로 고를 수 있습니다.</div>
+      )}
+      <div className="row">
+        <button className="btn small" onClick={() => setOpen(true)}>{club ? '바꾸기' : '소속 정하기'}</button>
+        {club && <ConfirmButton className="btn ghost small" label="소속 지우기" confirmLabel="지우기" onConfirm={() => updateSettings({ club: null }).then(() => toast('소속을 지웠습니다'))} />}
+      </div>
+      {open && <ClubSheet onClose={() => setOpen(false)} />}
+    </section>
+  );
+}
+
+/** 설정 탭: 내 소속, 화면 밝기·테마, 데이터 */
 export function SettingsScreen() {
   const store = useStore();
   const { ends, gear } = store;
   return (
     <>
+      <ClubSection />
       <AppearanceSection />
       <section className="card">
         <h2>데이터</h2>

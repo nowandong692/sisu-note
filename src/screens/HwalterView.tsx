@@ -1,38 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AREAS, HWALTER_SOURCE, contactUrl, mapLinks, searchHwalter, type Hwalter, type HwalterFile } from '../domain/hwalter';
+import { AREAS, HWALTER_SOURCE, contactUrl, isMyClub, mapLinks, searchHwalter, type Hwalter, type HwalterFile } from '../domain/hwalter';
+import { loadHwalter } from '../platform/hwalterData';
+import { toast } from '../components/ui';
 import { isMyRange } from '../domain/tournaments';
 import { useStore } from '../state/store';
 
-const CACHE = 'gukgungrok-hwalter';
 const PAGE = 40;
 
-/** 배포 때 받아 둔 hwalter.json. 못 읽으면 이 기기에 마지막으로 받아 둔 목록 */
-async function loadHwalter(): Promise<HwalterFile> {
-  const embedded = (window as unknown as { __HWALTER__?: HwalterFile }).__HWALTER__;
-  if (embedded) return embedded;
-  try {
-    const res = await fetch(`${import.meta.env.BASE_URL}hwalter.json`, { cache: 'no-cache' });
-    if (!res.ok) throw new Error(String(res.status));
-    const file = (await res.json()) as HwalterFile;
-    if (!file.items?.length) throw new Error('empty');
-    try { localStorage.setItem(CACHE, JSON.stringify(file)); } catch { /* 저장 못 해도 보여 준다 */ }
-    return file;
-  } catch (e) {
-    try {
-      const c = JSON.parse(localStorage.getItem(CACHE) ?? 'null') as HwalterFile | null;
-      if (c) return c;
-    } catch { /* 아래로 */ }
-    throw e;
-  }
-}
-
-function Row({ h, mine, open, onToggle }: { h: Hwalter; mine: boolean; open: boolean; onToggle: () => void }) {
+function Row({ h, mine, club, open, onToggle, onClub }: { h: Hwalter; mine: boolean; club: boolean; open: boolean; onToggle: () => void; onClub: () => void }) {
   const map = mapLinks(h);
   return (
     <li className={`hw-row ${mine ? 'mine' : ''}`}>
       <button className="hw-head" aria-expanded={open} onClick={onToggle}>
         <span className="hw-main">
-          <b>{h.name}{mine && <span className="pill best">내 활터</span>}</b>
+          <b>{h.name}{club ? <span className="pill best">내 소속</span> : mine && <span className="pill best">내 활터</span>}</b>
           <span className="small muted">{h.address}</span>
         </span>
         {h.region && <span className="hw-region">{h.region}</span>}
@@ -42,6 +23,7 @@ function Row({ h, mine, open, onToggle }: { h: Hwalter; mine: boolean; open: boo
           <a className="btn small ghost" href={map.naver} target="_blank" rel="noopener noreferrer">네이버 지도</a>
           <a className="btn small ghost" href={map.kakao} target="_blank" rel="noopener noreferrer">카카오맵</a>
           <a className="btn small ghost" href={contactUrl(h)} target="_blank" rel="noopener noreferrer">연락처 (협회)</a>
+          {!club && <button className="btn small ghost" onClick={onClub}>내 소속으로</button>}
         </div>
       )}
     </li>
@@ -50,7 +32,8 @@ function Row({ h, mine, open, onToggle }: { h: Hwalter; mine: boolean; open: boo
 
 /** 협회에 등록된 활터를 이름·주소로 찾아보기 */
 export function HwalterView({ active }: { active: boolean }) {
-  const { ranges } = useStore();
+  const { ranges, settings, updateSettings } = useStore();
+  const club = settings.club ?? null;
   const [file, setFile] = useState<HwalterFile | null>(null);
   const [err, setErr] = useState(false);
   const [q, setQ] = useState('');
@@ -69,10 +52,11 @@ export function HwalterView({ active }: { active: boolean }) {
   const regions = useMemo(() => AREAS.filter((a) => items?.some((h) => h.region === a)), [items]);
   const hits = useMemo(() => {
     const list = searchHwalter(items ?? [], q, region);
-    // 내 활터를 맨 위로
-    return [...list.filter((h) => isMyRange(h.name, names)), ...list.filter((h) => !isMyRange(h.name, names))];
+    // 내 소속과 내 활터를 맨 위로
+    const top = (h: Hwalter) => isMyClub(h, club) || isMyRange(h.name, names);
+    return [...list.filter(top), ...list.filter((h) => !top(h))];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, q, region, names.join('|')]);
+  }, [items, q, region, names.join('|'), club]);
 
   if (err) {
     return (
@@ -99,7 +83,8 @@ export function HwalterView({ active }: { active: boolean }) {
         <div className="small muted">{hits.length}곳{(q || region) && ' 찾음'}. 활터를 누르면 지도와 연락처가 나옵니다.</div>
         {hits.length === 0
           ? <div className="empty small">찾는 활터가 없습니다. 이름 일부만 넣어 보세요.</div>
-          : <ol className="hw-list">{hits.slice(0, limit).map((h) => <Row key={h.id} h={h} mine={isMyRange(h.name, names)} open={open === h.id} onToggle={() => setOpen(open === h.id ? null : h.id)} />)}</ol>}
+          : <ol className="hw-list">{hits.slice(0, limit).map((h) => <Row key={h.id} h={h} mine={isMyRange(h.name, names)} club={isMyClub(h, club)} open={open === h.id} onToggle={() => setOpen(open === h.id ? null : h.id)}
+            onClub={() => updateSettings({ club: { name: h.name, region: h.region, address: h.address, hwalterId: h.id } }).then(() => toast(`${h.name}을(를) 내 소속으로 정했습니다`))} />)}</ol>}
         {hits.length > limit && <button className="btn ghost small" style={{ alignSelf: 'center' }} onClick={() => setLimit(limit + PAGE)}>{Math.min(PAGE, hits.length - limit)}곳 더 보기</button>}
       </section>
       <div className="small muted tour-note">

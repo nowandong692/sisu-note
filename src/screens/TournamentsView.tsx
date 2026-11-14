@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { appLinks, dLabel, isMyRange, nowStamp, regPeriodText, regState, monthGrid, onDay, periodText, shiftMonth, splitTournaments, videosFor, type RegState, type Tournament, type TournamentFile, type Video, type VideoFile } from '../domain/tournaments';
+import { isClubPlace } from '../domain/hwalter';
 import { today } from '../domain/util';
 import { useStore } from '../state/store';
 import { Sheet } from '../components/ui';
@@ -177,7 +178,7 @@ function TourSheet({ t, now, onClose }: { t: Tournament; now: string; onClose: (
 }
 
 /** 달력 보기: 대회가 있는 날에 점, 날을 누르면 그날 대회 */
-function CalendarCard({ items, clock, names, videos, onPlay, onOpen }: { items: Tournament[]; clock: string; names: string[]; videos: Video[]; onPlay: (v: Video) => void; onOpen: (t: Tournament) => void }) {
+function CalendarCard({ items, clock, isMine, videos, onPlay, onOpen }: { items: Tournament[]; clock: string; isMine: (place: string) => boolean; videos: Video[]; onPlay: (v: Video) => void; onOpen: (t: Tournament) => void }) {
   const now = clock.slice(0, 10);
   const [ym, setYm] = useState(now.slice(0, 7));
   const [day, setDay] = useState<string | null>(now);
@@ -198,13 +199,13 @@ function CalendarCard({ items, clock, names, videos, onPlay, onOpen }: { items: 
               {w.map((d, j) => {
                 if (!d) return <td key={j} />;
                 const list = onDay(items, d);
-                const mine = list.some((t) => isMyRange(t.place, names));
+                const mine = list.some((t) => isMine(t.place));
                 return (
                   <td key={j}>
                     <button className={`cal-day ${d === now ? 'today' : ''} ${d === day ? 'on' : ''} ${d < now ? 'past' : ''} ${j === 0 ? 'sun' : j === 6 ? 'sat' : ''}`}
                       aria-label={`${Number(d.slice(8))}일${list.length ? `, 대회 ${list.length}개` : ''}`} aria-pressed={d === day} onClick={() => setDay(d)}>
                       <span className="n">{Number(d.slice(8))}</span>
-                      <span className="marks">{list.slice(0, 3).map((t) => <i key={t.id} className={isMyRange(t.place, names) ? 'mine' : ''} />)}{list.length > 3 && <em>+</em>}</span>
+                      <span className="marks">{list.slice(0, 3).map((t) => <i key={t.id} className={isMine(t.place) ? 'mine' : ''} />)}{list.length > 3 && <em>+</em>}</span>
                       {mine && <span className="sr-only">내 활터</span>}
                     </button>
                   </td>
@@ -219,7 +220,7 @@ function CalendarCard({ items, clock, names, videos, onPlay, onOpen }: { items: 
           <div className="tour-month-head">{Number(day.slice(5, 7))}월 {Number(day.slice(8))}일 대회 {picked.length}개</div>
           {picked.length === 0
             ? <div className="small muted">이날 열리는 대회가 없습니다.</div>
-            : <ol className="tour-list">{picked.map((t) => <Item key={t.id} t={t} now={clock} mine={isMyRange(t.place, names)} videos={videos} onPlay={onPlay} onOpen={onOpen} />)}</ol>}
+            : <ol className="tour-list">{picked.map((t) => <Item key={t.id} t={t} now={clock} mine={isMine(t.place)} videos={videos} onPlay={onPlay} onOpen={onOpen} />)}</ol>}
         </div>
       )}
     </section>
@@ -227,7 +228,7 @@ function CalendarCard({ items, clock, names, videos, onPlay, onOpen }: { items: 
 }
 
 export function TournamentsView({ active }: { active: boolean }) {
-  const { ranges } = useStore();
+  const { ranges, settings } = useStore();
   const [file, setFile] = useState<TournamentFile | null>(null);
   const [cached, setCached] = useState(false);
   const [err, setErr] = useState(false);
@@ -256,6 +257,8 @@ export function TournamentsView({ active }: { active: boolean }) {
   const now = today();
   const clock = nowStamp();
   const names = ranges.map((r) => r.name);
+  const club = settings.club;
+  const isMine = (place: string) => isMyRange(place, names) || isClubPlace(place, club);
 
   if (err) {
     return (
@@ -286,18 +289,18 @@ export function TournamentsView({ active }: { active: boolean }) {
     <>
       <VideosCard file={vfile ?? { items: [] }} play={play} setPlay={setPlay} boxRef={boxRef} />
       {modeSwitch}
-      {mode === 'cal' && <CalendarCard items={file.items} clock={clock} names={names} videos={videos} onPlay={onPlay} onOpen={setOpen} />}
+      {mode === 'cal' && <CalendarCard items={file.items} clock={clock} isMine={isMine} videos={videos} onPlay={onPlay} onOpen={setOpen} />}
       {mode === 'list' && <section className="card">
         <div className="row between"><h2>다가오는 대회</h2><span className="small muted">{upcoming.length}개</span></div>
         {upcoming.length === 0 && <div className="empty small">올라온 다가오는 대회가 없습니다.</div>}
         {[...months].map(([m, list]) => (
           <div key={m} className="tour-month">
             <div className="tour-month-head">{Number(m.slice(5, 7))}월</div>
-            <ol className="tour-list">{list.map((t) => <Item key={t.id} t={t} now={clock} mine={isMyRange(t.place, names)} videos={videos} onPlay={onPlay} onOpen={setOpen} />)}</ol>
+            <ol className="tour-list">{list.map((t) => <Item key={t.id} t={t} now={clock} mine={isMine(t.place)} videos={videos} onPlay={onPlay} onOpen={setOpen} />)}</ol>
           </div>
         ))}
         <button className="btn ghost small" style={{ alignSelf: 'center' }} onClick={() => setShowPast(!showPast)}>{showPast ? '지난 대회 숨기기' : '지난 대회 보기'}</button>
-        {showPast && <ol className="tour-list">{past.slice(0, 20).map((t) => <Item key={t.id} t={t} now={clock} mine={isMyRange(t.place, names)} videos={videos} onPlay={onPlay} onOpen={setOpen} />)}</ol>}
+        {showPast && <ol className="tour-list">{past.slice(0, 20).map((t) => <Item key={t.id} t={t} now={clock} mine={isMine(t.place)} videos={videos} onPlay={onPlay} onOpen={setOpen} />)}</ol>}
       </section>}
       {open && <TourSheet t={open} now={clock} onClose={() => setOpen(null)} />}
       <div className="small muted tour-note">

@@ -117,7 +117,12 @@ export const PALETTES: { id: Palette; name: string; desc: string }[] = [
   { id: 'dancheong', name: '단청', desc: '청색에 주홍' },
 ];
 
+/** 내 소속 활터(정). 협회 활터현황에서 골랐으면 hwalterId가 있다 */
+export interface Club { name: string; region?: string; address?: string; hwalterId?: string }
+
 export interface Settings {
+  /** 내 소속 활터 */
+  club?: Club | null;
   /** 화면 밝기와 색 테마 (없으면 기기 설정 따라, 홍심) */
   appearance?: { mode: ThemeMode; palette: Palette };
   hand: Hand;

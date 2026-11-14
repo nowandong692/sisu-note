@@ -38,7 +38,8 @@ function errText(e: unknown) {
 function JoinCard({ onJoined }: { onJoined: () => void }) {
   const store = useStore();
   const [nickname, setNickname] = useState('');
-  const [rangeName, setRangeName] = useState<string>(store.currentRange?.name ?? '');
+  const [rangeName, setRangeName] = useState<string>(store.settings.club?.name ?? store.currentRange?.name ?? '');
+  const joinNames = [...new Set([...(store.settings.club ? [store.settings.club.name] : []), ...store.ranges.map((r) => r.name)])];
   const [restoring, setRestoring] = useState(false);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -71,7 +72,7 @@ function JoinCard({ onJoined }: { onJoined: () => void }) {
             <label htmlFor="rangeShow">랭킹에 함께 보일 활터</label>
             <select id="rangeShow" value={rangeName} onChange={(e) => setRangeName(e.target.value)}>
               <option value="">보이지 않기</option>
-              {store.ranges.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
+              {joinNames.map((n) => <option key={n} value={n}>{n}{n === store.settings.club?.name ? ' (내 소속)' : ''}</option>)}
             </select>
           </div>
           {err && <div className="small err-text" role="alert">{err}</div>}
@@ -111,7 +112,7 @@ function ProfileSheet({ onClose }: { onClose: () => void }) {
   const [nickname, setNickname] = useState(o.nickname);
   const [rangeName, setRangeName] = useState(o.rangeName ?? '');
   const [err, setErr] = useState('');
-  const names = [...new Set([...(o.rangeName ? [o.rangeName] : []), ...store.ranges.map((r) => r.name)])];
+  const names = [...new Set([...(o.rangeName ? [o.rangeName] : []), ...(store.settings.club ? [store.settings.club.name] : []), ...store.ranges.map((r) => r.name)])];
   const save = async () => {
     if (!nickname.trim()) { setErr('닉네임을 정해 주세요.'); return; }
     try { await store.setOnlineProfile(nickname, rangeName || null); toast('고쳤습니다'); onClose(); } catch (e) { setErr(errText(e)); }
@@ -126,7 +127,7 @@ function ProfileSheet({ onClose }: { onClose: () => void }) {
         <label htmlFor="range2">함께 보일 활터</label>
         <select id="range2" value={rangeName} onChange={(e) => setRangeName(e.target.value)}>
           <option value="">보이지 않기</option>
-          {names.map((n) => <option key={n} value={n}>{n}</option>)}
+          {names.map((n) => <option key={n} value={n}>{n}{n === store.settings.club?.name ? ' (내 소속)' : ''}</option>)}
         </select>
       </div>
       {err && <div className="small err-text" role="alert">{err}</div>}
