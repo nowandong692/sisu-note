@@ -6,13 +6,29 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: fetch and extract
+      - name: fetch posts
         run: |
           UA="Mozilla/5.0 (compatible; gukgungrok-probe)"
           curl -sS -m 30 -A "$UA" -L -o list.html "http://kungdo.or.kr/bbs/board.php?bo_table=game_news"
-          curl -sS -m 30 -A "$UA" -L -c jar -o inf.html "https://result.sports.or.kr/NA/INF201.do"
           python3 - <<'PY'
-          import re
+          import re,subprocess,html
           h=open('list.html',encoding='utf-8',errors='replace').read()
-          i=h.find('table-striped'); print(h[i-200:i+4500])
+          ids=[]
+          for m in re.finditer(r'bo_table=game_news(?:&amp;|&)wr_id=(\d+)',h):
+              if m.group(1) not in ids: ids.append(m.group(1))
+          for wid in ids[:8]:
+              url=f"http://kungdo.or.kr/bbs/board.php?bo_table=game_news&wr_id={wid}"
+              p=subprocess.run(['curl','-sS','-m','30','-A','Mozilla/5.0','-L',url],capture_output=True).stdout.decode('utf-8','replace')
+              print('=====',wid)
+              t=re.search(r'<h1[^>]*>([\s\S]*?)</h1>',p) or re.search(r'<title>([\s\S]*?)</title>',p)
+              print('TITLE',re.sub(r'\s+',' ',re.sub('<[^>]+>','',t.group(1))) if t else '')
+              for a in re.finditer(r'href="([^"]*download[^"]*)"[^>]*>([\s\S]*?)</a>',p):
+                  print('FILE',html.unescape(a.group(1))[:160],'|',re.sub(r'\s+',' ',re.sub('<[^>]+>','',a.group(2)))[:120])
+              for a in re.finditer(r'href="(https?://[^"]+)"',p):
+                  u=html.unescape(a.group(1))
+                  if 'kungdo.or.kr' not in u and 'w3.org' not in u: print('LINK',u[:200])
+              i=p.find('bo_v_con'); body=p[i:i+20000] if i>0 else ''
+              body=re.sub(r'<(script|style)[\s\S]*?</\1>','',body)
+              txt=html.unescape(re.sub(r'\s+',' ',re.sub('<[^>]+>',' ',body)))
+              print('BODY',txt[:1500])
           PY
