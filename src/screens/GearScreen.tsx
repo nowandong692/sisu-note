@@ -1,11 +1,8 @@
 import { PENCIL, TRASH } from '../components/icons';
 import { useState } from 'react';
 import { ConfirmButton, HelpButton, Sheet, toast } from '../components/ui';
-import { endsToCsv } from '../domain/csv';
 import { summarize } from '../domain/stats';
 import type { Gear, GearCategory } from '../domain/types';
-import { today } from '../domain/util';
-import { saveTextFile } from '../platform/files';
 import { useStore } from '../state/store';
 
 function ArchiveHelp() {
@@ -175,15 +172,6 @@ export function GearScreen() {
         <ArchiveHelp />
       </div>
 
-      <section className="card">
-        <h2>데이터</h2>
-        <div className="small muted">기록은 이 기기에만 저장됩니다. 가끔 CSV로 내보내 백업해 두세요.</div>
-        <div className="row">
-          <button className="btn ghost small" disabled={!ends.length} onClick={() => saveTextFile(`국궁록-${today()}.csv`, endsToCsv(ends, gear, store.ranges))}>CSV 내보내기</button>
-          <ConfirmButton className="btn ghost small" label="예시 기록 불러오기" confirmLabel="지금 기록을 지우고 불러오기" onConfirm={() => store.loadSample().then(() => toast('예시 기록을 불러왔습니다'))} />
-          <ConfirmButton className="btn ghost small" label="모든 기록 지우기" confirmLabel="정말 지우기" onConfirm={() => store.clearAll().then(() => toast('모든 기록과 장비를 지웠습니다'))} />
-        </div>
-      </section>
       {adding && <GearFormSheet onClose={() => setAdding(false)} />}
       {editingGear && <GearFormSheet editing={editingGear} onClose={() => setEditingGear(null)} />}
       {deleting && <DeleteGearSheet g={deleting} used={usedCount(deleting.id)} onClose={() => setDeleting(null)} />}

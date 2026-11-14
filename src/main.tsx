@@ -4,6 +4,9 @@ import App from './App';
 import { StoreProvider } from './state/store';
 import { repository } from './storage';
 import './styles.css';
+import { applySavedAppearance } from './platform/theme';
+
+applySavedAppearance();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
