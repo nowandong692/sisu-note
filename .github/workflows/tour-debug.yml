@@ -9,11 +9,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - run: |
-          node -e '
-          const u="http://kungdo.or.kr/bbs/board.php?bo_table=game_news&page=1";
-          for (const ua of ["gukgungrok (github.com/nowandong692/sisu-note)", "Mozilla/5.0 (compatible; gukgungrok)"]) {
-            fetch(u,{headers:{"User-Agent":ua}}).then(async r=>{const t=await r.text(); console.log(ua, r.status, r.url, r.headers.get("content-type"), t.length, JSON.stringify(t.slice(0,300)));});
-          }'
-          sleep 8
-          node scripts/tournaments.mjs | head -c 400 || true
+      - run: node scripts/tournaments.mjs | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);console.log("COUNT",j.items.length);for(const t of j.items.slice(-8))console.log("ITEM",JSON.stringify(t))})'

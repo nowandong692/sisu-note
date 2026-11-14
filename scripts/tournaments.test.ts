@@ -31,6 +31,11 @@ describe('협회 대회일정 게시판 읽기', () => {
     expect(r[1].name).toBe('제21회 광양시장기 전국 남·녀 궁도대회');
     expect(r[2].place).toBe('화성 화성정');
   });
+  it('쪽 번호가 붙은 글 주소도 읽는다', () => {
+    const r = parseKungdoList(PAGE.replace(/wr_id=(\d+)"/g, 'wr_id=$1&amp;page=2"'));
+    expect(r).toHaveLength(3);
+    expect(r[0].url).toBe('http://kungdo.or.kr/bbs/board.php?bo_table=game_news&wr_id=1263');
+  });
   it('머리줄이나 다른 표는 건너뛴다', () => {
     expect(parseKungdoList('<table><tr><td>없음</td></tr></table>')).toEqual([]);
   });
