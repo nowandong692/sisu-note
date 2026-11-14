@@ -9,12 +9,12 @@ jobs:
       - run: |
           UA="Mozilla/5.0"
           B=https://result.sports.or.kr
-          curl -sS -m 30 -A "$UA" -c jar -b jar -o inf.html "$B/NA/INF201.do"
-          curl -sS -m 30 -A "$UA" -c jar -b jar -o main.html "$B/NA/main.do" || true
-          curl -sS -m 30 -A "$UA" -c jar -b jar -o det.html -d "classCd=19&gubun=MTA&toCd=202616140&pageIndex=1" "$B/NA/INF202.do"
-          curl -sS -m 30 -A "$UA" -o kd.html "http://kungdo.or.kr/"
+          curl -sS -m 60 --retry 3 --retry-all-errors -A "$UA" -c jar -b jar -o inf.html "$B/NA/INF201.do" || true
+          curl -sS -m 60 --retry 3 --retry-all-errors -A "$UA" -c jar -b jar -o main.html "$B/NA/main.do" || true
+          curl -sS -m 60 --retry 3 --retry-all-errors -A "$UA" -c jar -b jar -o det.html -d "classCd=19&gubun=MTA&toCd=202616140&pageIndex=1" "$B/NA/INF202.do" || true
+          curl -sS -m 60 --retry 3 --retry-all-errors -A "$UA" -o kd.html "http://kungdo.or.kr/" || true
           for f in inf main det kd; do
-            echo "##### $f $(wc -c < $f.html)"
+            touch $f.html; echo "##### $f $(wc -c < $f.html)"
             grep -oiE '(href|action|onclick|src)="[^"]*"[^>]*>?[^<]{0,60}' $f.html | grep -iE 'live|라이브|중계|score|youtube|stream|영상|INF[0-9]|fnMain|tv' | sort -u | head -40
             grep -oiE 'function [A-Za-z0-9_]+\([^)]*\) *\{[^}]{0,300}' $f.html | grep -iE 'live|score|중계' | head -10
           done
