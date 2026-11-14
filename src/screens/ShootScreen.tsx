@@ -4,7 +4,7 @@ import { endMeta } from '../domain/endMeta';
 import { WeatherSheet } from '../components/WeatherSheet';
 import { RangeSheet } from '../components/RangeSheet';
 import { Target, type Mark } from '../components/Target';
-import { Sheet, toast } from '../components/ui';
+import { AutoTextarea, Sheet, toast } from '../components/ui';
 import { classifyTap, directionFor, hitShot, shotLabel } from '../domain/target';
 import { hitsOf } from '../domain/stats';
 import type { End, GearCategory, Shot } from '../domain/types';
@@ -161,7 +161,7 @@ export function ShootScreen() {
         </div>
         <div className="field">
           <label htmlFor="memo">순 메모</label>
-          <textarea id="memo" rows={2} placeholder="예: 만작을 길게 가져가니 좋았음" value={d.memo} onChange={(e) => setD({ ...d, memo: e.target.value })} />
+          <AutoTextarea id="memo" rows={2} placeholder="예: 만작을 길게 가져가니 좋았음" value={d.memo} onChange={(e) => setD({ ...d, memo: e.target.value })} />
         </div>
         <button className="btn" disabled={filled < SHOTS_PER_END} onClick={() => save()}>
           {filled === SHOTS_PER_END ? `${editing ? `${editIndex}순 고친 내용 저장` : `${todays.length + 1}순 저장`} · ${hitCount}중` : `5시를 모두 입력하세요 (${filled}/5)`}

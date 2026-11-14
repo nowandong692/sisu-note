@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from 'react';
 
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   useEffect(() => {
@@ -66,4 +66,17 @@ export function HelpButton({ title, children }: { title: string; children: React
       )}
     </>
   );
+}
+
+/** 내용에 맞춰 높이가 늘어나는 입력 칸 (아주 길면 화면 60%에서 멈추고 칸 안에서 스크롤) */
+export function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement> & { value: string }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const border = el.offsetHeight - el.clientHeight;
+    el.style.height = `${el.scrollHeight + border}px`;
+  }, [props.value]);
+  return <textarea {...props} ref={ref} className={`autogrow ${props.className ?? ''}`} />;
 }
