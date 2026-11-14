@@ -13,7 +13,7 @@ import { SettingsScreen } from './screens/SettingsScreen';
 type Tab = 'shoot' | 'log' | 'rank' | 'gear' | 'settings';
 const TABS: [Tab, string, string][] = [
   ['shoot', '습사', '오늘 습사'],
-  ['log', '기록', '기록과 통계'],
+  ['log', '기록과 통계', '기록과 통계'],
   ['rank', '겨루기', '겨루기'],
   ['gear', '장비', '내 장비'],
   ['settings', '설정', '설정'],
