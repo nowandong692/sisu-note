@@ -3,16 +3,18 @@ import { ConfirmButton, Sheet, ToastHost, toast } from './components/ui';
 import { formatDate, today } from './domain/util';
 import { GearScreen } from './screens/GearScreen';
 import { LogScreen } from './screens/LogScreen';
+import { RankingScreen } from './screens/RankingScreen';
 import { ShootScreen } from './screens/ShootScreen';
 import { StatsScreen } from './screens/StatsScreen';
 import { useStore } from './state/store';
 import { useAutoWeather } from './state/weatherSync';
 
-type Tab = 'shoot' | 'log' | 'stats' | 'gear';
+type Tab = 'shoot' | 'log' | 'stats' | 'rank' | 'gear';
 const TABS: [Tab, string, string][] = [
   ['shoot', '습사', '오늘 습사'],
   ['log', '기록', '기록'],
   ['stats', '통계', '통계'],
+  ['rank', '랭킹', '랭킹'],
   ['gear', '장비', '내 장비'],
 ];
 
@@ -20,6 +22,7 @@ const ICONS: Record<Tab, React.ReactNode> = {
   shoot: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="5" y="3" width="14" height="18" rx="1" /><rect x="8" y="5.5" width="8" height="2.5" /><circle cx="12" cy="15" r="3" /></svg>,
   log: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M8 9h8M8 13h8M8 17h5" /></svg>,
   stats: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>,
+  rank: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M8 4h8v5a4 4 0 0 1-8 0V4z" /><path d="M8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3M12 13v4M8 20h8M10 17h4" /></svg>,
   gear: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6 3c6 4 6 14 0 18M6 3v18" /><path d="M6 12h14M17 9l3 3-3 3" /></svg>,
 };
 
@@ -145,8 +148,9 @@ export default function App() {
             <div className="screen" hidden={tab !== 'shoot'}><ShootScreen /></div>
             <div className="screen" hidden={tab !== 'log'}><LogScreen /></div>
             <div className="screen" hidden={tab !== 'stats'}><StatsScreen /></div>
+            <div className="screen" hidden={tab !== 'rank'}><RankingScreen active={tab === 'rank'} /></div>
             <div className="screen" hidden={tab !== 'gear'}><GearScreen /></div>
-            {firstRun && tab !== 'gear' && (
+            {firstRun && tab !== 'gear' && tab !== 'rank' && (
               <section className="card setup">
                 <h2>처음 오셨나요?</h2>
                 <div className="small muted">장비 탭에서 활·깍지·화살·현을 별명으로 등록하면 장비별로 시수를 비교할 수 있습니다. 먼저 둘러보려면 두 달치 예시 기록을 넣어 보세요. 나중에 장비 탭에서 지울 수 있습니다.</div>
