@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ShotIcon } from '../components/ShotIcon';
 import { endMeta } from '../domain/endMeta';
 import { WeatherSheet } from '../components/WeatherSheet';
@@ -13,6 +13,8 @@ import { formatDate, today } from '../domain/util';
 import { weatherLabel } from '../domain/weather';
 import { useStore } from '../state/store';
 import { focusLogEnd } from './LogScreen';
+import { showLogView } from './RecordsScreen';
+import { GearScreen } from './GearScreen';
 
 interface Draft {
   /** 고치는 중인 순 id (새 순이면 null) */
@@ -68,11 +70,22 @@ function ResetTodaySheet({ count, hits, onClose }: { count: number; hits: number
   );
 }
 
+const OPEN_GEAR = 'gukgungrok:open-gear';
+/** 다른 화면에서 장비 관리를 열 때 (습사 탭으로 옮긴 뒤 부른다) */
+// eslint-disable-next-line react-refresh/only-export-components
+export function openGearManager() { window.dispatchEvent(new Event(OPEN_GEAR)); }
+
 export function ShootScreen() {
   const store = useStore();
   const { settings, ends, gearName, gearOf } = store;
   const [d, setD] = useState<Draft>(emptyDraft);
   const [picking, setPicking] = useState(false);
+  const [managing, setManaging] = useState(false);
+  useEffect(() => {
+    const on = () => { setPicking(false); setManaging(true); };
+    window.addEventListener(OPEN_GEAR, on);
+    return () => window.removeEventListener(OPEN_GEAR, on);
+  }, []);
 
   /** 다른 곳(오늘 기록, 기록 탭)에서 고칠 순을 고르면 입력 칸에 그 순을 불러온다 */
   const editing = store.editId ? ends.find((e) => e.id === store.editId) ?? null : null;
@@ -122,7 +135,7 @@ export function ShootScreen() {
       setAsking(false);
       if (stay) return;
       store.setEditId(null);
-      if (editing.date !== today()) { focusLogEnd(editing.date, editing.id); location.hash = 'log'; }
+      if (editing.date !== today()) { focusLogEnd(editing.date, editing.id); showLogView(); location.hash = 'log'; }
       return;
     }
     const e = await store.saveEnd({ shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim() });
@@ -199,11 +212,11 @@ export function ShootScreen() {
         {editing && <button className="btn ghost" onClick={cancelEdit}>고치지 않고 돌아가기</button>}
       </section>
 
-      <button className="gear" onClick={() => setPicking(true)}>
+      <button className="gear" onClick={() => (noGear ? setManaging(true) : setPicking(true))}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="label">오늘 장비</div>
           <div className="names">
-            {noGear ? '장비 탭에서 활을 추가하면 장비별 분석을 볼 수 있습니다' : `${gearName(settings.current.bow)} · ${gearName(settings.current.ring)} · ${gearName(settings.current.arrow)}${settings.current.string ? ` · ${gearName(settings.current.string)}` : ''}`}
+            {noGear ? '눌러서 활을 추가하면 장비별 분석을 볼 수 있습니다' : `${gearName(settings.current.bow)} · ${gearName(settings.current.ring)} · ${gearName(settings.current.arrow)}${settings.current.string ? ` · ${gearName(settings.current.string)}` : ''}`}
           </div>
         </div>
         <span className="change">바꾸기</span>
@@ -276,7 +289,16 @@ export function ShootScreen() {
               </div>
             </div>
           ))}
+          <div className="row">
+            <button className="btn ghost small" onClick={() => { setPicking(false); setManaging(true); }}>장비 추가·고치기</button>
+          </div>
           <button className="btn" onClick={() => setPicking(false)}>완료</button>
+        </Sheet>
+      )}
+      {managing && (
+        <Sheet title="내 장비" onClose={() => { setManaging(false); setPicking(true); }}>
+          <div className="gear-manage"><GearScreen /></div>
+          <button className="btn" onClick={() => { setManaging(false); setPicking(true); }}>오늘 장비 고르기로 돌아가기</button>
         </Sheet>
       )}
     </>

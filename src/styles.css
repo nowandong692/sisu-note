@@ -241,7 +241,7 @@ nav.tabs {
   padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
 }
-nav.tabs .in { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: repeat(6, 1fr); }
+nav.tabs .in { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); }
 nav.tabs button { background: none; border: none; padding: 10px 0 12px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; color: var(--muted); }
 nav.tabs button svg { width: 22px; height: 22px; }
 nav.tabs button.on { color: var(--hong); font-weight: 600; }
@@ -457,3 +457,5 @@ textarea.autogrow { resize: none; overflow-y: auto; max-height: 60vh; }
 .club-now { display: flex; flex-direction: column; gap: 2px; }
 .club-now b { font-size: 16px; }
 .club-hits { max-height: 45vh; overflow-y: auto; }
+.gear-manage { display: flex; flex-direction: column; gap: 12px; }
+.gear-manage .card { box-shadow: none; border: 1px solid var(--line); }
