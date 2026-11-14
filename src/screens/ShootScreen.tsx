@@ -7,7 +7,7 @@ import { Target, type Mark } from '../components/Target';
 import { AutoTextarea, Sheet, toast } from '../components/ui';
 import { classifyTap, directionFor, hitShot, shotLabel } from '../domain/target';
 import { hitsOf } from '../domain/stats';
-import type { End, GearCategory, Shot } from '../domain/types';
+import type { End, Shot, TrackedCategory } from '../domain/types';
 import { MEMO_TAGS, SHOTS_PER_END } from '../domain/types';
 import { formatDate, today } from '../domain/util';
 import { weatherLabel } from '../domain/weather';
@@ -277,7 +277,7 @@ export function ShootScreen() {
       {picking && (
         <Sheet title="오늘 장비" onClose={() => setPicking(false)}>
           <div className="small muted">고른 장비는 다음 순부터 적용됩니다.</div>
-          {([['bow', '활'], ['ring', '깍지'], ['arrow', '화살'], ['string', '현']] as [GearCategory, string][]).map(([c, name]) => (
+          {([['bow', '활'], ['ring', '깍지'], ['arrow', '화살'], ['string', '현']] as [TrackedCategory, string][]).map(([c, name]) => (
             <div className="field" key={c}>
               <label>{name}</label>
               <div className="chips">

@@ -1,5 +1,7 @@
-/** 장비 종류: 활, 깍지, 화살, 현 */
-export type GearCategory = 'bow' | 'ring' | 'arrow' | 'string';
+/** 장비 종류: 활, 깍지, 화살, 현, 기타 (궁대, 시복처럼 사용자가 종류를 직접 적는 것) */
+export type GearCategory = 'bow' | 'ring' | 'arrow' | 'string' | 'etc';
+/** 순마다 기록에 붙는 장비 종류 (기타는 목록으로만 관리한다) */
+export type TrackedCategory = Exclude<GearCategory, 'etc'>;
 
 export interface Gear {
   id: string;
@@ -12,6 +14,8 @@ export interface Gear {
   stringType?: string;
   /** 현만: 현 굵기 (예: 18합, 2.0mm). 쓰는 단위가 사람마다 달라 글자로 둔다. */
   thickness?: string;
+  /** 기타만: 사용자가 적은 종류 (예: 궁대, 시복, 팔찌) */
+  kind?: string;
   /** 브랜드·모델, 호수, 재질, 무게 같은 자유 입력 */
   detail?: string;
   startedOn: string; // YYYY-MM-DD
