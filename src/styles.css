@@ -384,3 +384,35 @@ textarea.autogrow { resize: none; overflow-y: auto; max-height: 60vh; }
 .sw-meok i:nth-child(1) { background: #F3F0E8; } .sw-meok i:nth-child(2) { background: #1F1E1C; } .sw-meok i:nth-child(3) { background: #A23B2A; }
 .sw-cheongja i:nth-child(1) { background: #EDF3F0; } .sw-cheongja i:nth-child(2) { background: #1B2A27; } .sw-cheongja i:nth-child(3) { background: #2C7A69; }
 .sw-dancheong i:nth-child(1) { background: #F1F4F4; } .sw-dancheong i:nth-child(2) { background: #12324A; } .sw-dancheong i:nth-child(3) { background: #C94A22; }
+/* 대회 일정 */
+.tour-month + .tour-month { margin-top: 6px; }
+.tour-month-head { font-size: 13px; font-weight: 700; color: var(--muted); padding: 4px 2px; }
+.tour-list { list-style: none; margin: 0; padding: 0; }
+.tour-row a { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; }
+.tour-list .tour-row:last-child a { border-bottom: none; }
+.tour-row.mine a { background: var(--hong-soft); border-radius: 8px; }
+.tour-row .dday { flex-shrink: 0; min-width: 52px; text-align: center; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 3px 6px; background: var(--paper); color: var(--ink); font-variant-numeric: tabular-nums; }
+.tour-row .dday.live { background: var(--hong); color: #fff; }
+.tour-row .tour-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tour-row .tour-main b { font-size: 14px; line-height: 1.35; }
+.tour-row .chev { color: var(--muted); font-size: 18px; flex-shrink: 0; }
+.tour-note { padding: 0 6px; line-height: 1.5; }
+.tour-note a, .empty a { color: var(--hong); }
+/* 대회 달력 */
+.tour-cal { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.tour-cal th { font-size: 11px; color: var(--muted); font-weight: 600; padding: 4px 0; text-align: center; }
+.tour-cal th.sun, .cal-day.sun .n { color: var(--hong); }
+.tour-cal th.sat, .cal-day.sat .n { color: #2F6FD0; }
+.tour-cal td, .tour-cal th { padding: 1px; border: none; }
+.cal-day { width: 100%; height: 46px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 3px; padding: 5px 0 0; border: 1.5px solid transparent; border-radius: 8px; background: none; cursor: pointer; font: inherit; color: var(--ink); }
+.cal-day .n { font-size: 13px; font-variant-numeric: tabular-nums; }
+.cal-day.past { opacity: .5; }
+.cal-day.today .n { font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+.cal-day.on { border-color: var(--ink); background: var(--paper); opacity: 1; }
+.cal-day .marks { display: flex; gap: 2px; align-items: center; min-height: 6px; }
+.cal-day .marks i { width: 6px; height: 6px; border-radius: 50%; background: var(--ink); opacity: .55; }
+.cal-day .marks i.mine { opacity: 1; }
+.cal-day .marks i.mine { background: var(--hong); }
+.cal-day .marks em { font-style: normal; font-size: 9px; color: var(--muted); line-height: 1; }
+.cal-picked { border-top: 1px solid var(--line); padding-top: 6px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
