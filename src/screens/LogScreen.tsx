@@ -11,6 +11,7 @@ import { useStore } from '../state/store';
 import { endMeta } from '../domain/endMeta';
 import { EndLine } from './ShootScreen';
 import { MemoView } from './MemoView';
+import { spanLabel, spanOf } from '../domain/session';
 
 /**
  * 그날 쏜 화살을 과녁 하나에 모두 찍는다.
@@ -115,6 +116,7 @@ export function LogScreen() {
             </button>
             {isOpen && (
               <div className="detail">
+                <div className="weather-line">습사 시간 {spanLabel(spanOf(list.map((e) => e.recordedAt))!)}</div>
                 {(() => {
                   const ws = [...new Set(list.map((e) => weatherLabel(e.weather)).filter(Boolean))];
                   return ws.length > 0 && <div className="weather-line">날씨 {ws.join(' → ')}</div>;

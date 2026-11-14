@@ -7,6 +7,7 @@ import {
 import { MISS_DIRECTIONS } from '../domain/types';
 import { dayOffset } from '../domain/util';
 import { useStore } from '../state/store';
+import { formatDuration, totalMinutes } from '../domain/session';
 
 const PERIODS: [number, string][] = [[30, '최근 30일'], [90, '최근 90일'], [0, '전체']];
 
@@ -169,6 +170,12 @@ export function StatsScreen() {
           <div className="tile"><b>{Math.round(s.rate * 100)}%</b><span>중률</span></div>
           <div className="tile"><b>{s.perfect}</b><span>몰기</span></div>
         </div>
+        {(() => {
+          const t = totalMinutes(ends);
+          return t.minutes > 0 && (
+            <div className="small muted">습사 {t.days}일 · 습사 시간 {formatDuration(t.minutes)} · 하루 평균 {formatDuration(Math.round(t.minutes / t.timedDays))} (그날 첫 순부터 마지막 순까지)</div>
+          );
+        })()}
       </section>
       <section className="card"><h2>주별 순당 평균</h2><TrendChart data={weeklyTrend(ends)} /></section>
       <MonthlyCard rows={monthlyStats(allEnds.filter(pick))} />
