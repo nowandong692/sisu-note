@@ -361,3 +361,4 @@ input[type=search] { width: 100%; border: 1px solid var(--line); border-radius: 
 .rules h4 { margin: 10px 0 4px; font-size: 14px; }
 .rules ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.55; }
 .rules li + li { margin-top: 3px; }
+textarea.autogrow { resize: none; overflow-y: auto; max-height: 60vh; }
