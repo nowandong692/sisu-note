@@ -72,6 +72,8 @@ export interface Store extends Data {
   leaveOnline(): Promise<void>;
   loadSample(): Promise<void>;
   clearAll(): Promise<void>;
+  /** 오늘 저장한 순을 모두 지운다 (랭킹에 올린 오늘 순도 지운다). 지운 순 수를 돌려준다. */
+  clearToday(): Promise<number>;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -319,6 +321,16 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       if (!o) return;
       await rpc('delete_me', { p_key: o.key });
       await updateSettings({ online: null });
+    },
+    async clearToday() {
+      const gone = data.ends.filter((e) => e.date === today());
+      if (editId && gone.some((e) => e.id === editId)) setEditId(null);
+      for (const e of gone) await repo.deleteEnd(e.id);
+      const ids = new Set(gone.map((e) => e.id));
+      setData((p) => ({ ...p, ends: p.ends.filter((e) => !ids.has(e.id)) }));
+      endsRef.current = endsRef.current.filter((e) => !ids.has(e.id));
+      for (const e of gone) await enqueue('del', e);
+      return gone.length;
     },
     async clearAll() {
       await repo.replaceAll({ gear: [], ends: [] });
