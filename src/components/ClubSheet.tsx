@@ -6,7 +6,7 @@ import { Sheet, toast } from './ui';
 
 /** 내 소속 활터 정하기: 협회 활터현황에서 찾아 고르거나, 없으면 직접 적는다 */
 export function ClubSheet({ onClose }: { onClose: () => void }) {
-  const { settings, updateSettings } = useStore();
+  const { settings, setClub } = useStore();
   const [file, setFile] = useState<HwalterFile | null>(null);
   const [failed, setFailed] = useState(false);
   const [q, setQ] = useState(settings.club?.name ?? '');
@@ -29,7 +29,7 @@ export function ClubSheet({ onClose }: { onClose: () => void }) {
             <ol className="hw-list club-hits">
               {hits.map((h) => (
                 <li key={h.id} className="hw-row">
-                  <button className="hw-head" onClick={() => updateSettings({ club: { name: h.name, region: h.region, address: h.address, hwalterId: h.id } }).then(() => done(`${h.name}을(를) 내 소속으로 정했습니다`))}>
+                  <button className="hw-head" onClick={() => setClub({ name: h.name, region: h.region, address: h.address, hwalterId: h.id }).then(() => done(`${h.name}을(를) 내 소속으로 정했습니다`))}>
                     <span className="hw-main"><b>{h.name}</b><span className="small muted">{h.address}</span></span>
                     {h.region && <span className="hw-region">{h.region}</span>}
                   </button>
@@ -40,7 +40,7 @@ export function ClubSheet({ onClose }: { onClose: () => void }) {
           <button className="btn ghost small" onClick={() => { setTyping(true); setName(q.trim()); }}>목록에 없어요, 직접 적을게요</button>
         </>
       ) : (
-        <form className="field" onSubmit={(e) => { e.preventDefault(); if (name.trim()) updateSettings({ club: { name: name.trim() } }).then(() => done('내 소속을 정했습니다')); }}>
+        <form className="field" onSubmit={(e) => { e.preventDefault(); if (name.trim()) setClub({ name: name.trim() }).then(() => done('내 소속을 정했습니다')); }}>
           <label htmlFor="clubName">소속 활터 이름</label>
           {failed && <div className="small muted">활터 목록을 불러오지 못해 직접 적습니다.</div>}
           <input id="clubName" type="text" autoFocus maxLength={20} placeholder="예: 황학정" value={name} onChange={(e) => setName(e.target.value)} />

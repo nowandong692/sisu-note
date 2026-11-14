@@ -32,7 +32,7 @@ function Row({ h, mine, club, open, onToggle, onClub }: { h: Hwalter; mine: bool
 
 /** 협회에 등록된 활터를 이름·주소로 찾아보기 */
 export function HwalterView({ active }: { active: boolean }) {
-  const { ranges, settings, updateSettings } = useStore();
+  const { ranges, settings, setClub } = useStore();
   const club = settings.club ?? null;
   const [file, setFile] = useState<HwalterFile | null>(null);
   const [err, setErr] = useState(false);
@@ -84,7 +84,7 @@ export function HwalterView({ active }: { active: boolean }) {
         {hits.length === 0
           ? <div className="empty small">찾는 활터가 없습니다. 이름 일부만 넣어 보세요.</div>
           : <ol className="hw-list">{hits.slice(0, limit).map((h) => <Row key={h.id} h={h} mine={isMyRange(h.name, names)} club={isMyClub(h, club)} open={open === h.id} onToggle={() => setOpen(open === h.id ? null : h.id)}
-            onClub={() => updateSettings({ club: { name: h.name, region: h.region, address: h.address, hwalterId: h.id } }).then(() => toast(`${h.name}을(를) 내 소속으로 정했습니다`))} />)}</ol>}
+            onClub={() => setClub({ name: h.name, region: h.region, address: h.address, hwalterId: h.id }).then(() => toast(`${h.name}을(를) 내 소속으로 정했습니다`))} />)}</ol>}
         {hits.length > limit && <button className="btn ghost small" style={{ alignSelf: 'center' }} onClick={() => setLimit(limit + PAGE)}>{Math.min(PAGE, hits.length - limit)}곳 더 보기</button>}
       </section>
       <div className="small muted tour-note">

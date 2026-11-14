@@ -36,7 +36,7 @@ function AppearanceSection() {
 
 /** 내 소속 활터 */
 function ClubSection() {
-  const { settings, updateSettings } = useStore();
+  const { settings, setClub } = useStore();
   const [open, setOpen] = useState(false);
   const club = settings.club;
   return (
@@ -52,7 +52,7 @@ function ClubSection() {
       )}
       <div className="row">
         <button className="btn small" onClick={() => setOpen(true)}>{club ? '바꾸기' : '소속 정하기'}</button>
-        {club && <ConfirmButton className="btn ghost small" label="소속 지우기" confirmLabel="지우기" onConfirm={() => updateSettings({ club: null }).then(() => toast('소속을 지웠습니다'))} />}
+        {club && <ConfirmButton className="btn ghost small" label="소속 지우기" confirmLabel="지우기" onConfirm={() => setClub(null).then(() => toast('소속을 지웠습니다'))} />}
       </div>
       {open && <ClubSheet onClose={() => setOpen(false)} />}
     </section>
