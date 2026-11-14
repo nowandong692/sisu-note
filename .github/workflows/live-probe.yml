@@ -13,10 +13,14 @@ jobs:
           curl -sS -m 60 --retry 3 --retry-all-errors -A "$UA" -c jar -b jar -o main.html "$B/NA/main.do" || true
           curl -sS -m 60 --retry 3 --retry-all-errors -A "$UA" -c jar -b jar -o det.html -d "classCd=19&gubun=MTA&toCd=202616140&pageIndex=1" "$B/NA/INF202.do" || true
           curl -sS -m 60 --retry 3 --retry-all-errors -A "$UA" -o kd.html "http://kungdo.or.kr/" || true
-          for f in inf main det kd; do
-            touch $f.html; echo "##### $f $(wc -c < $f.html)"
-            grep -oiE '(href|action|onclick|src)="[^"]*"[^>]*>?[^<]{0,60}' $f.html | grep -iE 'live|라이브|중계|score|youtube|stream|영상|INF[0-9]|fnMain|tv' | sort -u | head -40
-            grep -oiE 'function [A-Za-z0-9_]+\([^)]*\) *\{[^}]{0,300}' $f.html | grep -iE 'live|score|중계' | head -10
-          done
-          echo "##### det text"
-          sed -e 's/<script[^>]*>[^<]*<\/script>//g' -e 's/<[^>]*>/ /g' det.html | tr -s ' \t' ' ' | grep -v '^ *$' | grep -vE '^\s*(var|function|frm|if|\}|//|\.|@media|width|height|display)' | sed -n '1,400p' | awk 'length>2' | tail -120
+          python3 - <<'PY'
+          import re
+          d=open('det.html',encoding='utf-8',errors='replace').read()
+          for fn in ['fnEventVod','fnMainLiveScore','fnGameInfo','fnDetail','fnSchedule']:
+              i=d.find('function '+fn)
+              if i>=0: print('FN',fn, d[i:i+700].replace('\n',' ')[:700])
+          for m in re.finditer(r'onclick="[^"]*"', d): print('ONCLICK', m.group(0)[:200])
+          k=open('kd.html',encoding='utf-8',errors='replace').read()
+          for m in re.finditer(r'(youtube[^"\']*|tv\.sports[^"\']*)', k): print('KDLINK', m.group(0)[:150])
+          PY
+          curl -sS -m 30 -A "Mozilla/5.0" -L "https://www.youtube.com/channel/UCAmMjZ44ugH9GmgYq0du5PQ" | grep -oE '<title>[^<]*</title>|"subscriberCountText":\{[^}]*\}' | head -3 || true
