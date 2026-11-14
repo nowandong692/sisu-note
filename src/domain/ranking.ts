@@ -68,3 +68,21 @@ export function rankPeriod(archers: Archer[], p: RankPeriod): RankRow[] {
     return { id: r.id, name: r.name, ends: r.ends, hits: r.hits, per15: r.per15, place, order: i + 1 };
   });
 }
+
+/** 습사량 랭킹에 보여 줄 인원 */
+export const VOLUME_TOP = 10;
+
+export interface VolumeRow { id: string; name: string; ends: number; hits: number; order: number }
+
+/**
+ * 습사량 랭킹: 그 기간에 순을 가장 많이 쏜 궁사 10명. 최소 순 수 조건은 없다.
+ * 순 수가 같으면 관중이 많은 궁사가 앞선다.
+ */
+export function rankVolume(archers: Archer[]): VolumeRow[] {
+  return archers
+    .filter((a) => a.ends.length > 0)
+    .map((a) => ({ id: a.id, name: a.name, ends: a.ends.length, hits: a.ends.reduce((n, e) => n + e.hits.filter(Boolean).length, 0) }))
+    .sort((x, y) => (y.ends - x.ends) || (y.hits - x.hits))
+    .slice(0, VOLUME_TOP)
+    .map((r, i) => ({ ...r, order: i + 1 }));
+}

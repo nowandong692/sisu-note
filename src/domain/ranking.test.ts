@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareSeondasisu, periodKey, rankPeriod, type Archer } from './ranking';
+import { compareSeondasisu, periodKey, rankPeriod, rankVolume, type Archer } from './ranking';
 
 const T = true, F = false;
 /** n순을 모두 같은 다섯 시로 */
@@ -41,5 +41,14 @@ describe('랭킹', () => {
   it('평균이 높은 궁사가 순 수와 상관없이 앞선다', () => {
     const r = rankPeriod([archer('many', ends(10, [T, T, T, T, F])), archer('few', ends(3, [T, T, T, T, T]))], 'day');
     expect(r.map((x) => x.id)).toEqual(['few', 'many']);
+  });
+
+  it('습사량 랭킹은 순이 많은 10명, 같으면 관중이 많은 궁사', () => {
+    const list = Array.from({ length: 12 }, (_, i) => archer(`p${i}`, ends(i + 1, [F, F, F, F, F])));
+    list.push(archer('tie', ends(12, [T, F, F, F, F])));
+    const r = rankVolume(list);
+    expect(r).toHaveLength(10);
+    expect(r.slice(0, 2).map((x) => x.id)).toEqual(['tie', 'p11']);
+    expect(rankVolume([archer('none', [])])).toEqual([]);
   });
 });
