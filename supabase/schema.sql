@@ -192,7 +192,7 @@ alter table public.admins enable row level security;
 create or replace function public._admin(p_admin text) returns void
 language plpgsql stable security definer set search_path = public, extensions as $$
 begin
-  if p_admin is null or char_length(p_admin) < 12
+  if p_admin is null or char_length(p_admin) < 20
      or not exists (select 1 from admins where key_hash = digest(p_admin, 'sha256')) then
     raise exception 'not admin';
   end if;
