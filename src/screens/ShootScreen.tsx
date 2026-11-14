@@ -13,6 +13,7 @@ import { formatDate, today } from '../domain/util';
 import { weatherLabel } from '../domain/weather';
 import { useStore } from '../state/store';
 import { focusLogEnd } from './LogScreen';
+import { showLogView } from './RecordsScreen';
 
 interface Draft {
   /** 고치는 중인 순 id (새 순이면 null) */
@@ -122,7 +123,7 @@ export function ShootScreen() {
       setAsking(false);
       if (stay) return;
       store.setEditId(null);
-      if (editing.date !== today()) { focusLogEnd(editing.date, editing.id); location.hash = 'log'; }
+      if (editing.date !== today()) { focusLogEnd(editing.date, editing.id); showLogView(); location.hash = 'log'; }
       return;
     }
     const e = await store.saveEnd({ shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim() });

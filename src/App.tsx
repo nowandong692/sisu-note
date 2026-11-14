@@ -2,20 +2,18 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ConfirmButton, Sheet, ToastHost, toast } from './components/ui';
 import { formatDate, today } from './domain/util';
 import { GearScreen } from './screens/GearScreen';
-import { LogScreen } from './screens/LogScreen';
 import { RankingScreen } from './screens/RankingScreen';
 import { ShootScreen } from './screens/ShootScreen';
-import { StatsScreen } from './screens/StatsScreen';
+import { RecordsScreen } from './screens/RecordsScreen';
 import { useStore } from './state/store';
 import { useAutoWeather } from './state/weatherSync';
 import { applyAppearance } from './platform/theme';
 import { SettingsScreen } from './screens/SettingsScreen';
 
-type Tab = 'shoot' | 'log' | 'stats' | 'rank' | 'gear' | 'settings';
+type Tab = 'shoot' | 'log' | 'rank' | 'gear' | 'settings';
 const TABS: [Tab, string, string][] = [
   ['shoot', '습사', '오늘 습사'],
-  ['log', '기록', '기록'],
-  ['stats', '통계', '통계'],
+  ['log', '기록', '기록과 통계'],
   ['rank', '겨루기', '겨루기'],
   ['gear', '장비', '내 장비'],
   ['settings', '설정', '설정'],
@@ -24,7 +22,6 @@ const TABS: [Tab, string, string][] = [
 const ICONS: Record<Tab, React.ReactNode> = {
   shoot: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="5" y="3" width="14" height="18" rx="1" /><rect x="8" y="5.5" width="8" height="2.5" /><circle cx="12" cy="15" r="3" /></svg>,
   log: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M8 9h8M8 13h8M8 17h5" /></svg>,
-  stats: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>,
   rank: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M8 4h8v5a4 4 0 0 1-8 0V4z" /><path d="M8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3M12 13v4M8 20h8M10 17h4" /></svg>,
   gear: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6 3c6 4 6 14 0 18M6 3v18" /><path d="M6 12h14M17 9l3 3-3 3" /></svg>,
   settings: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" /><circle cx="16" cy="6" r="2" /><circle cx="10" cy="12" r="2" /><circle cx="18" cy="18" r="2" /></svg>,
@@ -32,7 +29,8 @@ const ICONS: Record<Tab, React.ReactNode> = {
 
 /** 탭은 주소 끝(#log 같은)에 남겨서 새로 고쳐도, 앱 뒤로가기를 눌러도 자연스럽게 움직이게 한다. */
 function readTab(): Tab {
-  const h = location.hash.slice(1);
+  // 통계는 기록 탭 안으로 옮겼다 (#stats는 기록 탭의 통계 보기)
+  const h = location.hash.slice(1) === 'stats' ? 'log' : location.hash.slice(1);
   return (TABS.some(([t]) => t === h) ? h : 'shoot') as Tab;
 }
 
@@ -154,8 +152,7 @@ export default function App() {
           <>
             {/* 탭을 옮겨도 화면을 지우지 않고 숨겨 둔다. 펼친 날짜, 검색어, 스크롤 위치가 그대로 남는다. */}
             <div className="screen" hidden={tab !== 'shoot'}><ShootScreen /></div>
-            <div className="screen" hidden={tab !== 'log'}><LogScreen /></div>
-            <div className="screen" hidden={tab !== 'stats'}><StatsScreen /></div>
+            <div className="screen" hidden={tab !== 'log'}><RecordsScreen /></div>
             <div className="screen" hidden={tab !== 'rank'}><RankingScreen active={tab === 'rank'} /></div>
             <div className="screen" hidden={tab !== 'gear'}><GearScreen /></div>
             <div className="screen" hidden={tab !== 'settings'}><SettingsScreen /></div>
