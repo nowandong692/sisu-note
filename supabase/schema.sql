@@ -17,6 +17,8 @@ create table if not exists public.archers (
   key_hash bytea not null unique,
   nickname text not null,
   range_name text,
+  -- 관리자가 랭킹에서 숨긴 궁사 (본인에게는 보인다)
+  hidden boolean not null default false,
   created_at timestamptz not null default now(),
   constraint nickname_len check (char_length(nickname) between 1 and 12),
   constraint range_len check (range_name is null or char_length(range_name) <= 30)
@@ -177,3 +179,120 @@ revoke all on function public._archer(text), public._today(), public._max_ends_p
 grant execute on function public.register(text, text), public.whoami(text), public.set_profile(text, text, text),
   public.submit_end(text, text, boolean[], timestamptz), public.delete_end(text, text), public.delete_me(text),
   public.period_totals(text, date, text), public.archer_ends(text, text, date), public.report(text, text) to anon;
+
+-- 관리자 (003_admin.sql). 관리자 코드는 저장소에 넣지 않고 SQL Editor에서 직접 등록한다:
+--   insert into public.admins (key_hash) values (extensions.digest('긴-관리자-코드', 'sha256'));
+create table if not exists public.admins (
+  key_hash bytea primary key,
+  created_at timestamptz not null default now()
+);
+alter table public.admins enable row level security;
+
+
+create or replace function public._admin(p_admin text) returns void
+language plpgsql stable security definer set search_path = public, extensions as $$
+begin
+  if p_admin is null or char_length(p_admin) < 12
+     or not exists (select 1 from admins where key_hash = digest(p_admin, 'sha256')) then
+    raise exception 'not admin';
+  end if;
+end $$;
+
+-- 관리자 코드 확인 (맞으면 true, 틀리면 오류)
+create or replace function public.admin_check(p_admin text) returns boolean
+language plpgsql stable security definer set search_path = public, extensions as $$
+begin perform _admin(p_admin); return true; end $$;
+
+-- 현황: 참여자, 숨긴 궁사, 오늘·이번 주 순 수, 신고 수
+create or replace function public.admin_overview(p_admin text)
+returns table (archers int, hidden int, ends_today int, ends_week int, active_week int, reports int)
+language plpgsql stable security definer set search_path = public, extensions as $$
+#variable_conflict use_column
+declare t date := _today();
+begin
+  perform _admin(p_admin);
+  return query select
+    (select count(*)::int from public.archers),
+    (select count(*)::int from public.archers where public.archers.hidden),
+    (select count(*)::int from ends where day = t),
+    (select count(*)::int from ends where day > t - 7),
+    (select count(distinct archer_id)::int from ends where day > t - 7),
+    (select count(*)::int from public.reports);
+end $$;
+
+-- 신고 목록: 신고마다 대상 닉네임, 소속, 숨김 여부, 그 궁사가 받은 신고 수
+create or replace function public.admin_reports(p_admin text)
+returns table (id bigint, nickname text, range_name text, hidden boolean, reason text, created_at timestamptz, total int)
+language plpgsql stable security definer set search_path = public, extensions as $$
+#variable_conflict use_column
+begin
+  perform _admin(p_admin);
+  return query
+    select r.id, a.nickname, a.range_name, a.hidden, r.reason, r.created_at,
+           (count(*) over (partition by r.target))::int
+    from public.reports r join public.archers a on a.id = r.target
+    order by r.created_at desc
+    limit 200;
+end $$;
+
+-- 의심 기록: 최근 p_days일 동안 하루 순 수가 많거나(30순 이상) 순 사이가 지나치게 짧은(평균 1분 미만) 날
+create or replace function public.admin_suspects(p_admin text, p_days int default 14)
+returns table (nickname text, range_name text, hidden boolean, day date, ends int, hits int, minutes int)
+language plpgsql stable security definer set search_path = public, extensions as $$
+#variable_conflict use_column
+begin
+  perform _admin(p_admin);
+  return query
+    select a.nickname, a.range_name, a.hidden, d.day, d.n, d.h, d.m
+    from (
+      select e.archer_id, e.day, count(*)::int as n,
+             sum((select count(*) from unnest(e.hits) x where x))::int as h,
+             (extract(epoch from max(e.recorded_at) - min(e.recorded_at)) / 60)::int as m
+      from ends e where e.day > _today() - greatest(1, least(p_days, 60))
+      group by e.archer_id, e.day
+    ) d join public.archers a on a.id = d.archer_id
+    where d.n >= 30 or (d.n >= 5 and d.m < d.n)
+    order by d.day desc, d.n desc
+    limit 200;
+end $$;
+
+create or replace function public.admin_set_hidden(p_admin text, p_nickname text, p_hidden boolean) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+begin
+  perform _admin(p_admin);
+  update archers set hidden = p_hidden where lower(nickname) = lower(p_nickname);
+end $$;
+
+-- 부적절한 닉네임을 "궁사1a2b" 같은 이름으로 바꾼다
+create or replace function public.admin_reset_nickname(p_admin text, p_nickname text) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+begin
+  perform _admin(p_admin);
+  update archers set nickname = '궁사' || left(replace(id::text, '-', ''), 6) where lower(nickname) = lower(p_nickname);
+end $$;
+
+-- 그 궁사의 하루 기록 삭제 (부정 기록)
+create or replace function public.admin_delete_day(p_admin text, p_nickname text, p_day date) returns int
+language plpgsql security definer set search_path = public, extensions as $$
+declare n int;
+begin
+  perform _admin(p_admin);
+  delete from ends e using archers a
+  where a.id = e.archer_id and lower(a.nickname) = lower(p_nickname) and e.day = p_day;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
+-- 처리한 신고 지우기
+create or replace function public.admin_dismiss_report(p_admin text, p_id bigint) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+begin
+  perform _admin(p_admin);
+  delete from reports where id = p_id;
+end $$;
+
+revoke all on function public._admin(text) from public, anon, authenticated;
+grant execute on function public.admin_check(text), public.admin_overview(text), public.admin_reports(text),
+  public.admin_suspects(text, int), public.admin_set_hidden(text, text, boolean), public.admin_reset_nickname(text, text),
+  public.admin_delete_day(text, text, date), public.admin_dismiss_report(text, bigint) to anon;
+
