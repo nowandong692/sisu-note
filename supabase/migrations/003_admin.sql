@@ -1,9 +1,13 @@
 -- 003: 관리자 페이지 (신고 보기, 랭킹에서 숨기기, 닉네임 초기화, 기록 삭제, 현황)
 --
--- 관리자 코드는 저장소나 앱에 넣지 않는다. 이 파일을 실행한 뒤, SQL Editor에서 직접 한 번 등록한다:
---   insert into public.admins (key_hash) values (extensions.digest('여기에-긴-관리자-코드', 'sha256'));
--- 앱의 설정 탭 맨 아래 "관리자"에서 같은 코드를 넣으면 열린다. 서버에는 코드의 해시만 남는다.
--- 코드를 바꾸려면 delete from public.admins; 후 다시 insert 한다.
+-- 관리자 코드는 저장소나 앱에 넣지 않는다. 이 파일을 실행한 뒤, SQL Editor에서 아래 두 줄을 한 번 실행해
+-- 서버가 만든 무작위 코드(32글자)를 받는다. 결과로 나온 코드는 다시 볼 수 없으니 비밀번호 관리자에 적어 둔다.
+-- 서버에는 코드의 해시만 남는다.
+--   delete from public.admins;
+--   with c as (select translate(encode(extensions.gen_random_bytes(24), 'base64'), '+/', '-_') as code)
+--   insert into public.admins (key_hash) select extensions.digest(code, 'sha256') from c returning (select code from c);
+-- 관리자 페이지는 앱 주소 끝에 #admin을 붙여 연다 (앱 안에는 들어가는 버튼이 없다).
+-- 코드를 바꾸려면 위 두 줄을 다시 실행한다 (예전 코드는 바로 막힌다).
 
 create table if not exists public.admins (
   key_hash bytea primary key,
@@ -17,7 +21,7 @@ alter table public.archers add column if not exists hidden boolean not null defa
 create or replace function public._admin(p_admin text) returns void
 language plpgsql stable security definer set search_path = public, extensions as $$
 begin
-  if p_admin is null or char_length(p_admin) < 12
+  if p_admin is null or char_length(p_admin) < 20
      or not exists (select 1 from admins where key_hash = digest(p_admin, 'sha256')) then
     raise exception 'not admin';
   end if;
