@@ -38,3 +38,26 @@ export function periodText(t: Pick<Tournament, 'start' | 'end'>): string {
   const md = (d: string) => `${Number(d.slice(5, 7))}.${Number(d.slice(8, 10))}`;
   return t.start === t.end ? md(t.start) : `${md(t.start)} ~ ${md(t.end)}`;
 }
+
+/** 달력 한 달: 일요일부터 시작하는 주 단위 칸 (앞뒤 빈칸은 null) */
+export function monthGrid(ym: string): (string | null)[][] {
+  const [y, m] = ym.split('-').map(Number);
+  const first = new Date(y, m - 1, 1).getDay();
+  const days = new Date(y, m, 0).getDate();
+  const cells: (string | null)[] = [...Array(first).fill(null)];
+  for (let d = 1; d <= days; d++) cells.push(`${ym}-${String(d).padStart(2, '0')}`);
+  while (cells.length % 7) cells.push(null);
+  const weeks: (string | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  return weeks;
+}
+
+export function onDay(items: Tournament[], day: string): Tournament[] {
+  return items.filter((t) => t.start <= day && day <= t.end).sort((a, b) => a.start.localeCompare(b.start));
+}
+
+export function shiftMonth(ym: string, n: number): string {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}

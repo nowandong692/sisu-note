@@ -398,3 +398,21 @@ textarea.autogrow { resize: none; overflow-y: auto; max-height: 60vh; }
 .tour-row .chev { color: var(--muted); font-size: 18px; flex-shrink: 0; }
 .tour-note { padding: 0 6px; line-height: 1.5; }
 .tour-note a, .empty a { color: var(--hong); }
+/* 대회 달력 */
+.tour-cal { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.tour-cal th { font-size: 11px; color: var(--muted); font-weight: 600; padding: 4px 0; text-align: center; }
+.tour-cal th.sun, .cal-day.sun .n { color: var(--hong); }
+.tour-cal th.sat, .cal-day.sat .n { color: #2F6FD0; }
+.tour-cal td, .tour-cal th { padding: 1px; border: none; }
+.cal-day { width: 100%; height: 46px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 3px; padding: 5px 0 0; border: 1.5px solid transparent; border-radius: 8px; background: none; cursor: pointer; font: inherit; color: var(--ink); }
+.cal-day .n { font-size: 13px; font-variant-numeric: tabular-nums; }
+.cal-day.past { opacity: .5; }
+.cal-day.today .n { font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+.cal-day.on { border-color: var(--ink); background: var(--paper); opacity: 1; }
+.cal-day .marks { display: flex; gap: 2px; align-items: center; min-height: 6px; }
+.cal-day .marks i { width: 6px; height: 6px; border-radius: 50%; background: var(--ink); opacity: .55; }
+.cal-day .marks i.mine { opacity: 1; }
+.cal-day .marks i.mine { background: var(--hong); }
+.cal-day .marks em { font-style: normal; font-size: 9px; color: var(--muted); line-height: 1; }
+.cal-picked { border-top: 1px solid var(--line); padding-top: 6px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
