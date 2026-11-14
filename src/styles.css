@@ -50,6 +50,26 @@ button { cursor: pointer; }
 .filters .field { flex: 1; min-width: 0; }
 .wind-table td.top { font-weight: 700; color: var(--hong); }
 .wind-table th, .wind-table td { padding-left: 4px; padding-right: 4px; }
+/* 랭킹 */
+.join-card .btn.ghost.small { align-self: flex-start; }
+.recovery-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 18px; font-weight: 700; letter-spacing: 1px; text-align: center;
+  background: var(--paper); border-radius: 10px; padding: 14px 8px; word-break: break-all; user-select: all; }
+.rank-kind { align-self: stretch; }
+.rank-kind button { flex: 1; }
+.period-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.period-nav b { font-size: 15px; }
+.rank-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.rank-row { display: flex; align-items: center; gap: 10px; padding: 10px 6px; border-bottom: 1px solid var(--line); border-radius: 8px; }
+.rank-row:last-child { border-bottom: none; }
+.rank-row.me { background: var(--hong-soft); }
+.rank-row .place { flex-shrink: 0; min-width: 40px; text-align: center; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 3px 6px; background: var(--paper); color: var(--muted); }
+.rank-row .place.p1 { background: #E8B931; color: #1A2130; }
+.rank-row .place.p2 { background: #C9CED6; color: #1A2130; }
+.rank-row .place.p3 { background: #D49A6A; color: #1A2130; }
+.rank-row .place.num { background: none; font-size: 15px; color: var(--ink); }
+.rank-row .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-row .score { flex-shrink: 0; text-align: right; white-space: nowrap; }
+.my-line { background: var(--paper); border-radius: 8px; padding: 8px 10px; }
 .screen[hidden] { display: none; }
 .app {
   max-width: 480px; margin: 0 auto;
@@ -221,7 +241,7 @@ nav.tabs {
   padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
 }
-nav.tabs .in { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); }
+nav.tabs .in { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); }
 nav.tabs button { background: none; border: none; padding: 10px 0 12px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; color: var(--muted); }
 nav.tabs button svg { width: 22px; height: 22px; }
 nav.tabs button.on { color: var(--hong); font-weight: 600; }
