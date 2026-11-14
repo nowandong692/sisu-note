@@ -6,11 +6,11 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with: { ref: claude/range-finder }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
       - run: |
-          curl -sS -m 30 -A "Mozilla/5.0" -o a.html "http://kungdo.or.kr/?mcd=4030"
-          python3 - <<'PY'
-          import re
-          h=open('a.html',encoding='utf-8',errors='replace').read()
-          i=h.find('table-striped'); print(re.sub(r'\s+',' ',h[i-3000:i]))
-          PY
-          for a in $(seq 0 25); do n=$(curl -sS -m 20 -A "Mozilla/5.0" "http://kungdo.or.kr/?mcd=4030&area=$a" | grep -c '<td align="right">'); f=$(curl -sS -m 20 -A "Mozilla/5.0" "http://kungdo.or.kr/?mcd=4030&area=$a" | grep -o '<td>[^<]*' | sed -n 1p); echo "AREA $a $n $f"; done
+          node scripts/hwalter.mjs > h.json
+          node -e "const f=require('./h.json');const c={};f.items.forEach(h=>c[h.region||'?']=(c[h.region||'?']||0)+1);console.log('COUNT',f.items.length,JSON.stringify(c));f.items.filter(h=>!h.region).forEach(h=>console.log('NOREGION',h.name,h.address))"
+          echo "JSONSTART"; cat h.json; echo; echo "JSONEND"
