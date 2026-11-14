@@ -1,10 +1,13 @@
 /**
  * 대한궁도협회 대회일정 게시판(kungdo.or.kr)에서 대회명·기간·장소만 읽어 JSON으로 낸다.
  * 배포할 때 GitHub Actions가 돌려 dist/tournaments.json을 만든다. 앱은 이 파일만 읽는다.
- * 요강 같은 원문은 옮기지 않고, 각 대회의 협회 글 주소를 함께 남긴다.
+ * 요강 원문은 옮기지 않고 각 대회의 협회 글 주소를 남긴다. 다가오는 대회는 요강(hwp)에서
+ * 접수기간·접수처·선착순·참가비만 뽑아 reg로 붙인다 (scripts/yogang.mjs).
  *
  *   node scripts/tournaments.mjs > dist/tournaments.json
  */
+import { hwpText, parseYogang } from './yogang.mjs';
+
 export const SOURCE = 'http://kungdo.or.kr/bbs/board.php?bo_table=game_news';
 
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', middot: '·' };
@@ -38,16 +41,57 @@ export function parseKungdoList(html) {
   return out;
 }
 
+const UA = { 'User-Agent': 'gukgungrok (github.com/nowandong692/sisu-note)' };
+
+/** 협회 글에 붙은 첫 번째 첨부파일 주소와 이름 */
+export function findAttachment(html) {
+  const m = html.match(/href="([^"]*download\.php[^"]*)"[^>]*>([\s\S]*?)<\/a>/i);
+  if (!m) return null;
+  const name = text(m[2]).replace(/\s*\([\d.,]+\s*[KMG]?B?\)\s*$/i, '');
+  return { url: m[1].replace(/&amp;/g, '&'), name };
+}
+
+async function retry(fn) {
+  try { return await fn(); } catch { await new Promise((r) => setTimeout(r, 2000)); return fn(); }
+}
+
+/** 대회 하나의 요강을 받아 접수 정보를 붙인다. 못 읽으면 그대로 둔다 */
+async function addReg(t) {
+  try {
+    const page = await retry(() => fetch(t.url, { headers: UA, signal: AbortSignal.timeout(20000) }));
+    // 세션 쿠키가 두 번 올 때가 있다. 같은 이름은 나중 것을 써야 첨부를 받을 수 있다
+    const jar = new Map((page.headers.getSetCookie?.() ?? []).map((c) => c.split(';')[0].split(/=(.*)/s).slice(0, 2)));
+    const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+    const att = findAttachment(await page.text());
+    if (!att) return t;
+    const out = { ...t, doc: att.name };
+    if (!/\.hwp$/i.test(att.name)) return out;
+    const file = await retry(() => fetch(att.url, { headers: { ...UA, Referer: t.url, ...(cookie ? { Cookie: cookie } : {}) }, signal: AbortSignal.timeout(30000) }));
+    if (!file.ok) return out;
+    const reg = parseYogang(hwpText(Buffer.from(await file.arrayBuffer())), Number(t.start.slice(0, 4)));
+    return reg ? { ...out, reg } : out;
+  } catch (e) {
+    console.error(`요강 못 읽음 ${t.id}: ${e.message}`);
+    return t;
+  }
+}
+
 async function main() {
   const pages = Number(process.env.PAGES ?? 3);
   const seen = new Map();
   for (let p = 1; p <= pages; p++) {
-    const res = await fetch(`${SOURCE}&page=${p}`, { headers: { 'User-Agent': 'gukgungrok (github.com/nowandong692/sisu-note)' }, signal: AbortSignal.timeout(20000) });
+    const res = await fetch(`${SOURCE}&page=${p}`, { headers: UA, signal: AbortSignal.timeout(20000) });
     if (!res.ok) throw new Error(`HTTP ${res.status} on page ${p}`);
     for (const t of parseKungdoList(await res.text())) if (!seen.has(t.id)) seen.set(t.id, t);
   }
-  const items = [...seen.values()].sort((a, b) => a.start.localeCompare(b.start) || a.name.localeCompare(b.name));
+  let items = [...seen.values()].sort((a, b) => a.start.localeCompare(b.start) || a.name.localeCompare(b.name));
   if (!items.length) throw new Error('no tournaments parsed (page layout changed?)');
+  // 앞으로 석 달 안에 끝나지 않은 대회만 요강을 읽는다 (협회 서버에 부담을 덜 주게 하나씩)
+  const today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+  const until = new Date(Date.now() + 100 * 86400000).toISOString().slice(0, 10);
+  const out = [];
+  for (const t of items) out.push(t.end >= today && t.start <= until ? await addReg(t) : t);
+  items = out;
   process.stdout.write(JSON.stringify({ source: SOURCE, fetchedAt: new Date().toISOString(), items }));
 }
 

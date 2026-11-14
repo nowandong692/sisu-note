@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { dLabel, isMyRange, monthGrid, onDay, periodText, shiftMonth, splitTournaments, videosFor, type Tournament, type TournamentFile, type Video, type VideoFile } from '../domain/tournaments';
+import { appLinks, dLabel, isMyRange, nowStamp, regPeriodText, regState, monthGrid, onDay, periodText, shiftMonth, splitTournaments, videosFor, type RegState, type Tournament, type TournamentFile, type Video, type VideoFile } from '../domain/tournaments';
 import { today } from '../domain/util';
 import { useStore } from '../state/store';
+import { Sheet } from '../components/ui';
 
 const CACHE = 'gukgungrok-tournaments';
 const SOURCE = 'http://kungdo.or.kr/bbs/board.php?bo_table=game_news';
@@ -113,19 +114,26 @@ async function loadTournaments(): Promise<{ file: TournamentFile; cached: boolea
   }
 }
 
-function Item({ t, now, mine, videos = [], onPlay }: { t: Tournament; now: string; mine: boolean; videos?: Video[]; onPlay?: (v: Video) => void }) {
-  const d = dLabel(t, now);
+/** 끝나지 않은 대회에만 접수 상태를 보인다 */
+function regOf(t: Tournament, now: string): RegState | null {
+  return t.reg && t.end >= now.slice(0, 10) ? regState(t.reg, now) : null;
+}
+
+function Item({ t, now, mine, videos = [], onPlay, onOpen }: { t: Tournament; now: string; mine: boolean; videos?: Video[]; onPlay?: (v: Video) => void; onOpen: (t: Tournament) => void }) {
+  const d = dLabel(t, now.slice(0, 10));
   const vs = videosFor(t, videos);
+  const rs = regOf(t, now);
   return (
     <li className={`tour-row ${mine ? 'mine' : ''}`}>
-      <a className="tour-link" href={t.url} target="_blank" rel="noopener noreferrer">
+      <button className="tour-link" onClick={() => onOpen(t)}>
         <span className={`dday ${d === '진행 중' ? 'live' : ''}`}>{d}</span>
         <span className="tour-main">
           <b>{t.name}</b>
           <span className="small muted">{periodText(t)} · {t.place}{mine && <span className="pill best">내 활터</span>}</span>
+          {rs && <span className={`reg-badge ${rs.kind}`}>{rs.label}</span>}
         </span>
         <span className="chev" aria-hidden="true">›</span>
-      </a>
+      </button>
       {vs.length > 0 && (
         <span className="tour-videos">
           {vs.map((v, i) => (
@@ -137,8 +145,40 @@ function Item({ t, now, mine, videos = [], onPlay }: { t: Tournament; now: strin
   );
 }
 
+const IOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/.test(navigator.userAgent);
+
+/** 대회를 누르면: 접수 정보와 접수 앱, 요강 원문 */
+function TourSheet({ t, now, onClose }: { t: Tournament; now: string; onClose: () => void }) {
+  const rs = regOf(t, now);
+  const links = appLinks(t.reg?.via);
+  const store = links && (IOS ? links.ios : links.android);
+  return (
+    <Sheet title={t.name} onClose={onClose}>
+      <div className="small muted">{periodText(t)} · {t.place}</div>
+      {t.reg ? (
+        <dl className="reg-info">
+          <dt>접수</dt>
+          <dd>{rs && <span className={`reg-badge ${rs.kind}`}>{rs.label}</span>}<span>{regPeriodText(t.reg)}</span></dd>
+          {t.reg.via && <><dt>접수처</dt><dd>{t.reg.via}</dd></>}
+          {t.reg.limit && <><dt>인원</dt><dd>{t.reg.limit.map((l) => <span key={l}>{l}</span>)}</dd></>}
+          {t.reg.fee && <><dt>참가비</dt><dd>{t.reg.fee.map((l) => <span key={l}>{l}</span>)}</dd></>}
+        </dl>
+      ) : (
+        <div className="small muted">요강에서 접수 정보를 읽지 못했습니다. 요강 원문을 확인하세요.</div>
+      )}
+      <div className="reg-actions">
+        {store && <a className="btn" href={store} target="_blank" rel="noopener noreferrer">{t.reg?.via} 열기</a>}
+        {links && !store && <div className="small muted">{t.reg?.via}은 {IOS ? '앱 스토어' : '이 기기의 스토어'}에서 찾지 못했습니다. 안드로이드 폰이나 주최 측 안내로 접수하세요.</div>}
+        <a className="btn ghost" href={t.url} target="_blank" rel="noopener noreferrer">요강 원문 보기{t.doc ? ' (협회 글)' : ''}</a>
+      </div>
+      <div className="small muted">접수 정보는 협회에 올라온 요강에서 자동으로 읽어 온 것입니다. 틀릴 수 있으니 접수 전에 요강 원문을 꼭 확인하세요.</div>
+    </Sheet>
+  );
+}
+
 /** 달력 보기: 대회가 있는 날에 점, 날을 누르면 그날 대회 */
-function CalendarCard({ items, now, names, videos, onPlay }: { items: Tournament[]; now: string; names: string[]; videos: Video[]; onPlay: (v: Video) => void }) {
+function CalendarCard({ items, clock, names, videos, onPlay, onOpen }: { items: Tournament[]; clock: string; names: string[]; videos: Video[]; onPlay: (v: Video) => void; onOpen: (t: Tournament) => void }) {
+  const now = clock.slice(0, 10);
   const [ym, setYm] = useState(now.slice(0, 7));
   const [day, setDay] = useState<string | null>(now);
   const weeks = monthGrid(ym);
@@ -179,7 +219,7 @@ function CalendarCard({ items, now, names, videos, onPlay }: { items: Tournament
           <div className="tour-month-head">{Number(day.slice(5, 7))}월 {Number(day.slice(8))}일 대회 {picked.length}개</div>
           {picked.length === 0
             ? <div className="small muted">이날 열리는 대회가 없습니다.</div>
-            : <ol className="tour-list">{picked.map((t) => <Item key={t.id} t={t} now={now} mine={isMyRange(t.place, names)} videos={videos} onPlay={onPlay} />)}</ol>}
+            : <ol className="tour-list">{picked.map((t) => <Item key={t.id} t={t} now={clock} mine={isMyRange(t.place, names)} videos={videos} onPlay={onPlay} onOpen={onOpen} />)}</ol>}
         </div>
       )}
     </section>
@@ -200,6 +240,7 @@ export function TournamentsView({ active }: { active: boolean }) {
   }, [active, vfile]);
   const videos = vfile?.items ?? [];
   const [play, setPlay] = useState<Play | null>(null);
+  const [open, setOpen] = useState<Tournament | null>(null);
   const boxRef = useRef<HTMLElement | null>(null);
   const onPlay = (v: Video) => {
     setPlay({ kind: 'video', v });
@@ -213,6 +254,7 @@ export function TournamentsView({ active }: { active: boolean }) {
   }, [active, file]);
 
   const now = today();
+  const clock = nowStamp();
   const names = ranges.map((r) => r.name);
 
   if (err) {
@@ -244,21 +286,22 @@ export function TournamentsView({ active }: { active: boolean }) {
     <>
       <VideosCard file={vfile ?? { items: [] }} play={play} setPlay={setPlay} boxRef={boxRef} />
       {modeSwitch}
-      {mode === 'cal' && <CalendarCard items={file.items} now={now} names={names} videos={videos} onPlay={onPlay} />}
+      {mode === 'cal' && <CalendarCard items={file.items} clock={clock} names={names} videos={videos} onPlay={onPlay} onOpen={setOpen} />}
       {mode === 'list' && <section className="card">
         <div className="row between"><h2>다가오는 대회</h2><span className="small muted">{upcoming.length}개</span></div>
         {upcoming.length === 0 && <div className="empty small">올라온 다가오는 대회가 없습니다.</div>}
         {[...months].map(([m, list]) => (
           <div key={m} className="tour-month">
             <div className="tour-month-head">{Number(m.slice(5, 7))}월</div>
-            <ol className="tour-list">{list.map((t) => <Item key={t.id} t={t} now={now} mine={isMyRange(t.place, names)} videos={videos} onPlay={onPlay} />)}</ol>
+            <ol className="tour-list">{list.map((t) => <Item key={t.id} t={t} now={clock} mine={isMyRange(t.place, names)} videos={videos} onPlay={onPlay} onOpen={setOpen} />)}</ol>
           </div>
         ))}
         <button className="btn ghost small" style={{ alignSelf: 'center' }} onClick={() => setShowPast(!showPast)}>{showPast ? '지난 대회 숨기기' : '지난 대회 보기'}</button>
-        {showPast && <ol className="tour-list">{past.slice(0, 20).map((t) => <Item key={t.id} t={t} now={now} mine={isMyRange(t.place, names)} videos={videos} onPlay={onPlay} />)}</ol>}
+        {showPast && <ol className="tour-list">{past.slice(0, 20).map((t) => <Item key={t.id} t={t} now={clock} mine={isMyRange(t.place, names)} videos={videos} onPlay={onPlay} onOpen={setOpen} />)}</ol>}
       </section>}
+      {open && <TourSheet t={open} now={clock} onClose={() => setOpen(null)} />}
       <div className="small muted tour-note">
-        출처: <a href={file.source ?? SOURCE} target="_blank" rel="noopener noreferrer">대한궁도협회 대회일정</a>. 대회를 누르면 요강이 있는 협회 글이 열립니다.
+        출처: <a href={file.source ?? SOURCE} target="_blank" rel="noopener noreferrer">대한궁도협회 대회일정</a>. 대회를 누르면 요강에서 읽은 접수 정보가 보입니다.
         {updated && ` ${updated.getMonth() + 1}월 ${updated.getDate()}일에 받아 온 목록입니다.`}
         {cached && ' 지금은 연결이 안 되어 이 기기에 저장해 둔 목록을 보여 줍니다.'}
         {' '}일정은 바뀔 수 있으니 참가 전에 원문을 꼭 확인하세요.
