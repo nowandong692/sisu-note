@@ -96,6 +96,18 @@ export interface Range {
   bearing: number | null;
 }
 
+/** 온라인 랭킹 참여 정보. 열쇠(복구 코드)는 이 기기에만 있고 서버에는 해시만 있다. */
+export interface OnlineProfile {
+  key: string;
+  nickname: string;
+  /** 랭킹에 함께 보일 활터 이름 (보이지 않으려면 null) */
+  rangeName: string | null;
+  /** 참여한 시각. 이후에 저장한 오늘 순만 올린다. */
+  joinedAt: number;
+  /** 아직 서버에 올리지 못한 일 (인터넷이 없을 때 모아 둔다) */
+  queue: { op: 'put' | 'del'; id: string }[];
+}
+
 export interface Settings {
   hand: Hand;
   grid: boolean;
@@ -111,6 +123,7 @@ export interface Settings {
   /** @deprecated */
   rangePlace?: Place | null;
   /** 오늘 입력한 날씨. 날짜가 바뀌면 쓰지 않는다. */
+  online?: OnlineProfile | null;
   weather?: (Weather & {
     date: string;
     /** 날씨 서비스에서 마지막으로 불러온 시각 (ms) */

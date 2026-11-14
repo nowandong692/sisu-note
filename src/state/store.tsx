@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { End, Gear, GearCategory, Range, Settings, Weather } from '../domain/types';
+import type { End, Gear, GearCategory, OnlineProfile, Range, Settings, Weather } from '../domain/types';
+import { OnlineError, newRecoveryCode, normalizeRecoveryCode, onlineAvailable, rpc } from '../platform/online';
 import { RANGE_RADIUS_M, migrateRanges, nearestRange, pickOffer, type LatLon, type RangeOffer } from '../domain/range';
 import { kakaoNearbyRanges } from '../platform/kakaoPlaces';
 import { DEFAULT_SETTINGS } from '../domain/types';
@@ -58,6 +59,17 @@ export interface Store extends Data {
   /** 장비 삭제. 그 장비를 쓴 기록은 남고 장비만 "미지정"이 된다. */
   deleteGear(id: string): Promise<void>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
+  /** 온라인 랭킹 참여 정보 (참여하지 않았으면 null) */
+  online: OnlineProfile | null;
+  /** 서버에 올리지 못한 일이 있으면 그 수 */
+  onlinePending: number;
+  /** 새로 참여: 복구 코드를 만들고 닉네임을 등록한다 */
+  joinOnline(nickname: string, rangeName: string | null): Promise<void>;
+  /** 다른 기기에서 쓰던 복구 코드로 이어 하기 */
+  restoreOnline(code: string): Promise<void>;
+  setOnlineProfile(nickname: string, rangeName: string | null): Promise<void>;
+  /** 참여 그만두기: 서버의 내 기록을 모두 지운다 */
+  leaveOnline(): Promise<void>;
   loadSample(): Promise<void>;
   clearAll(): Promise<void>;
 }
@@ -99,6 +111,53 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     setData((p) => ({ ...p, settings: next }));
     await repo.saveSettings(next);
   }, [repo]);
+
+  const endsRef = useRef<End[]>([]);
+  endsRef.current = data.ends;
+  const flushing = useRef(false);
+
+  /** 모아 둔 일을 서버에 올린다. 인터넷이 없으면 그대로 두고 다음에 다시 한다. */
+  const flushOnline = useCallback(async () => {
+    if (flushing.current || !onlineAvailable()) return;
+    flushing.current = true;
+    try {
+      for (;;) {
+        const o = settingsRef.current.online;
+        const job = o?.queue[0];
+        if (!o || !job) return;
+        try {
+          if (job.op === 'del') await rpc('delete_end', { p_key: o.key, p_client_id: job.id });
+          else {
+            const e = endsRef.current.find((x) => x.id === job.id);
+            if (e) await rpc('submit_end', { p_key: o.key, p_client_id: e.id, p_hits: e.shots.map((s) => s.hit) });
+          }
+        } catch (err) {
+          if (err instanceof OnlineError && err.code === 'network') return;
+          // 한도 초과, 서버가 거절한 일은 다시 해도 같으므로 버린다
+        }
+        const cur = settingsRef.current.online;
+        if (cur) await updateSettings({ online: { ...cur, queue: cur.queue.filter((q) => q !== job) } });
+      }
+    } finally {
+      flushing.current = false;
+    }
+  }, [updateSettings]);
+
+  /** 참여 뒤 오늘 저장·고치기·삭제한 순만 랭킹에 올린다. 지난 날짜 순은 서버가 받지 않는다. */
+  const enqueue = useCallback(async (op: 'put' | 'del', e: Pick<End, 'id' | 'date' | 'recordedAt'>) => {
+    const o = settingsRef.current.online;
+    if (!o || e.date !== today() || e.recordedAt < o.joinedAt) return;
+    await updateSettings({ online: { ...o, queue: [...o.queue.filter((q) => q.id !== e.id), { op, id: e.id }] } });
+    void flushOnline();
+  }, [updateSettings, flushOnline]);
+
+  useEffect(() => {
+    if (!data.loaded) return;
+    void flushOnline();
+    const on = () => void flushOnline();
+    window.addEventListener('online', on);
+    return () => window.removeEventListener('online', on);
+  }, [data.loaded, flushOnline]);
 
   const w = data.settings.weather;
   const todayWeather = useMemo<Weather | null>(
@@ -157,19 +216,25 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
         rangeId: data.settings.currentRange ?? null };
       await repo.putEnd(e);
       setData((p) => ({ ...p, ends: [...p.ends, e] }));
+      endsRef.current = [...endsRef.current, e];
+      void enqueue('put', e);
       return e;
     },
     async updateEnd(e) {
       const next = { ...e, updatedAt: Date.now() };
       await repo.putEnd(next);
       setData((p) => ({ ...p, ends: p.ends.map((x) => (x.id === e.id ? next : x)) }));
+      endsRef.current = endsRef.current.map((x) => (x.id === e.id ? next : x));
+      void enqueue('put', next);
     },
     editId,
     setEditId,
     editSaver,
     async deleteEnd(id) {
       if (id === editId) setEditId(null);
+      const gone = data.ends.find((e) => e.id === id);
       await repo.deleteEnd(id);
+      if (gone) void enqueue('del', gone);
       setData((p) => ({ ...p, ends: p.ends.filter((e) => e.id !== id) }));
     },
     async addGear(input) {
@@ -224,12 +289,38 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       setData((p) => ({ ...p, gear, ends }));
       await updateSettings({ hand: 'right', current: { bow: 'sample-b1', ring: 'sample-r1', arrow: 'sample-a1', string: 'sample-s1' }, ranges: sampleRanges, currentRange: 'sample-g1', currentRangeManual: true });
     },
+    online: data.settings.online ?? null,
+    onlinePending: data.settings.online?.queue.length ?? 0,
+    async joinOnline(nickname, rangeName) {
+      const key = newRecoveryCode();
+      await rpc('register', { p_key: key, p_nickname: nickname.trim() });
+      if (rangeName) await rpc('set_profile', { p_key: key, p_nickname: nickname.trim(), p_range_name: rangeName });
+      await updateSettings({ online: { key, nickname: nickname.trim(), rangeName, joinedAt: Date.now(), queue: [] } });
+    },
+    async restoreOnline(code) {
+      const key = normalizeRecoveryCode(code);
+      const rows = await rpc<{ nickname: string; range_name: string | null }[]>('whoami', { p_key: key });
+      if (!rows?.length) throw new OnlineError('복구 코드가 맞지 않습니다.', 'unknown-key');
+      await updateSettings({ online: { key, nickname: rows[0].nickname, rangeName: rows[0].range_name, joinedAt: Date.now(), queue: [] } });
+    },
+    async setOnlineProfile(nickname, rangeName) {
+      const o = data.settings.online;
+      if (!o) return;
+      await rpc('set_profile', { p_key: o.key, p_nickname: nickname.trim(), p_range_name: rangeName ?? '' });
+      await updateSettings({ online: { ...o, nickname: nickname.trim(), rangeName } });
+    },
+    async leaveOnline() {
+      const o = data.settings.online;
+      if (!o) return;
+      await rpc('delete_me', { p_key: o.key });
+      await updateSettings({ online: null });
+    },
     async clearAll() {
       await repo.replaceAll({ gear: [], ends: [] });
       setData((p) => ({ ...p, gear: [], ends: [] }));
       await updateSettings({ current: { bow: null, ring: null, arrow: null } });
     },
-  }), [data, repo, updateSettings, todayWeather, editId, ranges, unknownSpot, rangeOffer, noticePosition]);
+  }), [data, repo, updateSettings, todayWeather, editId, ranges, unknownSpot, rangeOffer, noticePosition, enqueue]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }
