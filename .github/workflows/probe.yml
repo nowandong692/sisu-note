@@ -11,18 +11,8 @@ jobs:
           UA="Mozilla/5.0 (compatible; gukgungrok-probe)"
           curl -sS -m 30 -A "$UA" -L -o list.html "http://kungdo.or.kr/bbs/board.php?bo_table=game_news"
           curl -sS -m 30 -A "$UA" -L -c jar -o inf.html "https://result.sports.or.kr/NA/INF201.do"
-          pip install -q beautifulsoup4
           python3 - <<'PY'
-          from bs4 import BeautifulSoup
-          for name in ['list.html','inf.html']:
-              s = BeautifulSoup(open(name, encoding='utf-8', errors='replace').read(), 'html.parser')
-              print('=====', name)
-              for f in s.find_all('form'):
-                  print('FORM', f.get('id') or f.get('name'), f.get('action'), [ (i.get('name'), i.get('value')) for i in f.find_all(['input','select']) ][:30])
-              for t in s.find_all('table'):
-                  print('TABLE', t.get('class'))
-                  for tr in t.find_all('tr')[:25]:
-                      cells = [' '.join(c.get_text(' ', strip=True).split()) for c in tr.find_all(['th','td'])]
-                      links = [a.get('href') or a.get('onclick') for a in tr.find_all('a')][:3]
-                      print(' | '.join(cells)[:300], '  LINKS', links)
+          import re
+          h=open('list.html',encoding='utf-8',errors='replace').read()
+          i=h.find('table-striped'); print(h[i-200:i+4500])
           PY
