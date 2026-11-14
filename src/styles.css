@@ -362,3 +362,25 @@ input[type=search] { width: 100%; border: 1px solid var(--line); border-radius: 
 .rules ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.55; }
 .rules li + li { margin-top: 3px; }
 textarea.autogrow { resize: none; overflow-y: auto; max-height: 60vh; }
+
+/* 색 테마: 홍심(기본)은 위 :root 값. 밝기(data-theme)와 함께 쓴다. */
+:root[data-palette="meok"] { --paper: #F3F0E8; --surface: #FBFAF6; --ink: #1F1E1C; --muted: #67625A; --line: #DCD6CA; --hong: #A23B2A; --hong-soft: #F1DFD8; }
+:root[data-palette="cheongja"] { --paper: #EDF3F0; --surface: #FFFFFF; --ink: #1B2A27; --muted: #56665F; --line: #D2DED8; --hong: #2C7A69; --hong-soft: #DAECE5; }
+:root[data-palette="dancheong"] { --paper: #F1F4F4; --surface: #FFFFFF; --ink: #12324A; --muted: #526472; --line: #D3DCE0; --hong: #C94A22; --hong-soft: #F7E0D6; }
+@media (prefers-color-scheme: dark) { :root[data-palette="meok"]:not([data-theme="light"]) { --paper: #121211; --surface: #1C1B19; --ink: #EDEAE3; --muted: #A39F96; --line: #34322E; --hong: #DB6E54; --hong-soft: #3A231D; } }
+:root[data-palette="meok"][data-theme="dark"] { --paper: #121211; --surface: #1C1B19; --ink: #EDEAE3; --muted: #A39F96; --line: #34322E; --hong: #DB6E54; --hong-soft: #3A231D; }
+@media (prefers-color-scheme: dark) { :root[data-palette="cheongja"]:not([data-theme="light"]) { --paper: #0E1513; --surface: #16201D; --ink: #E5EFEB; --muted: #92A69F; --line: #26332F; --hong: #5DBBA5; --hong-soft: #1B3530; } }
+:root[data-palette="cheongja"][data-theme="dark"] { --paper: #0E1513; --surface: #16201D; --ink: #E5EFEB; --muted: #92A69F; --line: #26332F; --hong: #5DBBA5; --hong-soft: #1B3530; }
+@media (prefers-color-scheme: dark) { :root[data-palette="dancheong"]:not([data-theme="light"]) { --paper: #0C1520; --surface: #14202C; --ink: #E7EEF3; --muted: #92A2AF; --line: #24323F; --hong: #F07A4C; --hong-soft: #3D2419; } }
+:root[data-palette="dancheong"][data-theme="dark"] { --paper: #0C1520; --surface: #14202C; --ink: #E7EEF3; --muted: #92A2AF; --line: #24323F; --hong: #F07A4C; --hong-soft: #3D2419; }
+/* 테마 고르기 */
+.palettes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.palette-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--surface); text-align: left; cursor: pointer; }
+.palette-btn.on { border-color: var(--hong); box-shadow: 0 0 0 1px var(--hong) inset; }
+.swatch { display: inline-flex; margin-bottom: 4px; }
+.swatch i { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(128,128,128,.45); }
+.swatch i + i { margin-left: -5px; }
+.sw-hong i:nth-child(1) { background: #F5F5F2; } .sw-hong i:nth-child(2) { background: #1A2130; } .sw-hong i:nth-child(3) { background: #C4302A; }
+.sw-meok i:nth-child(1) { background: #F3F0E8; } .sw-meok i:nth-child(2) { background: #1F1E1C; } .sw-meok i:nth-child(3) { background: #A23B2A; }
+.sw-cheongja i:nth-child(1) { background: #EDF3F0; } .sw-cheongja i:nth-child(2) { background: #1B2A27; } .sw-cheongja i:nth-child(3) { background: #2C7A69; }
+.sw-dancheong i:nth-child(1) { background: #F1F4F4; } .sw-dancheong i:nth-child(2) { background: #12324A; } .sw-dancheong i:nth-child(3) { background: #C94A22; }

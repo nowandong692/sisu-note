@@ -8,6 +8,7 @@ import { ShootScreen } from './screens/ShootScreen';
 import { StatsScreen } from './screens/StatsScreen';
 import { useStore } from './state/store';
 import { useAutoWeather } from './state/weatherSync';
+import { applyAppearance } from './platform/theme';
 
 type Tab = 'shoot' | 'log' | 'stats' | 'rank' | 'gear';
 const TABS: [Tab, string, string][] = [
@@ -44,6 +45,10 @@ export default function App() {
   /** 고치는 중에 떠나려는 곳: 탭, 또는 뒤로 가기 */
   const [leaving, setLeaving] = useState<Tab | 'back' | null>(null);
   const skipGuardBack = useRef(false);
+  const look = store.settings.appearance;
+  useEffect(() => {
+    if (store.loaded) applyAppearance(look?.mode, look?.palette);
+  }, [store.loaded, look?.mode, look?.palette]);
 
   const show = (t: Tab) => {
     if (t === tabRef.current) return;

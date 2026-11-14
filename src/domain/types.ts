@@ -108,7 +108,18 @@ export interface OnlineProfile {
   queue: { op: 'put' | 'del'; id: string }[];
 }
 
+export type ThemeMode = 'system' | 'light' | 'dark';
+export type Palette = 'hong' | 'meok' | 'cheongja' | 'dancheong';
+export const PALETTES: { id: Palette; name: string; desc: string }[] = [
+  { id: 'hong', name: '홍심', desc: '붉은 홍심색' },
+  { id: 'meok', name: '먹', desc: '먹과 한지' },
+  { id: 'cheongja', name: '청자', desc: '옥빛 초록' },
+  { id: 'dancheong', name: '단청', desc: '청색에 주홍' },
+];
+
 export interface Settings {
+  /** 화면 밝기와 색 테마 (없으면 기기 설정 따라, 홍심) */
+  appearance?: { mode: ThemeMode; palette: Palette };
   hand: Hand;
   grid: boolean;
   current: { bow: string | null; ring: string | null; arrow: string | null; string?: string | null };
