@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byWeather, tempBand, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weekStart, weeklyTrend } from './stats';
+import { byWeather, byWindDir, tempBand, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weekStart, weeklyTrend } from './stats';
 import { endsToCsv } from './csv';
 import { sampleData } from './sample';
 import type { End, Shot } from './types';
@@ -66,6 +66,19 @@ describe('통계', () => {
     expect(byWeather(list, 'sky')).toEqual([]);
     expect(byWeather(list, 'temp').map((r) => r.key).sort()).toEqual(['10~19°', '영하']);
     expect(tempBand(null)).toBe('');
+  });
+
+  it('바람 방향별로 성적과 불 방향을 센다', () => {
+    const w = (windDir: '맞바람' | '뒷바람', wind: '약함' | '없음' = '약함') => ({ sky: null, temp: null, wind, windDir });
+    const list = [
+      { ...end('2026-11-01', [H, M('짧음'), M('짧음'), M('앞남', 2), H]), weather: w('맞바람') },
+      { ...end('2026-11-02', [H, H, H, M('넘음'), H]), weather: w('뒷바람') },
+      { ...end('2026-11-03', [M('짧음'), H, H, H, H]), weather: w('맞바람', '없음') },
+      end('2026-11-04', [H, H, H, H, H]),
+    ];
+    const rows = byWindDir(list);
+    expect(rows.map((r) => [r.dir, r.ends, r.missTotal])).toEqual([['맞바람', 1, 3], ['뒷바람', 1, 1]]);
+    expect(rows[0].miss).toEqual({ 앞남: 1, 뒤남: 0, 넘음: 0, 짧음: 2 });
   });
 
   it('예시 데이터는 매번 같은 기록을 만든다', () => {
