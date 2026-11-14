@@ -252,7 +252,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       setData((p) => ({ ...p, gear: [...p.gear, g] }));
       const cur = data.settings.current;
       const key = input.category;
-      if (!cur[key] || !data.gear.some((x) => x.id === cur[key] && !x.archived)) {
+      if (key !== 'etc' && (!cur[key] || !data.gear.some((x) => x.id === cur[key] && !x.archived))) {
         await updateSettings({ current: { ...cur, [key]: g.id } });
       }
       return g;
@@ -264,7 +264,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       await repo.putGear(next);
       setData((p) => ({ ...p, gear: p.gear.map((x) => (x.id === id ? next : x)) }));
       const cur = data.settings.current;
-      if (archived && cur[g.category] === id) {
+      if (archived && g.category !== 'etc' && cur[g.category] === id) {
         const other = data.gear.find((x) => x.category === g.category && !x.archived && x.id !== id);
         await updateSettings({ current: { ...cur, [g.category]: other?.id ?? null } });
       }
@@ -286,7 +286,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
           ? { ...e, bowId: clear(e.bowId), ringId: clear(e.ringId), arrowId: clear(e.arrowId), stringId: clear(e.stringId ?? null) } : e)),
       }));
       const cur = data.settings.current;
-      if (cur[g.category] === id) {
+      if (g.category !== 'etc' && cur[g.category] === id) {
         const other = data.gear.find((x) => x.category === g.category && !x.archived && x.id !== id);
         await updateSettings({ current: { ...cur, [g.category]: other?.id ?? null } });
       }

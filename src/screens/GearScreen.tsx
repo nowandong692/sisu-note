@@ -19,30 +19,37 @@ function ArchiveHelp() {
   );
 }
 
-const CATS: [GearCategory, string][] = [['bow', '활'], ['ring', '깍지'], ['arrow', '화살'], ['string', '현']];
+const CATS: [GearCategory, string][] = [['bow', '활'], ['ring', '깍지'], ['arrow', '화살'], ['string', '현'], ['etc', '기타']];
+/** 기타 장비 종류 예시. 목록에 없으면 직접 적는다 */
+const ETC_KINDS = ['궁대', '시복', '팔찌', '활집', '전통', '보호대'];
 const STRING_TYPES = ['심고현', '기계현', '명주현', '기타'];
 const PLACEHOLDER: Record<GearCategory, [string, string, string]> = {
   bow: ['예: 검은 활', '브랜드·모델, 호수 (선택)', '예: OO궁 45호'],
   ring: ['예: 소뿔 깍지', '종류·재질, 크기 (선택)', '예: 소뿔, 중'],
   arrow: ['예: 카본 7돈', '종류, 무게, 개수 (선택)', '예: 카본, 7돈, 5대'],
   string: ['예: 기계현 18합', '만든 곳, 맨 날 같은 메모 (선택)', '예: OO현, 11월 13일에 맴'],
+  etc: ['예: 가죽 궁대', '메모 (선택)', '예: 3월에 삼, 허리 90'],
 };
 
 /** 장비 추가, 또는 editing을 주면 그 장비 고치기 */
 function GearFormSheet({ editing, onClose }: { editing?: Gear; onClose: () => void }) {
-  const { addGear, updateGear } = useStore();
+  const { addGear, updateGear, gear } = useStore();
   const [cat, setCat] = useState<GearCategory>(editing?.category ?? 'bow');
   const [nickname, setNickname] = useState(editing?.nickname ?? '');
   const [bowType, setBowType] = useState<string | undefined>(editing?.bowType);
   const [stringType, setStringType] = useState<string | undefined>(editing?.stringType);
   const [thickness, setThickness] = useState(editing?.thickness ?? '');
+  const [kind, setKind] = useState(editing?.kind ?? '');
+  /** 예시와 이미 적어 둔 종류를 함께 고르게 한다 */
+  const kinds = [...new Set([...ETC_KINDS, ...gear.map((g) => g.kind?.trim()).filter((k): k is string => !!k)])];
   const [detail, setDetail] = useState(editing?.detail ?? '');
   const [err, setErr] = useState('');
 
   const submit = async () => {
+    if (cat === 'etc' && !kind.trim()) { setErr('종류를 고르거나 적어 주세요. 예: 궁대'); return; }
     if (!nickname.trim()) { setErr('별명을 입력하세요. 목록과 통계에 이 이름으로 표시됩니다.'); return; }
     const fields = { nickname: nickname.trim(), detail: detail.trim() || undefined, bowType: cat === 'bow' ? bowType : undefined,
-      stringType: cat === 'string' ? stringType : undefined, thickness: cat === 'string' ? thickness.trim() || undefined : undefined };
+      stringType: cat === 'string' ? stringType : undefined, thickness: cat === 'string' ? thickness.trim() || undefined : undefined, kind: cat === 'etc' ? kind.trim() : undefined };
     if (editing) {
       await updateGear({ ...editing, ...fields });
       toast('고쳤습니다. 예전 기록과 통계에도 새 이름으로 나옵니다');
@@ -58,6 +65,15 @@ function GearFormSheet({ editing, onClose }: { editing?: Gear; onClose: () => vo
       {!editing && (
         <div className="chips">
           {CATS.map(([c, l]) => <button key={c} className={`chip ${cat === c ? 'on' : ''}`} onClick={() => setCat(c)}>{l}</button>)}
+        </div>
+      )}
+      {cat === 'etc' && (
+        <div className="field">
+          <label htmlFor="f-kind">종류 (필수)</label>
+          <div className="chips">
+            {kinds.map((t) => <button key={t} className={`chip ${kind === t ? 'on' : ''}`} onClick={() => { setKind(kind === t ? '' : t); setErr(''); }}>{t}</button>)}
+          </div>
+          <input type="text" id="f-kind" maxLength={12} placeholder="목록에 없으면 직접 적기" value={kind} onChange={(e) => { setKind(e.target.value); setErr(''); }} />
         </div>
       )}
       <div className="field">
@@ -141,16 +157,17 @@ export function GearScreen() {
         return (
           <section className="card" key={c}>
             <div className="row between"><h2>{label}</h2>{c === 'bow' && <ArchiveHelp />}</div>
+            {c === 'etc' && <div className="small muted">궁대, 시복처럼 활·깍지·화살·현 말고 가진 장비를 종류를 직접 적어 둡니다. 순마다 기록에는 붙지 않습니다.</div>}
             {items.length === 0 && <div className="empty small">등록된 {label}이(가) 없습니다.</div>}
             {items.map((g) => {
               const s = statsFor(g.id);
-              const detail = [g.bowType, g.stringType, g.thickness && `굵기 ${g.thickness}`, g.detail].filter(Boolean).join(' · ') || '상세 정보 없음';
+              const detail = [g.kind, g.bowType, g.stringType, g.thickness && `굵기 ${g.thickness}`, g.detail].filter(Boolean).join(' · ') || '상세 정보 없음';
               return (
                 <div key={g.id} className={`eq ${g.archived ? 'off' : ''}`}>
                   <div style={{ minWidth: 0, flex: 1, cursor: 'pointer' }} role="button" tabIndex={0} aria-label={`${g.nickname} 고치기`}
                     onClick={() => setEditingGear(g)} onKeyDown={(ev) => { if (ev.key === 'Enter') setEditingGear(g); }}>
                     <div className="nm">{g.nickname}{g.archived && <span className="pill archived">보관</span>}</div>
-                    <div className="dt">{detail} · {s ? `${s.ends}순 · 순당 ${s.perEnd.toFixed(1)}중` : '기록 없음'}</div>
+                    <div className="dt">{detail}{c === 'etc' ? '' : ` · ${s ? `${s.ends}순 · 순당 ${s.perEnd.toFixed(1)}중` : '기록 없음'}`}</div>
                   </div>
                   <span className="end-acts">
                     <button className="act-btn" onClick={() => setArchived(g.id, !g.archived).then(() => toast(g.archived ? '다시 사용합니다' : '보관했습니다. 기록은 그대로 남습니다'))}>
