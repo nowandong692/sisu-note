@@ -1,5 +1,6 @@
-import type { End, GearCategory, MissDirection, MissLevel } from './types';
+import type { End, GearCategory, MissDirection, MissLevel, WindDir } from './types';
 import { MISS_DIRECTIONS } from './types';
+import { WIND_DIRS } from './weather';
 
 /** 이보다 순이 적은 장비·조합은 순위에서 빼고 "기록 더 필요"로 표시한다. */
 export const MIN_ENDS_FOR_RANKING = 10;
@@ -141,4 +142,26 @@ export function tempBand(t: number | null | undefined): string {
 export function byWeather(ends: End[], k: 'sky' | 'wind' | 'temp'): GroupRow[] {
   const keyOf = (e: End) => (k === 'temp' ? tempBand(e.weather?.temp) : e.weather?.[k] ?? '');
   return groupBy(ends.filter((e) => keyOf(e) !== ''), keyOf);
+}
+
+export interface WindDirRow extends Summary {
+  dir: WindDir;
+  enough: boolean;
+  /** 불이 난 방향별 개수와 불 합계 */
+  miss: Record<MissDirection, number>;
+  missTotal: number;
+}
+
+/**
+ * 사대 기준 바람 방향(맞바람·뒷바람·왼쪽·오른쪽)마다 성적과 불 방향.
+ * 바람 방향을 남긴 순만 세고, 바람이 없던 순은 뺀다.
+ */
+export function byWindDir(ends: End[]): WindDirRow[] {
+  return WIND_DIRS.flatMap((dir) => {
+    const list = ends.filter((e) => e.weather?.windDir === dir && e.weather.wind !== '없음');
+    if (!list.length) return [];
+    const m = missBreakdown(list);
+    const miss = Object.fromEntries(MISS_DIRECTIONS.map((d) => [d, m.byDir[d][1] + m.byDir[d][2]])) as Record<MissDirection, number>;
+    return [{ dir, ...summarize(list), enough: list.length >= MIN_ENDS_FOR_RANKING, miss, missTotal: m.total }];
+  });
 }

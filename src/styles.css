@@ -46,6 +46,10 @@ button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--hong); outline-offset: 2px; }
 
 .screen { display: contents; }
+.filters { display: flex; gap: 8px; }
+.filters .field { flex: 1; min-width: 0; }
+.wind-table td.top { font-weight: 700; color: var(--hong); }
+.wind-table th, .wind-table td { padding-left: 4px; padding-right: 4px; }
 .screen[hidden] { display: none; }
 .app {
   max-width: 480px; margin: 0 auto;

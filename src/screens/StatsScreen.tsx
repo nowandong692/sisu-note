@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Target } from '../components/Target';
 import {
-  MIN_ENDS_FOR_RANKING, byRange, byWeather, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weeklyTrend, zoneCounts,
+  MIN_ENDS_FOR_RANKING, byRange, byWeather, byWindDir, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weeklyTrend, zoneCounts,
   type GroupRow,
 } from '../domain/stats';
 import { MISS_DIRECTIONS } from '../domain/types';
@@ -104,24 +104,41 @@ function GroupTable({ rows, label, name, compact }: { rows: GroupRow[]; label: s
 }
 
 export function StatsScreen() {
-  const { ends: allEnds, gear, gearName, settings, rangeName } = useStore();
+  const { ends: allEnds, gear, gearName, settings, rangeName, ranges } = useStore();
   const [period, setPeriod] = useState(30);
   const [bow, setBow] = useState('all');
+  /** 'all' 모든 활터, 'none' 활터를 남기지 않은 순, 그 밖에는 활터 id */
+  const [range, setRange] = useState('all');
 
   const cutoff = period ? dayOffset(-period) : '0000';
-  const ends = allEnds.filter((e) => e.date >= cutoff && (bow === 'all' || e.bowId === bow));
+  const pick = (e: (typeof allEnds)[number]) => (bow === 'all' || e.bowId === bow)
+    && (range === 'all' || (range === 'none' ? !e.rangeId : e.rangeId === range));
+  const ends = allEnds.filter((e) => e.date >= cutoff && pick(e));
+  const usedRanges = ranges.filter((r) => allEnds.some((e) => e.rangeId === r.id));
 
   const head = (
     <>
       <div className="chips">
         {PERIODS.map(([p, l]) => <button key={p} className={`chip ${period === p ? 'on' : ''}`} onClick={() => setPeriod(p)}>{l}</button>)}
       </div>
-      <div className="field">
-        <label htmlFor="bowFilter">활 선택</label>
-        <select id="bowFilter" value={bow} onChange={(e) => setBow(e.target.value)}>
-          <option value="all">모든 활</option>
-          {gear.filter((g) => g.category === 'bow').map((g) => <option key={g.id} value={g.id}>{g.nickname}{g.archived ? ' (보관)' : ''}</option>)}
-        </select>
+      <div className="filters">
+        <div className="field">
+          <label htmlFor="bowFilter">활 선택</label>
+          <select id="bowFilter" value={bow} onChange={(e) => setBow(e.target.value)}>
+            <option value="all">모든 활</option>
+            {gear.filter((g) => g.category === 'bow').map((g) => <option key={g.id} value={g.id}>{g.nickname}{g.archived ? ' (보관)' : ''}</option>)}
+          </select>
+        </div>
+        {usedRanges.length > 0 && (
+          <div className="field">
+            <label htmlFor="rangeFilter">활터 선택</label>
+            <select id="rangeFilter" value={range} onChange={(e) => setRange(e.target.value)}>
+              <option value="all">모든 활터</option>
+              {usedRanges.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+              {allEnds.some((e) => !e.rangeId) && <option value="none">활터 미지정</option>}
+            </select>
+          </div>
+        )}
       </div>
     </>
   );
@@ -138,6 +155,7 @@ export function StatsScreen() {
   const zones = zoneCounts(ends);
   const hasZones = zones.some((z) => z > 0);
   const name = (k: string) => gearName(k || null);
+  const windRows = byWindDir(ends);
   const weatherGroups = ([['sky', '날씨'], ['temp', '기온'], ['wind', '바람']] as const)
     .map(([k, label]) => [label, byWeather(ends, k)] as const).filter(([, rows]) => rows.length > 0);
 
@@ -153,7 +171,7 @@ export function StatsScreen() {
         </div>
       </section>
       <section className="card"><h2>주별 순당 평균</h2><TrendChart data={weeklyTrend(ends)} /></section>
-      <MonthlyCard rows={monthlyStats(allEnds.filter((e) => bow === 'all' || e.bowId === bow))} />
+      <MonthlyCard rows={monthlyStats(allEnds.filter(pick))} />
       <section className="card">
         <h2>순별 중 수 분포</h2>
         <div className="cols">
@@ -216,7 +234,35 @@ export function StatsScreen() {
           <div className="small muted">날씨를 남긴 순만 셉니다. {MIN_ENDS_FOR_RANKING}순 미만은 흐리게 표시합니다.</div>
         </section>
       )}
-      {ends.some((e) => e.rangeId) && (
+      {windRows.length > 0 && (
+        <section className="card">
+          <h2>바람 방향별 불 방향</h2>
+          <div className="scroll-x">
+            <table className="wind-table">
+              <thead>
+                <tr><th>바람</th><th>순</th><th>순당</th>{MISS_DIRECTIONS.map((d) => <th key={d}>{d}</th>)}</tr>
+              </thead>
+              <tbody>
+                {windRows.map((r) => {
+                  const top = Math.max(...MISS_DIRECTIONS.map((d) => r.miss[d]));
+                  return (
+                    <tr key={r.dir} className={r.enough ? '' : 'thin'}>
+                      <td>{r.dir === '왼쪽에서' ? '왼쪽' : r.dir === '오른쪽에서' ? '오른쪽' : r.dir}</td>
+                      <td>{r.ends}</td>
+                      <td>{r.perEnd.toFixed(1)}</td>
+                      {MISS_DIRECTIONS.map((d) => (
+                        <td key={d} className={top > 0 && r.miss[d] === top ? 'top' : ''}>{r.missTotal ? `${Math.round((r.miss[d] / r.missTotal) * 100)}%` : '–'}</td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="small muted">사대에서 본 바람 방향입니다. 불 방향 칸은 그 바람에서 난 불 가운데 비율이고, 가장 많은 쪽을 굵게 표시합니다. 사대 방향을 정한 활터에서 바람을 남긴 순만 세고, {MIN_ENDS_FOR_RANKING}순 미만은 흐리게 표시합니다.</div>
+        </section>
+      )}
+      {range === 'all' && ends.some((e) => e.rangeId) && (
         <section className="card"><h2>활터별 비교</h2><GroupTable rows={byRange(ends)} label="활터" name={(k) => rangeName(k)} /></section>
       )}
       <section className="card"><h2>활별 비교</h2><GroupTable rows={byGear(ends, 'bow')} label="활" name={name} /></section>
