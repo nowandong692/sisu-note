@@ -454,3 +454,6 @@ textarea.autogrow { resize: none; overflow-y: auto; max-height: 60vh; }
 .hw-region { flex-shrink: 0; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
 .hw-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 4px 10px; }
 .hw-actions .btn { text-decoration: none; }
+.club-now { display: flex; flex-direction: column; gap: 2px; }
+.club-now b { font-size: 16px; }
+.club-hits { max-height: 45vh; overflow-y: auto; }

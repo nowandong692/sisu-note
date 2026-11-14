@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contactUrl, mapLinks, mapQuery, searchHwalter, type Hwalter } from './hwalter';
+import { contactUrl, isClubPlace, isMyClub, mapLinks, mapQuery, searchHwalter, type Hwalter } from './hwalter';
 
 const H: Hwalter[] = [
   { id: '1', name: '황학정', region: '서울', address: '서울특별시 종로구 사직로9길 15-32' },
@@ -22,5 +22,21 @@ describe('활터 검색', () => {
     expect(contactUrl({ region: '' })).toBe('http://kungdo.or.kr/?mcd=4030');
     expect(mapQuery(H[2])).toBe('서울특별시 성동구 용답동 241-10');
     expect(mapLinks(H[0]).naver).toContain(encodeURIComponent('서울특별시 종로구'));
+  });
+});
+
+describe('내 소속', () => {
+  it('골라 둔 소속은 번호로, 직접 적은 소속은 이름으로', () => {
+    expect(isMyClub(H[1], { name: '보납정', hwalterId: '46' })).toBe(true);
+    expect(isMyClub(H[0], { name: '보납정', hwalterId: '46' })).toBe(false);
+    expect(isMyClub(H[1], { name: '보납정' })).toBe(true);
+    expect(isMyClub(H[1], null)).toBe(false);
+  });
+  it('대회 장소가 내 소속인지', () => {
+    expect(isClubPlace('가평 보납정', { name: '가평군 보납정' })).toBe(true);
+    expect(isClubPlace('함평 관덕정', { name: '남원 관덕정' })).toBe(false);
+    expect(isClubPlace('남원 관덕정', { name: '남원 관덕정' })).toBe(true);
+    expect(isClubPlace('서울 황학정', { name: '황학정' })).toBe(true);
+    expect(isClubPlace('서울 황학정', null)).toBe(false);
   });
 });

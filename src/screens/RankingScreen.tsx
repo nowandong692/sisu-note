@@ -8,6 +8,7 @@ import { formatDate, today } from '../domain/util';
 import { OnlineError, onlineAvailable, rpc } from '../platform/online';
 import { useStore } from '../state/store';
 import { INFO } from '../components/icons';
+import { ClubSheet } from '../components/ClubSheet';
 import { HwalterView } from './HwalterView';
 import { TournamentsView } from './TournamentsView';
 import { formatDuration, spanLabel, spanOf, totalMinutes } from '../domain/session';
@@ -34,11 +35,28 @@ function errText(e: unknown) {
   return e instanceof Error ? e.message : '알 수 없는 오류가 났습니다.';
 }
 
+/** 랭킹에 함께 올라가는 소속. 시수를 어디서 쏘았든 소속을 바꾸기 전까지 이 이름으로 올라간다 */
+function ClubField() {
+  const { settings } = useStore();
+  const [open, setOpen] = useState(false);
+  const club = settings.club;
+  return (
+    <div className="field">
+      <label>소속 (랭킹에 함께 보입니다)</label>
+      <div className="row between club-field">
+        <span>{club ? <b>{club.name}</b> : <span className="muted">정하지 않음</span>}</span>
+        <button type="button" className="btn ghost small" onClick={() => setOpen(true)}>{club ? '바꾸기' : '소속 정하기'}</button>
+      </div>
+      <div className="small muted">시수를 다른 활터에서 쏘아도 소속을 바꾸기 전까지 이 소속으로 올라갑니다. 소속은 설정 탭에서도 바꿀 수 있습니다.</div>
+      {open && <ClubSheet onClose={() => setOpen(false)} />}
+    </div>
+  );
+}
+
 /** 참여 전: 닉네임 정하기, 또는 복구 코드로 이어 하기 */
 function JoinCard({ onJoined }: { onJoined: () => void }) {
   const store = useStore();
   const [nickname, setNickname] = useState('');
-  const [rangeName, setRangeName] = useState<string>(store.currentRange?.name ?? '');
   const [restoring, setRestoring] = useState(false);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -47,7 +65,7 @@ function JoinCard({ onJoined }: { onJoined: () => void }) {
   const join = async () => {
     if (!nickname.trim()) { setErr('닉네임을 정해 주세요.'); return; }
     setBusy(true); setErr('');
-    try { await store.joinOnline(nickname, rangeName || null); onJoined(); } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
+    try { await store.joinOnline(nickname, store.settings.club?.name ?? null); onJoined(); } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
   };
   const restore = async () => {
     setBusy(true); setErr('');
@@ -58,7 +76,7 @@ function JoinCard({ onJoined }: { onJoined: () => void }) {
     <section className="card join-card">
       <h2>랭킹에 참여하기</h2>
       <div className="small muted">
-        닉네임과 순마다 관중 여부, 저장 시각만 서버에 올라가고, 랭킹에서 닉네임을 누르면 다른 궁사도 볼 수 있습니다. 메모, 장비, 위치, 날씨는 올리지 않습니다.
+        닉네임과 소속, 순마다 관중 여부, 저장 시각만 서버에 올라가고, 랭킹에서 닉네임을 누르면 다른 궁사도 볼 수 있습니다. 메모, 장비, 위치, 날씨는 올리지 않습니다.
         로그인 없이 이 기기에 저장되는 <b>복구 코드</b>로만 구분하고, 참여한 뒤 오늘 저장한 순부터 올라갑니다.
       </div>
       {!restoring ? (
@@ -67,13 +85,7 @@ function JoinCard({ onJoined }: { onJoined: () => void }) {
             <label htmlFor="nick">닉네임 (실명이 아니어도 됩니다)</label>
             <input id="nick" type="text" maxLength={12} placeholder="예: 바람타는활" value={nickname} onChange={(e) => { setNickname(e.target.value); setErr(''); }} />
           </div>
-          <div className="field">
-            <label htmlFor="rangeShow">랭킹에 함께 보일 활터</label>
-            <select id="rangeShow" value={rangeName} onChange={(e) => setRangeName(e.target.value)}>
-              <option value="">보이지 않기</option>
-              {store.ranges.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
-            </select>
-          </div>
+          <ClubField />
           {err && <div className="small err-text" role="alert">{err}</div>}
           <button className="btn" disabled={busy} onClick={join}>{busy ? '참여하는 중…' : '참여하기'}</button>
           <button className="btn ghost small" onClick={() => { setRestoring(true); setErr(''); }}>다른 기기에서 쓰던 복구 코드가 있어요</button>
@@ -109,12 +121,10 @@ function ProfileSheet({ onClose }: { onClose: () => void }) {
   const store = useStore();
   const o = store.online!;
   const [nickname, setNickname] = useState(o.nickname);
-  const [rangeName, setRangeName] = useState(o.rangeName ?? '');
   const [err, setErr] = useState('');
-  const names = [...new Set([...(o.rangeName ? [o.rangeName] : []), ...store.ranges.map((r) => r.name)])];
   const save = async () => {
     if (!nickname.trim()) { setErr('닉네임을 정해 주세요.'); return; }
-    try { await store.setOnlineProfile(nickname, rangeName || null); toast('고쳤습니다'); onClose(); } catch (e) { setErr(errText(e)); }
+    try { await store.setOnlineProfile(nickname, store.settings.club?.name ?? null); toast('고쳤습니다'); onClose(); } catch (e) { setErr(errText(e)); }
   };
   return (
     <Sheet title="랭킹 프로필" onClose={onClose}>
@@ -122,13 +132,7 @@ function ProfileSheet({ onClose }: { onClose: () => void }) {
         <label htmlFor="nick2">닉네임</label>
         <input id="nick2" type="text" maxLength={12} value={nickname} onChange={(e) => { setNickname(e.target.value); setErr(''); }} />
       </div>
-      <div className="field">
-        <label htmlFor="range2">함께 보일 활터</label>
-        <select id="range2" value={rangeName} onChange={(e) => setRangeName(e.target.value)}>
-          <option value="">보이지 않기</option>
-          {names.map((n) => <option key={n} value={n}>{n}</option>)}
-        </select>
-      </div>
+      <ClubField />
       {err && <div className="small err-text" role="alert">{err}</div>}
       <button className="btn" onClick={save}>저장</button>
       <ConfirmButton className="btn ghost danger-text" label="랭킹 참여 그만두기" confirmLabel="서버의 내 랭킹 기록을 모두 지우고 그만두기"
@@ -258,6 +262,13 @@ function RankingBoard({ active }: { active: boolean }) {
   const [tick, setTick] = useState(0);
   const [viewing, setViewing] = useState<RankRow | null>(null);
   const [rules, setRules] = useState(false);
+  // 소속을 바꿨는데 그때 서버에 못 올렸으면 랭킹을 열 때 맞춘다
+  const clubName = store.settings.club?.name ?? null;
+  useEffect(() => {
+    if (!active || !o || (o.rangeName ?? null) === clubName) return;
+    store.setOnlineProfile(o.nickname, clubName).catch(() => { /* 다음에 다시 */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, o?.rangeName, clubName]);
 
   const start = periodStart(date, period);
   const isCurrent = start === periodStart(today(), period);

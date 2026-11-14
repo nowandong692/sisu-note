@@ -38,3 +38,23 @@ export function mapLinks(h: Pick<Hwalter, 'address'>) {
   const q = encodeURIComponent(mapQuery(h));
   return { naver: `https://map.naver.com/p/search/${q}`, kakao: `https://map.kakao.com/link/search/${q}` };
 }
+
+/** 협회 목록의 이 활터가 내 소속인지 (골라 둔 것이면 번호로, 직접 적었으면 이름으로) */
+export function isMyClub(h: Pick<Hwalter, 'id' | 'name'>, club: { name: string; hwalterId?: string } | null | undefined): boolean {
+  if (!club) return false;
+  if (club.hwalterId) return club.hwalterId === h.id;
+  return squash(h.name) === squash(club.name) || squash(h.name).endsWith(squash(club.name));
+}
+
+/**
+ * 대회 장소("함평 관덕정")가 내 소속인지. 정 이름이 같고, 소속에 지역 이름("남원 관덕정")이 붙어 있으면
+ * 그 지역(앞 두 글자)도 장소에 있어야 한다. 관덕정처럼 같은 이름이 여러 곳에 있어서다.
+ */
+export function isClubPlace(place: string, club: { name: string } | null | undefined): boolean {
+  if (!club) return false;
+  const words = club.name.trim().split(/\s+/);
+  const last = squash(words[words.length - 1] ?? '');
+  const p = squash(place);
+  if (last.length < 2 || !p.includes(last)) return false;
+  return words.length === 1 || p.includes(squash(words[0]).slice(0, 2));
+}
