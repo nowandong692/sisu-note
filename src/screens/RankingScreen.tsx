@@ -8,6 +8,7 @@ import { formatDate, today } from '../domain/util';
 import { OnlineError, onlineAvailable, rpc } from '../platform/online';
 import { useStore } from '../state/store';
 import { INFO } from '../components/icons';
+import { TournamentsView } from './TournamentsView';
 import { formatDuration, spanLabel, spanOf, totalMinutes } from '../domain/session';
 
 type Kind = 'hits' | 'volume';
@@ -242,7 +243,7 @@ function Row({ r, kind, canReport, onOpen }: { r: RankRow; kind: Kind; canReport
   );
 }
 
-export function RankingScreen({ active }: { active: boolean }) {
+function RankingBoard({ active }: { active: boolean }) {
   const store = useStore();
   const o = store.online;
   const [kind, setKind] = useState<Kind>('hits');
@@ -338,6 +339,21 @@ export function RankingScreen({ active }: { active: boolean }) {
       {editing && o && <ProfileSheet onClose={() => setEditing(false)} />}
       {rules && <RulesSheet onClose={() => setRules(false)} />}
       {viewing && <ArcherSheet r={viewing} period={period} start={start} onClose={() => setViewing(null)} />}
+    </>
+  );
+}
+
+/** 랭킹 탭: 온라인 랭킹과 대회 일정 */
+export function RankingScreen({ active }: { active: boolean }) {
+  const [view, setView] = useState<'rank' | 'tour'>('rank');
+  return (
+    <>
+      <div className="seg view-switch" role="group" aria-label="보기">
+        <button className={view === 'rank' ? 'on' : ''} aria-pressed={view === 'rank'} onClick={() => setView('rank')}>랭킹</button>
+        <button className={view === 'tour' ? 'on' : ''} aria-pressed={view === 'tour'} onClick={() => setView('tour')}>대회 일정</button>
+      </div>
+      <div className="screen" hidden={view !== 'rank'}><RankingBoard active={active && view === 'rank'} /></div>
+      <div className="screen" hidden={view !== 'tour'}><TournamentsView active={active && view === 'tour'} /></div>
     </>
   );
 }

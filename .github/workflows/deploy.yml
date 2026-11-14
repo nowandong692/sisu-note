@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # 대회 일정을 날마다 새로 받으려고 매일 아침 6시(한국 시간)에 다시 배포한다
+  schedule:
+    - cron: '0 21 * * *'
 
 permissions:
   contents: read
@@ -32,6 +35,14 @@ jobs:
           # 온라인 랭킹 서버. 공개용 키만 넣는다 (secret/service_role 키는 절대 넣지 않는다).
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || secrets.SUPABASE_ANON_KEY }}
+      # 대한궁도협회 대회일정 게시판에서 대회명·기간·장소만 받아 둔다. 실패하면 지금 올라가 있는 파일을 그대로 쓴다.
+      - name: 대회 일정 받기
+        run: |
+          node scripts/tournaments.mjs > tournaments.json \
+            || curl -fsS -m 20 -o tournaments.json "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/tournaments.json" \
+            || echo '{"items":[],"error":true}' > tournaments.json
+          cp tournaments.json dist/tournaments.json
+          head -c 300 dist/tournaments.json; echo
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
