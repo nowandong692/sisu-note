@@ -460,3 +460,12 @@ textarea.autogrow { resize: none; overflow-y: auto; max-height: 60vh; }
 .gear-manage { display: flex; flex-direction: column; gap: 12px; }
 .gear-manage .card { box-shadow: none; border: 1px solid var(--line); }
 .weather-line .seg-line { padding-left: 10px; color: var(--muted); }
+.admin-link { align-self: center; background: none; border: 0; color: var(--muted); font-size: 12px; padding: 8px 16px; opacity: .6; cursor: pointer; }
+.admin-sec { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+.admin-sec h4 { margin: 0; font-size: 15px; }
+.admin-kv { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.admin-kv li { display: flex; justify-content: space-between; gap: 8px; }
+.admin-kv span { color: var(--muted); }
+.admin-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.admin-list li { display: flex; flex-direction: column; gap: 4px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.admin-list li:last-child { border-bottom: none; }

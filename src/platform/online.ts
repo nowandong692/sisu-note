@@ -18,6 +18,8 @@ const MESSAGES: [RegExp, OnlineErrorCode, string][] = [
   [/nickname taken/, 'nickname-taken', '이미 쓰는 닉네임입니다. 다른 닉네임을 정해 주세요.'],
   [/unknown key|bad key/, 'unknown-key', '복구 코드가 맞지 않습니다.'],
   [/daily limit/, 'daily-limit', '하루에 올릴 수 있는 순(40순)을 넘었습니다.'],
+  [/not admin/, 'server', '관리자 코드가 맞지 않습니다.'],
+  [/Could not find the function public\.admin_/, 'server', '서버에 관리자 기능이 아직 없습니다. supabase/migrations/003_admin.sql을 실행해 주세요.'],
 ];
 
 export async function rpc<T>(fn: string, args: Record<string, unknown>, timeoutMs = 10000): Promise<T> {

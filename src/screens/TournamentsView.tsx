@@ -4,27 +4,11 @@ import { isClubPlace } from '../domain/hwalter';
 import { today } from '../domain/util';
 import { useStore } from '../state/store';
 import { Sheet } from '../components/ui';
+import { loadTournaments, loadVideos } from '../platform/tourData';
 
-const CACHE = 'gukgungrok-tournaments';
 const SOURCE = 'http://kungdo.or.kr/bbs/board.php?bo_table=game_news';
 const CHANNEL_ID = 'UCAmMjZ44ugH9GmgYq0du5PQ';
 const CHANNEL = `https://www.youtube.com/channel/${CHANNEL_ID}`;
-const VCACHE = 'gukgungrok-videos';
-
-/** 중계 영상 목록. 못 읽으면 저장해 둔 것, 그것도 없으면 빈 목록 (대회 일정은 그대로 보인다) */
-async function loadVideos(): Promise<VideoFile> {
-  const embedded = (window as unknown as { __VIDEOS__?: VideoFile }).__VIDEOS__;
-  if (embedded) return embedded;
-  try {
-    const res = await fetch(`${import.meta.env.BASE_URL}videos.json`, { cache: 'no-cache' });
-    if (!res.ok) throw new Error(String(res.status));
-    const file = (await res.json()) as VideoFile;
-    try { localStorage.setItem(VCACHE, JSON.stringify(file)); } catch { /* 무시 */ }
-    return file;
-  } catch {
-    try { return JSON.parse(localStorage.getItem(VCACHE) ?? 'null') ?? { items: [] }; } catch { return { items: [] }; }
-  }
-}
 
 const PLAY = <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>;
 
@@ -91,28 +75,6 @@ function VideosCard({ file, play, setPlay, boxRef }: { file: VideoFile; play: Pl
       {file.items.length > 3 && <button className="btn ghost small" style={{ alignSelf: 'center' }} onClick={() => setAll(!all)}>{all ? '접기' : `영상 ${file.items.length}개 모두 보기`}</button>}
     </section>
   );
-}
-
-function readCache(): TournamentFile | null {
-  try { return JSON.parse(localStorage.getItem(CACHE) ?? 'null'); } catch { return null; }
-}
-
-/** 배포 때 받아 둔 tournaments.json을 읽는다. 못 읽으면 이 기기에 마지막으로 받아 둔 목록을 쓴다. */
-async function loadTournaments(): Promise<{ file: TournamentFile; cached: boolean }> {
-  const embedded = (window as unknown as { __TOURNAMENTS__?: TournamentFile }).__TOURNAMENTS__;
-  if (embedded) return { file: embedded, cached: false };
-  try {
-    const res = await fetch(`${import.meta.env.BASE_URL}tournaments.json`, { cache: 'no-cache' });
-    if (!res.ok) throw new Error(String(res.status));
-    const file = (await res.json()) as TournamentFile;
-    if (!file.items?.length) throw new Error('empty');
-    try { localStorage.setItem(CACHE, JSON.stringify(file)); } catch { /* 저장 못 해도 보여 준다 */ }
-    return { file, cached: false };
-  } catch (e) {
-    const c = readCache();
-    if (c) return { file: c, cached: true };
-    throw e;
-  }
 }
 
 /** 끝나지 않은 대회에만 접수 상태를 보인다 */
