@@ -6,15 +6,16 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with: { ref: claude/tour-register }
-      - uses: actions/setup-node@v4
-        with: { node-version: 22 }
-      - run: npm ci
       - run: |
-          node scripts/tournaments.mjs > t.json
-          node -e "const f=require('./t.json');for(const t of f.items.filter(x=>x.doc||x.reg))console.log(t.start,t.name,'|',t.doc,'|',JSON.stringify(t.reg))"
+          cat > p.mjs <<'JS'
+          const url='http://kungdo.or.kr/bbs/board.php?bo_table=game_news&wr_id=1262';
+          let r=await fetch(url,{redirect:'manual'}); console.log('page',r.status,r.headers.get('location'),r.headers.getSetCookie());
+          const html=await r.text(); const m=html.match(/href="([^"]*download\.php[^"]*)"/); console.log('dl',m&&m[1]);
+          const ck=r.headers.getSetCookie().map(c=>c.split(';')[0]).join('; ');
+          const f=await fetch(m[1].replace(/&amp;/g,'&'),{redirect:'manual',headers:{Cookie:ck,Referer:url}}); console.log('file',f.status,f.headers.get('content-type'),f.headers.get('location'));
+          const b=Buffer.from(await f.arrayBuffer()); console.log(b.length, b.subarray(0,300).toString());
+          JS
+          node p.mjs
       - run: |
-          curl -sS "https://itunes.apple.com/search?term=15%EC%8B%9C15%EC%A4%91&country=kr&entity=software&limit=5" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>JSON.parse(s).results.forEach(r=>console.log(r.trackId,r.trackName,r.sellerName,r.bundleId,r.trackViewUrl)))"
-          curl -sS "https://itunes.apple.com/search?term=%ED%99%9C%EB%A1%9C145&country=kr&entity=software&limit=5" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>JSON.parse(s).results.forEach(r=>console.log(r.trackId,r.trackName,r.sellerName,r.bundleId,r.trackViewUrl)))"
-          curl -sSL "https://play.google.com/store/search?q=%ED%99%9C%EB%A1%9C145&c=apps&hl=ko" | grep -o 'details?id=[A-Za-z0-9_.]*' | sort -u | head
+          for q in "15%EC%8B%9C%2015%EC%A4%91" "softfarm" "%EA%B6%81%EB%8F%84%20%EB%8C%80%ED%9A%8C"; do curl -sS "https://itunes.apple.com/search?term=$q&country=kr&entity=software&limit=8" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>JSON.parse(s).results.forEach(r=>console.log('IOS',r.trackId,r.trackName,r.sellerName,r.bundleId)))"; done
+          for id in kr.softfarm.www.a1515 kr.co.linkweb.hwallo145; do echo "PLAY $id $(curl -s -o /dev/null -w '%{http_code}' "https://play.google.com/store/apps/details?id=$id&hl=ko")"; done
