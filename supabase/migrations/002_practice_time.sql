@@ -41,3 +41,6 @@ language sql stable security definer set search_path = public, extensions as $$
 $$;
 
 grant execute on function public.submit_end(text, text, boolean[], timestamptz), public.archer_ends(text, text, date) to anon;
+
+-- API가 새 함수를 바로 알아보도록 스키마 캐시를 다시 읽힌다
+notify pgrst, 'reload schema';

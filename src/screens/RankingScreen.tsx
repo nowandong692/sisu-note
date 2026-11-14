@@ -7,6 +7,7 @@ import {
 import { formatDate, today } from '../domain/util';
 import { OnlineError, onlineAvailable, rpc } from '../platform/online';
 import { useStore } from '../state/store';
+import { INFO } from '../components/icons';
 import { formatDuration, spanLabel, spanOf, totalMinutes } from '../domain/session';
 
 type Kind = 'hits' | 'volume';
@@ -190,6 +191,32 @@ function ArcherSheet({ r, period, start, onClose }: { r: RankRow; period: RankPe
   );
 }
 
+/** ⓘ 버튼: 랭킹 규칙 */
+function RulesSheet({ onClose }: { onClose: () => void }) {
+  return (
+    <Sheet title="랭킹 규칙" onClose={onClose}>
+      <div className="rules">
+        <h4>관중 랭킹</h4>
+        <ul>
+          <li>점수는 기간 안 모든 순의 15시(3순) 기준 평균 중 수입니다.</li>
+          <li>{PERIODS.map(([p, l]) => `${l} ${MIN_ENDS[p]}순`).join(', ')} 이상 쏘고, 평균 {MIN_PER_15}중 이상인 궁사만 순위에 듭니다.</li>
+          <li>1위 1명, 2위 2명, 3위 3명이고 나머지는 장려상입니다.</li>
+          <li>평균이 같으면 순을 더 많이 쏜 궁사, 그다음은 선다시수(앞에서부터 먼저 맞힌 쪽)로 정합니다.</li>
+        </ul>
+        <h4>습사량 TOP {VOLUME_TOP}</h4>
+        <ul><li>기간 안에 순을 가장 많이 쏜 궁사 {VOLUME_TOP}명입니다. 순이 같으면 관중이 많은 궁사가 앞섭니다.</li></ul>
+        <h4>그 밖에</h4>
+        <ul>
+          <li>궁사를 누르면 그 기간의 순별 기록과 습사 시간을 볼 수 있습니다.</li>
+          <li>참여한 뒤 오늘 저장한 순만 올라갑니다. 지난 날짜 순은 올라가지 않습니다.</li>
+          <li>모두 본인이 입력한 기록입니다. 사실과 달라 보이면 신고해 주세요.</li>
+        </ul>
+      </div>
+      <button className="btn ghost small" onClick={onClose}>닫기</button>
+    </Sheet>
+  );
+}
+
 function Row({ r, kind, canReport, onOpen }: { r: RankRow; kind: Kind; canReport: boolean; onOpen: () => void }) {
   const report = () => rpc('report', { p_nickname: r.name, p_reason: '기록이 사실과 다른 것 같음' })
     .then(() => toast('신고를 받았습니다'), (e) => toast(errText(e)));
@@ -228,6 +255,7 @@ export function RankingScreen({ active }: { active: boolean }) {
   const [editing, setEditing] = useState(false);
   const [tick, setTick] = useState(0);
   const [viewing, setViewing] = useState<RankRow | null>(null);
+  const [rules, setRules] = useState(false);
 
   const start = periodStart(date, period);
   const isCurrent = start === periodStart(today(), period);
@@ -284,7 +312,10 @@ export function RankingScreen({ active }: { active: boolean }) {
           <div className="seg" role="group" aria-label="기간">
             {PERIODS.map(([p, l]) => <button key={p} className={period === p ? 'on' : ''} aria-pressed={period === p} onClick={() => setPeriod(p)}>{l}</button>)}
           </div>
-          <button className="act-btn" aria-label="새로 고침" onClick={() => setTick((t) => t + 1)} disabled={loading}>↻</button>
+          <span className="row">
+            <button className="act-btn" aria-label="랭킹 규칙 보기" title="랭킹 규칙" onClick={() => setRules(true)}>{INFO}</button>
+            <button className="act-btn" aria-label="새로 고침" onClick={() => setTick((t) => t + 1)} disabled={loading}>↻</button>
+          </span>
         </div>
         <div className="period-nav">
           <button className="act-btn" aria-label="이전 기간" onClick={() => setDate(shiftPeriod(date, period, -1))}>‹</button>
@@ -302,15 +333,10 @@ export function RankingScreen({ active }: { active: boolean }) {
         )}
         {ranked.length > 0 && <ol className="rank-list">{ranked.map((r) => <Row key={r.name} r={r} kind={kind} canReport={!!o} onOpen={() => setViewing(r)} />)}</ol>}
         {myLine && <div className="small my-line">{myLine}</div>}
-        <div className="small muted">
-          {kind === 'hits'
-            ? `점수는 15시(3순) 기준 평균 중 수입니다. ${PERIODS.find(([p]) => p === period)![1]} ${MIN_ENDS[period]}순 이상, 15시 기준 평균 ${MIN_PER_15}중 이상인 궁사. 1위 1명, 2위 2명, 3위 3명, 나머지는 장려상입니다. 평균이 같으면 순이 많은 궁사, 그다음은 선다시수로 정합니다.`
-            : '이 기간에 순을 가장 많이 쏜 궁사 10명입니다. 순이 같으면 관중이 많은 궁사가 앞섭니다.'}
-          {' '}궁사를 누르면 그 기간의 순별 기록과 습사 시간을 볼 수 있습니다. 모두 본인이 입력한 기록입니다.
-        </div>
       </section>
       {showCode && o && <CodeSheet code={o.key} first={showCode === 'first'} onClose={() => setShowCode(null)} />}
       {editing && o && <ProfileSheet onClose={() => setEditing(false)} />}
+      {rules && <RulesSheet onClose={() => setRules(false)} />}
       {viewing && <ArcherSheet r={viewing} period={period} start={start} onClose={() => setViewing(null)} />}
     </>
   );
