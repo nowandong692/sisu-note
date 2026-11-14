@@ -177,7 +177,7 @@ export default function App() {
         </div>
       </nav>
       {leaving && editingEnd && (
-        <Sheet title="고치는 중입니다" onClose={() => setLeaving(null)}>
+        <Sheet title="고치는 중입니다" onClose={() => setLeaving(null)} backCloses={false}>
           <div className="small"><b>{formatDate(editingEnd.date)} {editingNo}순</b>을 고치고 있습니다. 고친 내용을 저장하고 이동할까요?</div>
           <button className="btn" disabled={!canSave} onClick={() => leave(true)}>저장하고 이동</button>
           {!canSave && <div className="small muted">5시를 모두 입력해야 저장할 수 있습니다.</div>}

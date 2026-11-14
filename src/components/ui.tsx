@@ -1,11 +1,68 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from 'react';
 
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+/*
+ * 휴대폰의 뒤로 가기로 창(시트)을 닫는다. 창을 열 때 방문 기록을 한 칸 넣고,
+ * 뒤로 가기로 그 칸이 빠지면 맨 위 창 하나만 닫는다. 창을 버튼으로 닫으면 넣어 둔 칸을 치운다.
+ * 창 하나를 닫자마자 다른 창을 여는 경우(오늘 장비 → 장비 관리)는 칸을 다시 쓴다.
+ */
+const sheetStack: { id: number; close: () => void }[] = [];
+let sheetSeq = 0;
+let ignorePops = 0;
+let pendingBack: { timer: ReturnType<typeof setTimeout>; id: number } | null = null;
+
+if (typeof window !== 'undefined') {
+  // 앱의 다른 popstate 처리(고치는 중 확인 등)보다 먼저 등록되어, 창을 닫은 뒤로 가기는 여기서 끝낸다
+  window.addEventListener('popstate', (e) => {
+    if (ignorePops > 0) { ignorePops--; e.stopImmediatePropagation(); return; }
+    const top = sheetStack[sheetStack.length - 1];
+    const at = (history.state as { sheet?: number } | null)?.sheet ?? 0;
+    if (top && at < top.id) {
+      sheetStack.pop();
+      top.close();
+      e.stopImmediatePropagation();
+    }
+  });
+}
+
+function pushSheet(close: () => void): number {
+  const id = ++sheetSeq;
+  if (pendingBack) {
+    clearTimeout(pendingBack.timer);
+    pendingBack = null;
+    history.replaceState({ sheet: id }, '');
+  } else {
+    history.pushState({ sheet: id }, '');
+  }
+  sheetStack.push({ id, close });
+  return id;
+}
+
+function popSheet(id: number) {
+  const i = sheetStack.findIndex((x) => x.id === id);
+  if (i < 0) return; // 뒤로 가기로 이미 닫혔다
+  sheetStack.splice(i, 1);
+  if ((history.state as { sheet?: number } | null)?.sheet !== id) return;
+  const timer = setTimeout(() => {
+    pendingBack = null;
+    if ((history.state as { sheet?: number } | null)?.sheet === id) { ignorePops++; history.back(); }
+  }, 0);
+  pendingBack = { timer, id };
+}
+
+/** backCloses=false: 뒤로 가기와 묶지 않는다 (뒤로 가기를 눌러서 뜨는 확인 창 등) */
+export function Sheet({ title, onClose, children, backCloses = true }: { title: string; onClose: () => void; children: ReactNode; backCloses?: boolean }) {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', k);
     return () => document.removeEventListener('keydown', k);
   }, [onClose]);
+  useEffect(() => {
+    if (!backCloses) return;
+    const id = pushSheet(() => closeRef.current());
+    return () => popSheet(id);
+  }, [backCloses]);
   return (
     <div className="scrim" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="sheet" role="dialog" aria-label={title}>
