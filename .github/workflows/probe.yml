@@ -14,6 +14,15 @@ jobs:
           curl -sS -m 30 -A "$UA" -L -o out/robots.txt -w "robots %{http_code}\n" "http://kungdo.or.kr/robots.txt" || true
           curl -sS -m 30 -A "$UA" -L -o out/share.html -w "share %{http_code} %{url_effective}\n" "https://share.google/cw7aHLKcD9hyj02Tj" || true
           ls -la out
+          echo "=== robots"; cat out/robots.txt
+          for f in list share; do
+            echo "=== $f (meta/forms/scripts)"; grep -oiE '<(form|iframe|script)[^>]*>' out/$f.html | head -30
+            echo "=== $f (links)"; grep -oE 'href="[^"]*"[^>]*>[^<]{2,80}' out/$f.html | sed -n '1,120p'
+            echo "=== $f (text)"; sed -e 's/<script[^>]*>.*<\/script>//g' -e 's/<[^>]*>/ /g' out/$f.html | tr -s ' \t' ' ' | grep -v '^ *$' | sed -n '1,200p'
+          done
+          FIRST=$(grep -oE 'board\.php\?bo_table=game_news(&amp;|&)wr_id=[0-9]+' out/list.html | head -1 | sed 's/&amp;/\&/')
+          echo "=== detail $FIRST"
+          if [ -n "$FIRST" ]; then curl -sS -m 30 -A "$UA" -L -o out/detail.html "http://kungdo.or.kr/bbs/$FIRST"; sed -e 's/<[^>]*>/ /g' out/detail.html | tr -s ' \t' ' ' | grep -v '^ *$' | sed -n '1,150p'; grep -oE 'href="[^"]*download[^"]*"' out/detail.html | head; fi
       - uses: actions/upload-artifact@v4
         with:
           name: probe
