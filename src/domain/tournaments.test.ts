@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dLabel, daysUntil, isMyRange, monthGrid, onDay, periodText, shiftMonth, splitTournaments } from './tournaments';
+import { videosFor, dLabel, daysUntil, isMyRange, monthGrid, onDay, periodText, shiftMonth, splitTournaments } from './tournaments';
 
 const t = (start: string, end: string, name = 'x') => ({ id: name, name, start, end, place: '서울 황학정', url: '' });
 
@@ -27,5 +27,15 @@ describe('대회 일정', () => {
     expect(onDay([t('2026-11-20', '2026-11-22', 'a'), t('2026-11-28', '2026-11-30', 'b')], '2026-11-21').map((x) => x.name)).toEqual(['a']);
     expect(shiftMonth('2026-12', 1)).toBe('2027-01');
     expect(shiftMonth('2026-01', -1)).toBe('2025-12');
+  });
+  it('대회와 중계 영상을 잇는다', () => {
+    const tour = { id: '1', name: '제2회 용인특례시 전통 궁도대회', start: '2026-09-05', end: '2026-09-06', place: '용인 용무정', url: '' };
+    const vids = [
+      { id: 'a', title: '제2회 용인특례시 전통 궁도대회 - 1일차', published: '2026-09-05T07:25:46+00:00', url: '' },
+      { id: 'b', title: '제2회 용인특례시 전통 궁도대회 - 2일차', published: '2026-09-06T02:54:43+00:00', url: '' },
+      { id: 'c', title: '제190회 전국남녀궁도승단대회 - 1일차', published: '2026-09-05T10:00:00+00:00', url: '' },
+      { id: 'd', title: '제2회 용인특례시 전통 궁도대회', published: '2027-09-05T10:00:00+00:00', url: '' },
+    ];
+    expect(videosFor(tour, vids).map((v) => v.id)).toEqual(['a', 'b']);
   });
 });

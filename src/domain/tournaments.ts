@@ -61,3 +61,25 @@ export function shiftMonth(ym: string, n: number): string {
   const d = new Date(y, m - 1 + n, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
+
+/** 경기 중계 영상 (배포 때 scripts/videos.mjs가 만든 videos.json) */
+export interface Video { id: string; title: string; published: string; url: string }
+export interface VideoFile { channel?: string; channelUrl?: string; liveUrl?: string; fetchedAt?: string; items: Video[] }
+
+/** 비교용: 띄어쓰기·기호·"- 2일차" 같은 꼬리를 뺀다 */
+function core(s: string): string {
+  return s.replace(/\s*-\s*\d+\s*일차.*$/, '').replace(/\(.*?\)/g, '').replace(/[\s·ㆍ,.\-_'"]/g, '').replace(/남녀|남여/g, '');
+}
+
+/** 대회 기간(앞뒤 하루 여유) 안에 올라왔고 이름이 겹치는 영상 */
+export function videosFor(t: Tournament, videos: Video[]): Video[] {
+  const name = core(t.name);
+  if (name.length < 4) return [];
+  const from = toTime(t.start) - DAY, to = toTime(t.end) + 2 * DAY;
+  return videos.filter((v) => {
+    const at = Date.parse(v.published);
+    if (!(at >= from && at <= to)) return false;
+    const vt = core(v.title);
+    return vt.length >= 4 && (name.includes(vt) || vt.includes(name));
+  }).sort((a, b) => a.published.localeCompare(b.published));
+}
