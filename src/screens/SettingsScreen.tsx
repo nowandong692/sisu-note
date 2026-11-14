@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { AdminSheet } from '../components/AdminSheet';
 import { ClubSheet } from '../components/ClubSheet';
 import { ConfirmButton, toast } from '../components/ui';
 import { endsToCsv } from '../domain/csv';
@@ -64,7 +63,6 @@ function ClubSection() {
 export function SettingsScreen() {
   const store = useStore();
   const { ends, gear } = store;
-  const [admin, setAdmin] = useState(false);
   return (
     <>
       <ClubSection />
@@ -78,8 +76,6 @@ export function SettingsScreen() {
           <ConfirmButton className="btn ghost small" label="모든 기록 지우기" confirmLabel="정말 지우기" onConfirm={() => store.clearAll().then(() => toast('모든 기록과 장비를 지웠습니다'))} />
         </div>
       </section>
-      <button className="admin-link" onClick={() => setAdmin(true)}>관리자</button>
-      {admin && <AdminSheet onClose={() => setAdmin(false)} />}
     </>
   );
 }

@@ -5,7 +5,7 @@ import { today } from '../domain/util';
 import { loadHwalter } from '../platform/hwalterData';
 import { rpc } from '../platform/online';
 import { loadTournaments, loadVideos } from '../platform/tourData';
-import { ConfirmButton, Sheet, toast } from './ui';
+import { ConfirmButton, ToastHost, toast } from '../components/ui';
 
 /** 관리자 코드는 이 탭을 닫을 때까지만 기억한다 (기기에 오래 남기지 않는다) */
 const CODE = 'gukgungrok-admin';
@@ -34,7 +34,7 @@ function Login({ onOk }: { onOk: (code: string) => void }) {
       <input id="adminCode" type="password" autoComplete="off" autoFocus value={code} onChange={(e) => { setCode(e.target.value); setErr(''); }} />
       {err && <div className="small err-text" role="alert">{err}</div>}
       <button className="btn" type="submit" disabled={busy || !code.trim()}>{busy ? '확인하는 중…' : '들어가기'}</button>
-      <div className="small muted">관리자 코드는 Supabase에 해시로만 등록되어 있습니다. 코드는 이 화면을 닫을 때까지만 기억합니다.</div>
+      <div className="small muted">관리자 코드는 Supabase에 해시로만 등록되어 있습니다. 코드는 이 브라우저 탭을 닫을 때까지만 기억합니다.</div>
     </form>
   );
 }
@@ -158,12 +158,25 @@ function Panel({ code, onOut }: { code: string; onOut: () => void }) {
   );
 }
 
-/** 설정 탭 맨 아래 "관리자"에서 연다 */
-export function AdminSheet({ onClose }: { onClose: () => void }) {
+/**
+ * 관리자 페이지. 앱 안에는 들어오는 버튼이 없고, 주소 끝에 #admin을 붙여 들어온다.
+ * 코드를 넣어 로그인하면 랭킹 관리(신고, 의심 기록)와 자동 수집 상태를 본다.
+ */
+export function AdminPage() {
   const [code, setCode] = useState(readCode);
+  useEffect(() => { document.title = '국궁록 관리자'; }, []);
   return (
-    <Sheet title="관리자" onClose={onClose}>
-      {code ? <Panel code={code} onOut={() => setCode('')} /> : <Login onOk={setCode} />}
-    </Sheet>
+    <>
+      <div className="app admin-page">
+        <header className="top">
+          <h1>관리자</h1>
+          <a className="small muted" href={import.meta.env.BASE_URL}>앱으로</a>
+        </header>
+        <section className="card">
+          {code ? <Panel code={code} onOut={() => setCode('')} /> : (<><h2>로그인</h2><Login onOk={setCode} /></>)}
+        </section>
+      </div>
+      <ToastHost />
+    </>
   );
 }
