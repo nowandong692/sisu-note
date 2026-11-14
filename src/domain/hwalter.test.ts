@@ -13,7 +13,8 @@ describe('활터 검색', () => {
     expect(searchHwalter(H, '가평 보납', null).map((h) => h.id)).toEqual(['46']);
     expect(searchHwalter(H, '가평군보납정', null).map((h) => h.id)).toEqual(['46']);
     expect(searchHwalter(H, '종로구', null).map((h) => h.id)).toEqual(['1']);
-    expect(searchHwalter(H, '', '서울').map((h) => h.id)).toEqual(['1', '3']);
+    expect(searchHwalter(H, '', '서울').map((h) => h.name)).toEqual(['살곶이정', '황학정']);
+    expect(searchHwalter(H, '', null).map((h) => h.name)).toEqual(['살곶이정', '황학정', '가평군 보납정']);
     expect(searchHwalter(H, '보납', '서울')).toEqual([]);
   });
   it('연락처와 지도 연결', () => {

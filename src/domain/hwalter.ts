@@ -10,11 +10,17 @@ const squash = (s: string) => s.replace(/\s/g, '').toLowerCase();
 /** 이름이나 주소에 검색어가 들어 있는 활터. 띄어쓰기는 무시하고, 여러 낱말이면 모두 들어 있어야 한다 */
 export function searchHwalter(items: Hwalter[], query: string, region: string | null): Hwalter[] {
   const words = query.trim().split(/\s+/).filter(Boolean).map(squash);
-  return items.filter((h) => {
+  return sortHwalter(items.filter((h) => {
     if (region && h.region !== region) return false;
     const hay = squash(`${h.name} ${h.address}`);
     return words.every((w) => hay.includes(w));
-  });
+  }));
+}
+
+/** 지역(협회 순서) 안에서 이름 가나다순 */
+export function sortHwalter(items: Hwalter[]): Hwalter[] {
+  const r = (h: Hwalter) => (AREAS.indexOf(h.region) + 1 || 99);
+  return [...items].sort((a, b) => r(a) - r(b) || a.name.localeCompare(b.name, 'ko'));
 }
 
 /** 연락처는 옮기지 않고 협회 활터현황의 그 지역 쪽으로 연결한다 */
