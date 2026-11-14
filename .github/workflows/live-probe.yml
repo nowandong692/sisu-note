@@ -23,4 +23,16 @@ jobs:
           k=open('kd.html',encoding='utf-8',errors='replace').read()
           for m in re.finditer(r'(youtube[^"\']*|tv\.sports[^"\']*)', k): print('KDLINK', m.group(0)[:150])
           PY
+          curl -sS -m 60 --retry 3 --retry-all-errors -A "Mozilla/5.0" -c jar -b jar -o vod.html -d "classCd=19&searchKeyword=&pageIndex=1" "$B/NA/INF307.do" || true
+          python3 - <<'PY'
+          import re
+          from html import unescape
+          d=open('vod.html',encoding='utf-8',errors='replace').read()
+          print('VODLEN', len(d))
+          for m in re.finditer(r'<tr[\s\S]*?</tr>', d):
+              t=re.sub(r'\s+',' ',re.sub(r'<[^>]+>',' ',m.group(0))).strip()
+              links=re.findall(r'(?:href|onclick)="([^"]+)"', m.group(0))
+              if t: print('VOD', unescape(t)[:160], links[:2])
+          PY
+          curl -sS -m 30 "https://www.youtube.com/feeds/videos.xml?channel_id=UCAmMjZ44ugH9GmgYq0du5PQ" | grep -oE '<(title|published|yt:videoId)>[^<]*' | head -40 || true
           curl -sS -m 30 -A "Mozilla/5.0" -L "https://www.youtube.com/channel/UCAmMjZ44ugH9GmgYq0du5PQ" | grep -oE '<title>[^<]*</title>|"subscriberCountText":\{[^}]*\}' | head -3 || true
