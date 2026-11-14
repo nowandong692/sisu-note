@@ -8,6 +8,7 @@ import { formatDate, today } from '../domain/util';
 import { OnlineError, onlineAvailable, rpc } from '../platform/online';
 import { useStore } from '../state/store';
 import { INFO } from '../components/icons';
+import { HwalterView } from './HwalterView';
 import { TournamentsView } from './TournamentsView';
 import { formatDuration, spanLabel, spanOf, totalMinutes } from '../domain/session';
 
@@ -345,15 +346,17 @@ function RankingBoard({ active }: { active: boolean }) {
 
 /** 랭킹 탭: 온라인 랭킹과 대회 일정 */
 export function RankingScreen({ active }: { active: boolean }) {
-  const [view, setView] = useState<'rank' | 'tour'>('rank');
+  const [view, setView] = useState<'rank' | 'tour' | 'hwalter'>('rank');
   return (
     <>
       <div className="seg view-switch" role="group" aria-label="보기">
         <button className={view === 'rank' ? 'on' : ''} aria-pressed={view === 'rank'} onClick={() => setView('rank')}>랭킹</button>
         <button className={view === 'tour' ? 'on' : ''} aria-pressed={view === 'tour'} onClick={() => setView('tour')}>대회 일정</button>
+        <button className={view === 'hwalter' ? 'on' : ''} aria-pressed={view === 'hwalter'} onClick={() => setView('hwalter')}>활터</button>
       </div>
       <div className="screen" hidden={view !== 'rank'}><RankingBoard active={active && view === 'rank'} /></div>
       <div className="screen" hidden={view !== 'tour'}><TournamentsView active={active && view === 'tour'} /></div>
+      <div className="screen" hidden={view !== 'hwalter'}><HwalterView active={active && view === 'hwalter'} /></div>
     </>
   );
 }

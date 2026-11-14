@@ -442,3 +442,15 @@ textarea.autogrow { resize: none; overflow-y: auto; max-height: 60vh; }
 .reg-info dd { margin: 0; display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
 .reg-actions { display: flex; flex-direction: column; gap: 8px; }
 .reg-actions .btn { text-align: center; text-decoration: none; }
+.hw-regions { gap: 5px; }
+.hw-regions .chip { min-height: 28px; padding: 3px 10px; font-size: 12.5px; }
+.hw-list { list-style: none; margin: 0; padding: 0; }
+.hw-row { border-bottom: 1px solid var(--line); }
+.hw-row:last-child { border-bottom: none; }
+.hw-row.mine { background: var(--hong-soft); border-radius: 8px; }
+.hw-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 4px; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.hw-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hw-main b { font-size: 14px; }
+.hw-region { flex-shrink: 0; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+.hw-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 4px 10px; }
+.hw-actions .btn { text-decoration: none; }
