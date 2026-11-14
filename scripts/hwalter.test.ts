@@ -30,6 +30,9 @@ describe('parseHwalter', () => {
     ]);
     expect(JSON.stringify(r)).not.toMatch(/홍길동|010-|02-000/);
   });
+  it('지역을 주면 그 지역으로', () => {
+    expect(parseHwalter(PAGE, '경기')[0].region).toBe('경기');
+  });
   it('주소로 시도 정하기', () => {
     expect(regionOf('전라남도 함평군')).toBe('전남');
     expect(regionOf('충청북도 청주시')).toBe('충북');
