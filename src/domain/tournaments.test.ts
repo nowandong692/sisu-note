@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { videosFor, dLabel, daysUntil, isMyRange, monthGrid, onDay, periodText, shiftMonth, splitTournaments } from './tournaments';
+import { appLinks, nowStamp, regPeriodText, regState, videosFor, dLabel, daysUntil, isMyRange, monthGrid, onDay, periodText, shiftMonth, splitTournaments } from './tournaments';
 
 const t = (start: string, end: string, name = 'x') => ({ id: name, name, start, end, place: '서울 황학정', url: '' });
 
@@ -37,5 +37,28 @@ describe('대회 일정', () => {
       { id: 'd', title: '제2회 용인특례시 전통 궁도대회', published: '2027-09-05T10:00:00+00:00', url: '' },
     ];
     expect(videosFor(tour, vids).map((v) => v.id)).toEqual(['a', 'b']);
+  });
+});
+
+describe('접수 상태', () => {
+  const reg = { open: '2026-11-18T13:00', close: '2026-11-22T17:00', via: '15시15중 앱' };
+  it('시작 전', () => {
+    expect(regState(reg, '2026-11-14T20:00')).toEqual({ kind: 'soon', label: '접수 D-4' });
+    expect(regState(reg, '2026-11-17T09:00').label).toBe('내일 13:00 접수 시작');
+    expect(regState(reg, '2026-11-18T12:59').label).toBe('오늘 13:00 접수 시작');
+  });
+  it('접수 중과 마감', () => {
+    expect(regState(reg, '2026-11-18T13:00')).toEqual({ kind: 'open', label: '접수 중 · 11.22(일) 17:00 마감' });
+    expect(regState(reg, '2026-11-22T09:00').label).toBe('접수 중 · 오늘 17:00 마감');
+    expect(regState(reg, '2026-11-22T17:00').kind).toBe('closed');
+  });
+  it('기간 글과 지금 시각', () => {
+    expect(regPeriodText(reg)).toBe('11.18(수) 13:00 ~ 11.22(일) 17:00');
+    expect(nowStamp(new Date(2026, 10, 14, 9, 5))).toBe('2026-11-14T09:05');
+  });
+  it('접수 앱 주소', () => {
+    expect(appLinks('15시15중 앱')?.android).toContain('kr.softfarm.www.a1515');
+    expect(appLinks('활로145 앱')?.ios).toContain('id6808953077');
+    expect(appLinks('이메일')).toBeNull();
   });
 });

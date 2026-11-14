@@ -1,5 +1,7 @@
 /** 대한궁도협회 대회일정 (배포 때 scripts/tournaments.mjs가 만든 tournaments.json) */
-export interface Tournament { id: string; name: string; start: string; end: string; place: string; url: string }
+/** 요강에서 읽은 접수 정보. open/close는 'YYYY-MM-DDTHH:MM' (한국 시각) */
+export interface Registration { open: string; close?: string; via?: string; limit?: string[]; fee?: string[] }
+export interface Tournament { id: string; name: string; start: string; end: string; place: string; url: string; doc?: string; reg?: Registration }
 export interface TournamentFile { source?: string; fetchedAt?: string; items: Tournament[]; error?: boolean }
 
 const DAY = 86400000;
@@ -82,4 +84,50 @@ export function videosFor(t: Tournament, videos: Video[]): Video[] {
     const vt = core(v.title);
     return vt.length >= 4 && (name.includes(vt) || vt.includes(name));
   }).sort((a, b) => a.published.localeCompare(b.published));
+}
+
+const WEEK = '일월화수목금토';
+function md(dt: string): string {
+  const d = new Date(`${dt.slice(0, 10)}T00:00:00`);
+  return `${d.getMonth() + 1}.${d.getDate()}(${WEEK[d.getDay()]})`;
+}
+const hm = (dt: string) => dt.slice(11, 16);
+
+/** 접수기간을 "11.18(수) 13:00 ~ 11.22(일) 17:00"처럼 */
+export function regPeriodText(reg: Registration): string {
+  const a = `${md(reg.open)} ${hm(reg.open)}`;
+  return reg.close ? `${a} ~ ${md(reg.close)} ${hm(reg.close)}` : `${a}부터`;
+}
+
+export interface RegState { kind: 'soon' | 'open' | 'closed'; label: string }
+
+/** 지금(한국 시각 'YYYY-MM-DDTHH:MM') 기준 접수 상태 */
+export function regState(reg: Registration, now: string): RegState {
+  const today = now.slice(0, 10);
+  if (now < reg.open) {
+    const d = Math.round((toTime(reg.open.slice(0, 10)) - toTime(today)) / DAY);
+    if (d === 0) return { kind: 'soon', label: `오늘 ${hm(reg.open)} 접수 시작` };
+    if (d === 1) return { kind: 'soon', label: `내일 ${hm(reg.open)} 접수 시작` };
+    return { kind: 'soon', label: `접수 D-${d}` };
+  }
+  if (!reg.close || now < reg.close) {
+    if (!reg.close) return { kind: 'open', label: '접수 중' };
+    const end = reg.close.slice(0, 10) === today ? `오늘 ${hm(reg.close)}` : `${md(reg.close)} ${hm(reg.close)}`;
+    return { kind: 'open', label: `접수 중 · ${end} 마감` };
+  }
+  return { kind: 'closed', label: '접수 마감' };
+}
+
+/** 이 기기의 지금 시각을 'YYYY-MM-DDTHH:MM'으로 */
+export function nowStamp(d = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/** 접수 앱의 스토어 주소. 모르는 앱이면 null */
+export function appLinks(via?: string): { android?: string; ios?: string } | null {
+  if (!via) return null;
+  if (/15시\s*15중/.test(via)) return { android: 'https://play.google.com/store/apps/details?id=kr.softfarm.www.a1515' };
+  if (/활로\s*145/.test(via)) return { android: 'https://play.google.com/store/apps/details?id=kr.co.linkweb.hwallo145', ios: 'https://apps.apple.com/kr/app/id6808953077' };
+  return null;
 }
