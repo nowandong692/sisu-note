@@ -6,29 +6,43 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: fetch posts
+      - name: fetch hwp
         run: |
-          UA="Mozilla/5.0 (compatible; gukgungrok-probe)"
-          curl -sS -m 30 -A "$UA" -L -o list.html "http://kungdo.or.kr/bbs/board.php?bo_table=game_news"
+          pip install -q olefile
+          curl -sS -m 30 -A "Mozilla/5.0" -L -o list.html "http://kungdo.or.kr/bbs/board.php?bo_table=game_news"
           python3 - <<'PY'
-          import re,subprocess,html
+          import re,subprocess,html,olefile,zlib,struct,io
           h=open('list.html',encoding='utf-8',errors='replace').read()
           ids=[]
           for m in re.finditer(r'bo_table=game_news(?:&amp;|&)wr_id=(\d+)',h):
               if m.group(1) not in ids: ids.append(m.group(1))
-          for wid in ids[:8]:
+          def hwptext(b):
+              f=olefile.OleFileIO(io.BytesIO(b))
+              hdr=f.openstream('FileHeader').read(); comp=hdr[36]&1
+              out=[]
+              for s in sorted([e for e in f.listdir() if e[0]=='BodyText'],key=lambda e:int(e[1][7:])):
+                  d=f.openstream(s).read()
+                  if comp: d=zlib.decompress(d,-15)
+                  i=0
+                  while i+4<=len(d):
+                      v=struct.unpack('<I',d[i:i+4])[0]; tag=v&0x3ff; n=(v>>20)&0xfff; i+=4
+                      if n==0xfff: n=struct.unpack('<I',d[i:i+4])[0]; i+=4
+                      if tag==67:
+                          t=d[i:i+n].decode('utf-16le','replace')
+                          t=re.sub(r'[\x00-\x1f]','',t); out.append(t)
+                      i+=n
+              return '\n'.join(x for x in out if x.strip())
+          for wid in ids[:6]:
               url=f"http://kungdo.or.kr/bbs/board.php?bo_table=game_news&wr_id={wid}"
-              p=subprocess.run(['curl','-sS','-m','30','-A','Mozilla/5.0','-L',url],capture_output=True).stdout.decode('utf-8','replace')
+              p=subprocess.run(['curl','-sS','-m','30','-A','Mozilla/5.0','-c','jar','-b','jar','-L',url],capture_output=True).stdout.decode('utf-8','replace')
+              m=re.search(r'href="([^"]*download\.php[^"]*)"',p)
               print('=====',wid)
-              t=re.search(r'<h1[^>]*>([\s\S]*?)</h1>',p) or re.search(r'<title>([\s\S]*?)</title>',p)
-              print('TITLE',re.sub(r'\s+',' ',re.sub('<[^>]+>','',t.group(1))) if t else '')
-              for a in re.finditer(r'href="([^"]*download[^"]*)"[^>]*>([\s\S]*?)</a>',p):
-                  print('FILE',html.unescape(a.group(1))[:160],'|',re.sub(r'\s+',' ',re.sub('<[^>]+>','',a.group(2)))[:120])
-              for a in re.finditer(r'href="(https?://[^"]+)"',p):
-                  u=html.unescape(a.group(1))
-                  if 'kungdo.or.kr' not in u and 'w3.org' not in u: print('LINK',u[:200])
-              i=p.find('bo_v_con'); body=p[i:i+20000] if i>0 else ''
-              body=re.sub(r'<(script|style)[\s\S]*?</\1>','',body)
-              txt=html.unescape(re.sub(r'\s+',' ',re.sub('<[^>]+>',' ',body)))
-              print('BODY',txt[:1500])
+              if not m: print('nofile'); continue
+              b=subprocess.run(['curl','-sS','-m','30','-A','Mozilla/5.0','-c','jar','-b','jar','-e',url,'-L',html.unescape(m.group(1))],capture_output=True).stdout
+              print('BYTES',len(b),b[:8])
+              try:
+                  t=hwptext(b)
+                  for line in t.split('\n'):
+                      if re.search(r'신청|접수|마감|참가비|문의|이메일|@|팩스|FAX|전화|기간|일시|장소|계좌',line): print('  ',line[:200])
+              except Exception as e: print('ERR',e)
           PY
