@@ -9,6 +9,8 @@ import { StatsScreen } from './screens/StatsScreen';
 import { useStore } from './state/store';
 import { useAutoWeather } from './state/weatherSync';
 import { applyAppearance } from './platform/theme';
+import { SettingsSheet } from './screens/SettingsSheet';
+import { GEAR_ICON } from './components/icons';
 
 type Tab = 'shoot' | 'log' | 'stats' | 'rank' | 'gear';
 const TABS: [Tab, string, string][] = [
@@ -45,6 +47,7 @@ export default function App() {
   /** 고치는 중에 떠나려는 곳: 탭, 또는 뒤로 가기 */
   const [leaving, setLeaving] = useState<Tab | 'back' | null>(null);
   const skipGuardBack = useRef(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const look = store.settings.appearance;
   useEffect(() => {
     if (store.loaded) applyAppearance(look?.mode, look?.palette);
@@ -134,7 +137,10 @@ export default function App() {
         {tab !== 'shoot' && (
           <header className="top">
             <h1>{TABS.find(([t]) => t === tab)![2]}</h1>
-            <span className="date">{formatDate(today())}</span>
+            <span className="head-right">
+              <span className="date">{formatDate(today())}</span>
+              <button className="act-btn" aria-label="설정" title="설정" onClick={() => setSettingsOpen(true)}>{GEAR_ICON}</button>
+            </span>
           </header>
         )}
         {store.error && <div className="error" role="alert">{store.error}</div>}
@@ -186,6 +192,7 @@ export default function App() {
           <button className="btn ghost small" onClick={() => setLeaving(null)}>계속 고치기</button>
         </Sheet>
       )}
+      {settingsOpen && <SettingsSheet onClose={() => setSettingsOpen(false)} />}
       <ToastHost />
     </>
   );

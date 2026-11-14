@@ -384,3 +384,8 @@ textarea.autogrow { resize: none; overflow-y: auto; max-height: 60vh; }
 .sw-meok i:nth-child(1) { background: #F3F0E8; } .sw-meok i:nth-child(2) { background: #1F1E1C; } .sw-meok i:nth-child(3) { background: #A23B2A; }
 .sw-cheongja i:nth-child(1) { background: #EDF3F0; } .sw-cheongja i:nth-child(2) { background: #1B2A27; } .sw-cheongja i:nth-child(3) { background: #2C7A69; }
 .sw-dancheong i:nth-child(1) { background: #F1F4F4; } .sw-dancheong i:nth-child(2) { background: #12324A; } .sw-dancheong i:nth-child(3) { background: #C94A22; }
+/* 설정 시트 */
+header.top .head-right { display: inline-flex; align-items: center; gap: 8px; }
+.settings-body { display: flex; flex-direction: column; gap: 18px; max-height: 65vh; overflow-y: auto; }
+.settings-sec { display: flex; flex-direction: column; gap: 10px; }
+.settings-sec h4 { margin: 0; font-size: 15px; }
