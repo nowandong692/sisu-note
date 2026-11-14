@@ -8,13 +8,9 @@ jobs:
     steps:
       - run: |
           curl -sS -m 30 -A "Mozilla/5.0" -o a.html "http://kungdo.or.kr/?mcd=4030"
-          curl -sS -m 30 -A "Mozilla/5.0" -o b.html "http://kungdo.or.kr/?mcd=4030&area=9"
           python3 - <<'PY'
           import re
-          for f in ['a.html','b.html']:
-              h=open(f,encoding='utf-8',errors='replace').read()
-              print('=====',f,len(h))
-              for m in re.finditer(r'area=\d+[^>]*>[^<]*',h): print('AREA',m.group(0)[:80])
-              i=h.find('<table'); print(h[i:i+5000])
-              print('PAGING', re.findall(r'href="[^"]*mcd=4030[^"]*"',h)[:40])
+          h=open('a.html',encoding='utf-8',errors='replace').read()
+          i=h.find('table-striped'); print(re.sub(r'\s+',' ',h[i-3000:i]))
           PY
+          for a in $(seq 0 25); do n=$(curl -sS -m 20 -A "Mozilla/5.0" "http://kungdo.or.kr/?mcd=4030&area=$a" | grep -c '<td align="right">'); f=$(curl -sS -m 20 -A "Mozilla/5.0" "http://kungdo.or.kr/?mcd=4030&area=$a" | grep -o '<td>[^<]*' | sed -n 1p); echo "AREA $a $n $f"; done
