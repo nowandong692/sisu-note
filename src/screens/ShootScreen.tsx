@@ -39,6 +39,35 @@ export function EndLine({ end, index, showMeta = true, selected, onSelect }: { e
   );
 }
 
+const RESET_WORD = '초기화';
+
+/** 오늘 기록 초기화: "초기화"를 직접 입력해야 지운다 */
+function ResetTodaySheet({ count, hits, onClose }: { count: number; hits: number; onClose: () => void }) {
+  const store = useStore();
+  const [word, setWord] = useState('');
+  const [busy, setBusy] = useState(false);
+  const ok = word.trim() === RESET_WORD;
+  const run = async () => {
+    if (!ok || busy) return;
+    setBusy(true);
+    const n = await store.clearToday();
+    toast(`오늘 기록 ${n}순을 지웠습니다`);
+    onClose();
+  };
+  return (
+    <Sheet title="오늘 기록을 초기화할까요?" onClose={onClose}>
+      <div className="small">오늘 저장한 <b>{count}순 {hits}중</b>이 모두 지워지고 되돌릴 수 없습니다.{store.online && ' 랭킹에 올린 오늘 순도 함께 지워집니다.'} 장비와 지난 기록은 그대로입니다.</div>
+      <div className="field">
+        <label htmlFor="resetWord">확인을 위해 <b>{RESET_WORD}</b>라고 입력하세요</label>
+        <input id="resetWord" type="text" autoComplete="off" placeholder={RESET_WORD} value={word}
+          onChange={(e) => setWord(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void run(); }} />
+      </div>
+      <button className="btn danger" disabled={!ok || busy} onClick={() => void run()}>{busy ? '지우는 중…' : '오늘 기록 초기화'}</button>
+      <button className="btn ghost small" onClick={onClose}>취소</button>
+    </Sheet>
+  );
+}
+
 export function ShootScreen() {
   const store = useStore();
   const { settings, ends, gearName, gearOf } = store;
@@ -51,6 +80,7 @@ export function ShootScreen() {
   const editIndex = editing ? ends.filter((e) => e.date === editing.date && e.recordedAt <= editing.recordedAt).length : 0;
   const cancelEdit = () => store.setEditId(null);
   const [weathering, setWeathering] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [rangeOpen, setRangeOpen] = useState(false);
 
   const todays = ends.filter((e) => e.date === today()).sort((a, b) => a.recordedAt - b.recordedAt);
@@ -207,7 +237,10 @@ export function ShootScreen() {
               <EndLine key={e.id} end={e} index={i} selected={e.id === store.editId}
                 onSelect={() => { store.setEditId(e.id === store.editId ? null : e.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
             )).reverse()}</div>
-            <div className="small muted">저장한 순을 누르면 위 입력 칸에 불러와 고칠 수 있습니다.</div>
+            <div className="row between">
+              <span className="small muted">저장한 순을 누르면 위 입력 칸에 불러와 고칠 수 있습니다.</span>
+              <button className="btn ghost small danger-text" onClick={() => setResetting(true)}>오늘 기록 초기화</button>
+            </div>
           </>}
       </section>
 
@@ -225,6 +258,7 @@ export function ShootScreen() {
           </div>
         </Sheet>
       )}
+      {resetting && <ResetTodaySheet count={todays.length} hits={todayHits} onClose={() => setResetting(false)} />}
       {weathering && <WeatherSheet onClose={() => setWeathering(false)} />}
       {rangeOpen && <RangeSheet onClose={() => setRangeOpen(false)} />}
       {picking && (
