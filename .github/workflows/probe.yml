@@ -6,43 +6,15 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: fetch hwp
-        run: |
-          pip install -q olefile
-          curl -sS -m 30 -A "Mozilla/5.0" -L -o list.html "http://kungdo.or.kr/bbs/board.php?bo_table=game_news"
-          python3 - <<'PY'
-          import re,subprocess,html,olefile,zlib,struct,io
-          h=open('list.html',encoding='utf-8',errors='replace').read()
-          ids=[]
-          for m in re.finditer(r'bo_table=game_news(?:&amp;|&)wr_id=(\d+)',h):
-              if m.group(1) not in ids: ids.append(m.group(1))
-          def hwptext(b):
-              f=olefile.OleFileIO(io.BytesIO(b))
-              hdr=f.openstream('FileHeader').read(); comp=hdr[36]&1
-              out=[]
-              for s in sorted([e for e in f.listdir() if e[0]=='BodyText'],key=lambda e:int(e[1][7:])):
-                  d=f.openstream(s).read()
-                  if comp: d=zlib.decompress(d,-15)
-                  i=0
-                  while i+4<=len(d):
-                      v=struct.unpack('<I',d[i:i+4])[0]; tag=v&0x3ff; n=(v>>20)&0xfff; i+=4
-                      if n==0xfff: n=struct.unpack('<I',d[i:i+4])[0]; i+=4
-                      if tag==67:
-                          t=d[i:i+n].decode('utf-16le','replace')
-                          t=re.sub(r'[\x00-\x1f]','',t); out.append(t)
-                      i+=n
-              return '\n'.join(x for x in out if x.strip())
-          for wid in ids[:6]:
-              url=f"http://kungdo.or.kr/bbs/board.php?bo_table=game_news&wr_id={wid}"
-              p=subprocess.run(['curl','-sS','-m','30','-A','Mozilla/5.0','-c','jar','-b','jar','-L',url],capture_output=True).stdout.decode('utf-8','replace')
-              m=re.search(r'href="([^"]*download\.php[^"]*)"',p)
-              print('=====',wid)
-              if not m: print('nofile'); continue
-              b=subprocess.run(['curl','-sS','-m','30','-A','Mozilla/5.0','-c','jar','-b','jar','-e',url,'-L',html.unescape(m.group(1))],capture_output=True).stdout
-              print('BYTES',len(b),b[:8])
-              try:
-                  t=hwptext(b)
-                  for line in t.split('\n'):
-                      if re.search(r'신청|접수|마감|참가비|문의|이메일|@|팩스|FAX|전화|기간|일시|장소|계좌',line): print('  ',line[:200])
-              except Exception as e: print('ERR',e)
-          PY
+      - uses: actions/checkout@v4
+        with: { ref: claude/tour-register }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: |
+          node scripts/tournaments.mjs > t.json
+          node -e "const f=require('./t.json');for(const t of f.items.filter(x=>x.doc||x.reg))console.log(t.start,t.name,'|',t.doc,'|',JSON.stringify(t.reg))"
+      - run: |
+          curl -sS "https://itunes.apple.com/search?term=15%EC%8B%9C15%EC%A4%91&country=kr&entity=software&limit=5" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>JSON.parse(s).results.forEach(r=>console.log(r.trackId,r.trackName,r.sellerName,r.bundleId,r.trackViewUrl)))"
+          curl -sS "https://itunes.apple.com/search?term=%ED%99%9C%EB%A1%9C145&country=kr&entity=software&limit=5" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>JSON.parse(s).results.forEach(r=>console.log(r.trackId,r.trackName,r.sellerName,r.bundleId,r.trackViewUrl)))"
+          curl -sSL "https://play.google.com/store/search?q=%ED%99%9C%EB%A1%9C145&c=apps&hl=ko" | grep -o 'details?id=[A-Za-z0-9_.]*' | sort -u | head
