@@ -11,7 +11,7 @@ import { useStore } from '../state/store';
 import { endMeta } from '../domain/endMeta';
 import { EndLine } from './ShootScreen';
 import { MemoView } from './MemoView';
-import { spanLabel, spanOf } from '../domain/session';
+import { dayMinutes, daySegments, formatDuration, spanLabel } from '../domain/session';
 
 /**
  * 그날 쏜 화살을 과녁 하나에 모두 찍는다.
@@ -116,7 +116,17 @@ export function LogScreen() {
             </button>
             {isOpen && (
               <div className="detail">
-                <div className="weather-line">습사 시간 {spanLabel(spanOf(list.map((e) => e.recordedAt))!)}</div>
+                {(() => {
+                  const segs = daySegments(list);
+                  if (segs.length === 1) return <div className="weather-line">습사 시간 {spanLabel(segs[0].span)}</div>;
+                  // 두 활터 이상을 오간 날: 활터마다 따로 재서 더한다 (이동 시간은 빼고)
+                  return (
+                    <div className="weather-line">
+                      습사 시간 {formatDuration(dayMinutes(list))} <span className="muted">(활터별 합)</span>
+                      {segs.map((g) => <div key={g.ends[0].id} className="seg-line">{g.rangeId ? rangeName(g.rangeId) : '활터 미지정'} {spanLabel(g.span)}</div>)}
+                    </div>
+                  );
+                })()}
                 {(() => {
                   const ws = [...new Set(list.map((e) => weatherLabel(e.weather)).filter(Boolean))];
                   return ws.length > 0 && <div className="weather-line">날씨 {ws.join(' → ')}</div>;

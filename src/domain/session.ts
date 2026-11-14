@@ -9,13 +9,36 @@ export function spanOf(times: number[]): DaySpan | null {
   return { first, last, minutes: Math.round((last - first) / 60000) };
 }
 
+type Timed = { recordedAt: number; rangeId?: string | null };
+
+/**
+ * 하루 기록을 활터가 바뀔 때마다 끊어 구간으로 나눈다. 두 활터를 오간 날은 이동하고 쉰 시간을
+ * 습사 시간에 넣지 않기 위해서다. 활터 정보가 없으면 하루 전체가 한 구간이다.
+ */
+export function daySegments<T extends Timed>(items: T[]): { rangeId: string | null; ends: T[]; span: DaySpan }[] {
+  const sorted = [...items].sort((a, b) => a.recordedAt - b.recordedAt);
+  const out: { rangeId: string | null; ends: T[] }[] = [];
+  for (const e of sorted) {
+    const r = e.rangeId ?? null;
+    const last = out[out.length - 1];
+    if (last && last.rangeId === r) last.ends.push(e);
+    else out.push({ rangeId: r, ends: [e] });
+  }
+  return out.map((g) => ({ ...g, span: spanOf(g.ends.map((e) => e.recordedAt))! }));
+}
+
+/** 하루 습사 시간 (활터별 구간의 합) */
+export function dayMinutes(items: Timed[]): number {
+  return daySegments(items).reduce((a, g) => a + g.span.minutes, 0);
+}
+
 /** 날짜별로 묶어 하루마다의 습사 시간을 더한다. timedDays는 두 순 이상 쏘아 시간이 잡힌 날 수. */
-export function totalMinutes(items: { date: string; recordedAt: number }[]): { days: number; timedDays: number; minutes: number } {
-  const byDay = new Map<string, number[]>();
-  for (const e of items) byDay.set(e.date, [...(byDay.get(e.date) ?? []), e.recordedAt]);
+export function totalMinutes(items: (Timed & { date: string })[]): { days: number; timedDays: number; minutes: number } {
+  const byDay = new Map<string, Timed[]>();
+  for (const e of items) byDay.set(e.date, [...(byDay.get(e.date) ?? []), e]);
   let minutes = 0, timedDays = 0;
-  for (const t of byDay.values()) {
-    const m = spanOf(t)!.minutes;
+  for (const list of byDay.values()) {
+    const m = dayMinutes(list);
     minutes += m;
     if (m > 0) timedDays++;
   }

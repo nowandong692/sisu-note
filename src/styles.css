@@ -459,3 +459,4 @@ textarea.autogrow { resize: none; overflow-y: auto; max-height: 60vh; }
 .club-hits { max-height: 45vh; overflow-y: auto; }
 .gear-manage { display: flex; flex-direction: column; gap: 12px; }
 .gear-manage .card { box-shadow: none; border: 1px solid var(--line); }
+.weather-line .seg-line { padding-left: 10px; color: var(--muted); }
