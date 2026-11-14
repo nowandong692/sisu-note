@@ -51,16 +51,22 @@ export function findAttachment(html) {
   return { url: m[1].replace(/&amp;/g, '&'), name };
 }
 
+async function retry(fn) {
+  try { return await fn(); } catch { await new Promise((r) => setTimeout(r, 2000)); return fn(); }
+}
+
 /** 대회 하나의 요강을 받아 접수 정보를 붙인다. 못 읽으면 그대로 둔다 */
 async function addReg(t) {
   try {
-    const page = await fetch(t.url, { headers: UA, signal: AbortSignal.timeout(20000) });
-    const cookie = (page.headers.getSetCookie?.() ?? []).map((c) => c.split(';')[0]).join('; ');
+    const page = await retry(() => fetch(t.url, { headers: UA, signal: AbortSignal.timeout(20000) }));
+    // 세션 쿠키가 두 번 올 때가 있다. 같은 이름은 나중 것을 써야 첨부를 받을 수 있다
+    const jar = new Map((page.headers.getSetCookie?.() ?? []).map((c) => c.split(';')[0].split(/=(.*)/s).slice(0, 2)));
+    const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
     const att = findAttachment(await page.text());
     if (!att) return t;
     const out = { ...t, doc: att.name };
     if (!/\.hwp$/i.test(att.name)) return out;
-    const file = await fetch(att.url, { headers: { ...UA, Referer: t.url, ...(cookie ? { Cookie: cookie } : {}) }, signal: AbortSignal.timeout(30000) });
+    const file = await retry(() => fetch(att.url, { headers: { ...UA, Referer: t.url, ...(cookie ? { Cookie: cookie } : {}) }, signal: AbortSignal.timeout(30000) }));
     if (!file.ok) return out;
     const reg = parseYogang(hwpText(Buffer.from(await file.arrayBuffer())), Number(t.start.slice(0, 4)));
     return reg ? { ...out, reg } : out;
