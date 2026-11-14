@@ -7,11 +7,13 @@ import {
 import { formatDate, today } from '../domain/util';
 import { OnlineError, onlineAvailable, rpc } from '../platform/online';
 import { useStore } from '../state/store';
+import { formatDuration, spanLabel, spanOf, totalMinutes } from '../domain/session';
 
 type Kind = 'hits' | 'volume';
 const PERIODS: [RankPeriod, string][] = [['day', '일간'], ['week', '주간'], ['month', '월간']];
 const PLACE_LABEL = ['장려', '1위', '2위', '3위'];
 
+interface ServerEnd { day: string; recorded_at: string; hits: boolean[] }
 interface ServerRow { nickname: string; range_name: string | null; ends: number; hits: number; seq: boolean[] | null; me: boolean }
 
 function periodLabel(date: string, p: RankPeriod): string {
@@ -53,7 +55,7 @@ function JoinCard({ onJoined }: { onJoined: () => void }) {
     <section className="card join-card">
       <h2>랭킹에 참여하기</h2>
       <div className="small muted">
-        닉네임과 순마다 관중 여부만 서버에 올라갑니다. 메모, 장비, 위치, 날씨는 올리지 않습니다.
+        닉네임과 순마다 관중 여부, 저장 시각만 서버에 올라가고, 랭킹에서 닉네임을 누르면 다른 궁사도 볼 수 있습니다. 메모, 장비, 위치, 날씨는 올리지 않습니다.
         로그인 없이 이 기기에 저장되는 <b>복구 코드</b>로만 구분하고, 참여한 뒤 오늘 저장한 순부터 올라갑니다.
       </div>
       {!restoring ? (
@@ -133,7 +135,62 @@ function ProfileSheet({ onClose }: { onClose: () => void }) {
   );
 }
 
-function Row({ r, kind, canReport }: { r: RankRow; kind: Kind; canReport: boolean }) {
+/** 랭킹에서 궁사를 누르면: 그 기간에 올린 순을 날짜별로 */
+function ArcherSheet({ r, period, start, onClose }: { r: RankRow; period: RankPeriod; start: string; onClose: () => void }) {
+  const [list, setList] = useState<ServerEnd[] | null>(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    let alive = true;
+    rpc<ServerEnd[]>('archer_ends', { p_nickname: r.name, p_period: period, p_date: start })
+      .then((x) => { if (alive) setList(x); }, (e) => { if (alive) setErr(errText(e)); });
+    return () => { alive = false; };
+  }, [r.name, period, start]);
+  const items = (list ?? []).map((e) => ({ date: e.day, recordedAt: Date.parse(e.recorded_at), hits: e.hits }));
+  const days = [...new Set(items.map((e) => e.date))].sort().reverse();
+  const t = totalMinutes(items);
+  return (
+    <Sheet title={r.name} onClose={onClose}>
+      <div className="small muted">{[r.range, periodLabel(start, period)].filter(Boolean).join(' · ')}</div>
+      <div className="tiles archer-tiles">
+        <div className="tile"><b>{r.ends}</b><span>순</span></div>
+        <div className="tile"><b>{r.hits}</b><span>관중</span></div>
+        <div className="tile"><b>{fmt1(r.per15)}</b><span>15시 평균</span></div>
+        <div className="tile"><b>{list ? (t.minutes ? formatDuration(t.minutes) : '-') : '…'}</b><span>습사 시간</span></div>
+      </div>
+      {err && <div className="small err-text" role="alert">{err}</div>}
+      {!list && !err && <div className="empty small">불러오는 중…</div>}
+      <div className="archer-days">
+        {days.map((d) => {
+          const es = items.filter((e) => e.date === d);
+          const h = es.reduce((a, e) => a + e.hits.filter(Boolean).length, 0);
+          return (
+            <div key={d} className="archer-day">
+              <div className="row between"><b>{formatDate(d)}</b><span className="small">{es.length}순 {h}중</span></div>
+              <div className="small muted">습사 시간 {spanLabel(spanOf(es.map((e) => e.recordedAt))!)}</div>
+              <ol className="mini-ends">
+                {es.map((e, i) => {
+                  const n = e.hits.filter(Boolean).length;
+                  return (
+                    <li key={i}>
+                      <span className="idx">{i + 1}순</span>
+                      <span className="mini-dots" aria-label={e.hits.map((x, k) => `${k + 1}시 ${x ? '관중' : '불'}`).join(', ')}>
+                        {e.hits.map((x, k) => <i key={k} className={x ? 'hit' : ''} />)}
+                      </span>
+                      <span className="cnt">{n}중{n === 5 && <span className="pill best">몰기</span>}</span>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          );
+        })}
+      </div>
+      <button className="btn ghost small" onClick={onClose}>닫기</button>
+    </Sheet>
+  );
+}
+
+function Row({ r, kind, canReport, onOpen }: { r: RankRow; kind: Kind; canReport: boolean; onOpen: () => void }) {
   const report = () => rpc('report', { p_nickname: r.name, p_reason: '기록이 사실과 다른 것 같음' })
     .then(() => toast('신고를 받았습니다'), (e) => toast(errText(e)));
   return (
@@ -141,15 +198,18 @@ function Row({ r, kind, canReport }: { r: RankRow; kind: Kind; canReport: boolea
       {kind === 'hits'
         ? <span className={`place p${r.place}`}>{PLACE_LABEL[r.place]}</span>
         : <span className="place num">{r.order}</span>}
-      <span className="who">
-        <b>{r.name}</b>{r.me && <span className="pill best">나</span>}
-        {r.range && <span className="small muted"> · {r.range}</span>}
-      </span>
-      <span className="score">
-        {kind === 'hits'
-          ? <><b>{fmt1(r.per15)}중</b><span className="small muted"> · {r.ends}순</span></>
-          : <><b>{r.ends}순</b><span className="small muted"> · 관중 {r.hits}</span></>}
-      </span>
+      <button className="who-btn" onClick={onOpen} aria-label={`${r.name} 기록 보기`}>
+        <span className="who">
+          <b>{r.name}</b>{r.me && <span className="pill best">나</span>}
+          {r.range && <span className="small muted"> · {r.range}</span>}
+        </span>
+        <span className="score">
+          {kind === 'hits'
+            ? <><b>{fmt1(r.per15)}중</b><span className="small muted"> · {r.ends}순</span></>
+            : <><b>{r.ends}순</b><span className="small muted"> · 관중 {r.hits}</span></>}
+        </span>
+        <span className="chev" aria-hidden="true">›</span>
+      </button>
       {canReport && !r.me && <ConfirmButton className="del" label="신고" confirmLabel="신고하기" onConfirm={report} />}
     </li>
   );
@@ -167,6 +227,7 @@ export function RankingScreen({ active }: { active: boolean }) {
   const [showCode, setShowCode] = useState<'first' | 'again' | null>(null);
   const [editing, setEditing] = useState(false);
   const [tick, setTick] = useState(0);
+  const [viewing, setViewing] = useState<RankRow | null>(null);
 
   const start = periodStart(date, period);
   const isCurrent = start === periodStart(today(), period);
@@ -239,17 +300,18 @@ export function RankingScreen({ active }: { active: boolean }) {
               : '이 기간에 올라온 순이 없습니다.'}
           </div>
         )}
-        {ranked.length > 0 && <ol className="rank-list">{ranked.map((r) => <Row key={r.name} r={r} kind={kind} canReport={!!o} />)}</ol>}
+        {ranked.length > 0 && <ol className="rank-list">{ranked.map((r) => <Row key={r.name} r={r} kind={kind} canReport={!!o} onOpen={() => setViewing(r)} />)}</ol>}
         {myLine && <div className="small my-line">{myLine}</div>}
         <div className="small muted">
           {kind === 'hits'
             ? `점수는 15시(3순) 기준 평균 중 수입니다. ${PERIODS.find(([p]) => p === period)![1]} ${MIN_ENDS[period]}순 이상, 15시 기준 평균 ${MIN_PER_15}중 이상인 궁사. 1위 1명, 2위 2명, 3위 3명, 나머지는 장려상입니다. 평균이 같으면 순이 많은 궁사, 그다음은 선다시수로 정합니다.`
             : '이 기간에 순을 가장 많이 쏜 궁사 10명입니다. 순이 같으면 관중이 많은 궁사가 앞섭니다.'}
-          {' '}모두 본인이 입력한 기록입니다.
+          {' '}궁사를 누르면 그 기간의 순별 기록과 습사 시간을 볼 수 있습니다. 모두 본인이 입력한 기록입니다.
         </div>
       </section>
       {showCode && o && <CodeSheet code={o.key} first={showCode === 'first'} onClose={() => setShowCode(null)} />}
       {editing && o && <ProfileSheet onClose={() => setEditing(false)} />}
+      {viewing && <ArcherSheet r={viewing} period={period} start={start} onClose={() => setViewing(null)} />}
     </>
   );
 }

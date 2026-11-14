@@ -2,7 +2,7 @@
 --
 -- 개인정보 최소화 원칙
 --  * 로그인 없음. 앱이 만든 무작위 열쇠(= 복구 코드)의 SHA-256 해시만 저장한다. 열쇠 원문은 서버에 없다.
---  * 저장하는 것: 닉네임, (원하면) 활터 이름, 순마다 서버 기준 날짜·시각과 다섯 시의 관중 여부.
+--  * 저장하는 것: 닉네임, (원하면) 활터 이름, 순마다 서버 기준 날짜, 저장 시각과 다섯 시의 관중 여부.
 --  * 메모, 태그, 장비, 위치, 날씨는 올리지 않는다.
 --
 -- 보안 원칙
@@ -92,17 +92,19 @@ exception when unique_violation then
 end $$;
 
 -- 순 올리기·고치기. 오늘(한국 시간) 순만 받고, 지난 날짜 순은 고치지 않는다.
-create or replace function public.submit_end(p_key text, p_client_id text, p_hits boolean[]) returns void
+-- 앱이 보낸 저장 시각은 오늘 안이고 지금보다 앞설 때만 쓴다 (습사 시간 계산용).
+create or replace function public.submit_end(p_key text, p_client_id text, p_hits boolean[], p_recorded_at timestamptz default null) returns void
 language plpgsql security definer set search_path = public, extensions as $$
-declare a uuid := _archer(p_key); t date := _today(); n int;
+declare a uuid := _archer(p_key); t date := _today(); n int; r timestamptz := now();
 begin
   if array_length(p_hits, 1) is distinct from 5 or array_position(p_hits, null) is not null then raise exception 'need 5 shots'; end if;
+  if p_recorded_at is not null and p_recorded_at <= now() and (p_recorded_at at time zone 'Asia/Seoul')::date = t then r := p_recorded_at; end if;
   update ends set hits = p_hits where archer_id = a and client_id = p_client_id and day = t;
   if found then return; end if;
   if exists (select 1 from ends where archer_id = a and client_id = p_client_id) then return; end if; -- 지난 날짜 순
   select count(*) into n from ends where archer_id = a and day = t;
   if n >= _max_ends_per_day() then raise exception 'daily limit'; end if;
-  insert into ends (archer_id, client_id, day, hits) values (a, p_client_id, t, p_hits);
+  insert into ends (archer_id, client_id, day, recorded_at, hits) values (a, p_client_id, t, r, p_hits);
 end $$;
 
 create or replace function public.delete_end(p_key text, p_client_id text) returns void
@@ -144,6 +146,28 @@ language sql stable security definer set search_path = public, extensions as $$
   where p_period in ('day', 'week', 'month')
 $$;
 
+-- 랭킹에서 궁사를 눌렀을 때: 그 기간에 올린 순마다 날짜, 저장 시각, 다섯 시의 관중 여부
+create or replace function public.archer_ends(p_nickname text, p_period text, p_date date)
+returns table (day date, recorded_at timestamptz, hits boolean[])
+language sql stable security definer set search_path = public, extensions as $$
+  with span as (
+    select case p_period
+      when 'day' then p_date
+      when 'week' then p_date - ((extract(isodow from p_date)::int) - 1)
+      else date_trunc('month', p_date)::date end as d0,
+    case p_period
+      when 'day' then p_date
+      when 'week' then p_date - ((extract(isodow from p_date)::int) - 1) + 6
+      else (date_trunc('month', p_date) + interval '1 month - 1 day')::date end as d1
+  )
+  select e.day, e.recorded_at, e.hits
+  from ends e join archers a on a.id = e.archer_id, span
+  where lower(a.nickname) = lower(p_nickname) and e.day between span.d0 and span.d1
+    and p_period in ('day', 'week', 'month')
+  order by e.day, e.recorded_at
+  limit 1500
+$$;
+
 create or replace function public.report(p_nickname text, p_reason text) returns void
 language sql security definer set search_path = public, extensions as $$
   insert into reports (target, reason) select id, left(p_reason, 200) from archers where lower(nickname) = lower(p_nickname)
@@ -151,5 +175,5 @@ $$;
 
 revoke all on function public._archer(text), public._today(), public._max_ends_per_day() from public, anon, authenticated;
 grant execute on function public.register(text, text), public.whoami(text), public.set_profile(text, text, text),
-  public.submit_end(text, text, boolean[]), public.delete_end(text, text), public.delete_me(text),
-  public.period_totals(text, date, text), public.report(text, text) to anon;
+  public.submit_end(text, text, boolean[], timestamptz), public.delete_end(text, text), public.delete_me(text),
+  public.period_totals(text, date, text), public.archer_ends(text, text, date), public.report(text, text) to anon;

@@ -129,7 +129,12 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
           if (job.op === 'del') await rpc('delete_end', { p_key: o.key, p_client_id: job.id });
           else {
             const e = endsRef.current.find((x) => x.id === job.id);
-            if (e) await rpc('submit_end', { p_key: o.key, p_client_id: e.id, p_hits: e.shots.map((s) => s.hit) });
+            if (e) {
+              const args = { p_key: o.key, p_client_id: e.id, p_hits: e.shots.map((s) => s.hit) };
+              // 저장 시각(습사 시간용)을 함께 보낸다. 서버를 아직 고치지 않았으면 시각 없이 다시 보낸다.
+              await rpc('submit_end', { ...args, p_recorded_at: new Date(e.recordedAt).toISOString() })
+                .catch((err) => { if (err instanceof OnlineError && err.code === 'server') return rpc('submit_end', args); throw err; });
+            }
           }
         } catch (err) {
           if (err instanceof OnlineError && err.code === 'network') return;
