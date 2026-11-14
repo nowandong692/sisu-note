@@ -44,6 +44,13 @@ jobs:
           cp tournaments.json dist/tournaments.json
           head -c 300 dist/tournaments.json; echo
       # 경기 중계 채널(15시15중 유튜브)의 최근 영상. 실패하면 지금 올라가 있는 파일을 그대로 쓴다.
+      - name: 활터 목록 받기
+        run: |
+          node scripts/hwalter.mjs > hwalter.json \
+            || curl -fsS -m 20 -o hwalter.json "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/hwalter.json" \
+            || echo '{"items":[],"error":true}' > hwalter.json
+          cp hwalter.json dist/hwalter.json
+          head -c 300 dist/hwalter.json; echo
       - name: 중계 영상 받기
         run: |
           node scripts/videos.mjs > videos.json \
