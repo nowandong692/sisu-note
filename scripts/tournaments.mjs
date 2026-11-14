@@ -23,16 +23,17 @@ function text(html) {
 export function parseKungdoList(html) {
   const out = [];
   for (const row of html.split(/<tr[\s>]/i).slice(1)) {
-    const link = row.match(/href="([^"]*bo_table=game_news(?:&amp;|&)wr_id=(\d+))"[^>]*>([\s\S]*?)<\/a>/i);
+    // 쪽 번호를 붙여 읽으면 글 주소 뒤에 &page=2 같은 것이 붙는다
+    const link = row.match(/href="[^"]*bo_table=game_news(?:&amp;|&)wr_id=(\d+)[^"]*"[^>]*>([\s\S]*?)<\/a>/i);
     const period = row.match(/(\d{4})[./-](\d{1,2})[./-](\d{1,2})\s*~\s*(?:(\d{4})[./-])?(\d{1,2})[./-](\d{1,2})/);
     if (!link || !period) continue;
     const tds = [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map((m) => text(m[1]));
     const pad = (n) => String(n).padStart(2, '0');
     const start = `${period[1]}-${pad(period[2])}-${pad(period[3])}`;
     const end = `${period[4] ?? period[1]}-${pad(period[5])}-${pad(period[6])}`;
-    const name = text(link[3]);
+    const name = text(link[2]);
     if (!name) continue;
-    out.push({ id: link[2], name, start, end, place: tds[tds.length - 1] ?? '', url: link[1].replace(/&amp;/g, '&') });
+    out.push({ id: link[1], name, start, end, place: tds[tds.length - 1] ?? '', url: `${SOURCE}&wr_id=${link[1]}` });
   }
   return out;
 }
