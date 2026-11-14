@@ -1,10 +1,95 @@
-import { useEffect, useState } from 'react';
-import { dLabel, isMyRange, monthGrid, onDay, periodText, shiftMonth, splitTournaments, type Tournament, type TournamentFile } from '../domain/tournaments';
+import { useEffect, useRef, useState, type RefObject } from 'react';
+import { dLabel, isMyRange, monthGrid, onDay, periodText, shiftMonth, splitTournaments, videosFor, type Tournament, type TournamentFile, type Video, type VideoFile } from '../domain/tournaments';
 import { today } from '../domain/util';
 import { useStore } from '../state/store';
 
 const CACHE = 'gukgungrok-tournaments';
 const SOURCE = 'http://kungdo.or.kr/bbs/board.php?bo_table=game_news';
+const CHANNEL_ID = 'UCAmMjZ44ugH9GmgYq0du5PQ';
+const CHANNEL = `https://www.youtube.com/channel/${CHANNEL_ID}`;
+const VCACHE = 'gukgungrok-videos';
+
+/** 중계 영상 목록. 못 읽으면 저장해 둔 것, 그것도 없으면 빈 목록 (대회 일정은 그대로 보인다) */
+async function loadVideos(): Promise<VideoFile> {
+  const embedded = (window as unknown as { __VIDEOS__?: VideoFile }).__VIDEOS__;
+  if (embedded) return embedded;
+  try {
+    const res = await fetch(`${import.meta.env.BASE_URL}videos.json`, { cache: 'no-cache' });
+    if (!res.ok) throw new Error(String(res.status));
+    const file = (await res.json()) as VideoFile;
+    try { localStorage.setItem(VCACHE, JSON.stringify(file)); } catch { /* 무시 */ }
+    return file;
+  } catch {
+    try { return JSON.parse(localStorage.getItem(VCACHE) ?? 'null') ?? { items: [] }; } catch { return { items: [] }; }
+  }
+}
+
+const PLAY = <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>;
+
+function ago(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}.${d.getDate()}`;
+}
+
+/** 앱 안에서 재생할 것: 채널 생방송이거나 영상 하나 */
+type Play = { kind: 'live' } | { kind: 'video'; v: Video };
+
+function embedSrc(p: Play): string {
+  if (p.kind === 'live') return `https://www.youtube.com/embed/live_stream?channel=${CHANNEL_ID}&autoplay=1&playsinline=1`;
+  return `https://www.youtube-nocookie.com/embed/${p.v.id}?autoplay=1&playsinline=1&rel=0`;
+}
+
+/** 화면 안 유튜브 플레이어 */
+function Player({ play, liveUrl, onClose }: { play: Play; liveUrl: string; onClose: () => void }) {
+  const title = play.kind === 'live' ? '생중계' : play.v.title;
+  const out = play.kind === 'live' ? liveUrl : play.v.url;
+  return (
+    <div className="player">
+      <div className="player-frame">
+        <iframe key={embedSrc(play)} src={embedSrc(play)} title={title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
+      </div>
+      <div className="row between player-bar">
+        <b className="player-title">{play.kind === 'live' && <span className="pill vid">LIVE</span>} {title}</b>
+        <span className="row" style={{ gap: 6, flexShrink: 0 }}>
+          <a className="btn ghost small" href={out} target="_blank" rel="noopener noreferrer">유튜브</a>
+          <button className="btn ghost small" onClick={onClose}>닫기</button>
+        </span>
+      </div>
+      {play.kind === 'live' && <div className="small muted">지금 생방송이 없으면 "재생할 수 없음"이 보입니다. 아래 최근 영상을 눌러 보세요.</div>}
+    </div>
+  );
+}
+
+/** 중계 보기 버튼과 최근 경기 영상 */
+function VideosCard({ file, play, setPlay, boxRef }: { file: VideoFile; play: Play | null; setPlay: (p: Play | null) => void; boxRef: RefObject<HTMLElement | null> }) {
+  const [all, setAll] = useState(false);
+  const list = all ? file.items : file.items.slice(0, 3);
+  const liveUrl = file.liveUrl ?? `${CHANNEL}/live`;
+  return (
+    <section className="card" ref={boxRef}>
+      <div className="row between">
+        <h2>경기 중계</h2>
+        {play?.kind !== 'live' && <button className="btn small live-btn" onClick={() => setPlay({ kind: 'live' })}>{PLAY} 지금 중계 보기</button>}
+      </div>
+      {play
+        ? <Player play={play} liveUrl={liveUrl} onClose={() => setPlay(null)} />
+        : <div className="small muted">{file.channel ?? '15시15중'} 유튜브 채널의 대회 중계를 여기서 바로 볼 수 있습니다.</div>}
+      {list.length > 0 && (
+        <ol className="video-list">
+          {list.map((v) => (
+            <li key={v.id}>
+              <button className={play?.kind === 'video' && play.v.id === v.id ? 'on' : ''} onClick={() => setPlay({ kind: 'video', v })}>
+                <img src={`https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`} alt="" loading="lazy" width={96} height={54} onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} />
+                <span className="v-main"><b>{v.title}</b><span className="small muted">{ago(v.published)}</span></span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+      {file.items.length > 3 && <button className="btn ghost small" style={{ alignSelf: 'center' }} onClick={() => setAll(!all)}>{all ? '접기' : `영상 ${file.items.length}개 모두 보기`}</button>}
+    </section>
+  );
+}
 
 function readCache(): TournamentFile | null {
   try { return JSON.parse(localStorage.getItem(CACHE) ?? 'null'); } catch { return null; }
@@ -28,11 +113,12 @@ async function loadTournaments(): Promise<{ file: TournamentFile; cached: boolea
   }
 }
 
-function Item({ t, now, mine }: { t: Tournament; now: string; mine: boolean }) {
+function Item({ t, now, mine, videos = [], onPlay }: { t: Tournament; now: string; mine: boolean; videos?: Video[]; onPlay?: (v: Video) => void }) {
   const d = dLabel(t, now);
+  const vs = videosFor(t, videos);
   return (
     <li className={`tour-row ${mine ? 'mine' : ''}`}>
-      <a href={t.url} target="_blank" rel="noopener noreferrer">
+      <a className="tour-link" href={t.url} target="_blank" rel="noopener noreferrer">
         <span className={`dday ${d === '진행 중' ? 'live' : ''}`}>{d}</span>
         <span className="tour-main">
           <b>{t.name}</b>
@@ -40,12 +126,19 @@ function Item({ t, now, mine }: { t: Tournament; now: string; mine: boolean }) {
         </span>
         <span className="chev" aria-hidden="true">›</span>
       </a>
+      {vs.length > 0 && (
+        <span className="tour-videos">
+          {vs.map((v, i) => (
+            <button key={v.id} className="pill vid" onClick={() => onPlay?.(v)}>{PLAY} {vs.length > 1 ? `${i + 1}일차 영상` : '중계 영상'}</button>
+          ))}
+        </span>
+      )}
     </li>
   );
 }
 
 /** 달력 보기: 대회가 있는 날에 점, 날을 누르면 그날 대회 */
-function CalendarCard({ items, now, names }: { items: Tournament[]; now: string; names: string[] }) {
+function CalendarCard({ items, now, names, videos, onPlay }: { items: Tournament[]; now: string; names: string[]; videos: Video[]; onPlay: (v: Video) => void }) {
   const [ym, setYm] = useState(now.slice(0, 7));
   const [day, setDay] = useState<string | null>(now);
   const weeks = monthGrid(ym);
@@ -86,7 +179,7 @@ function CalendarCard({ items, now, names }: { items: Tournament[]; now: string;
           <div className="tour-month-head">{Number(day.slice(5, 7))}월 {Number(day.slice(8))}일 대회 {picked.length}개</div>
           {picked.length === 0
             ? <div className="small muted">이날 열리는 대회가 없습니다.</div>
-            : <ol className="tour-list">{picked.map((t) => <Item key={t.id} t={t} now={now} mine={isMyRange(t.place, names)} />)}</ol>}
+            : <ol className="tour-list">{picked.map((t) => <Item key={t.id} t={t} now={now} mine={isMyRange(t.place, names)} videos={videos} onPlay={onPlay} />)}</ol>}
         </div>
       )}
     </section>
@@ -100,6 +193,19 @@ export function TournamentsView({ active }: { active: boolean }) {
   const [err, setErr] = useState(false);
   const [showPast, setShowPast] = useState(false);
   const [mode, setMode] = useState<'list' | 'cal'>('list');
+  const [vfile, setVfile] = useState<VideoFile | null>(null);
+  useEffect(() => {
+    if (!active || vfile) return;
+    void loadVideos().then(setVfile);
+  }, [active, vfile]);
+  const videos = vfile?.items ?? [];
+  const [play, setPlay] = useState<Play | null>(null);
+  const boxRef = useRef<HTMLElement | null>(null);
+  const onPlay = (v: Video) => {
+    setPlay({ kind: 'video', v });
+    boxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  useEffect(() => { if (!active) setPlay(null); }, [active]);
 
   useEffect(() => {
     if (!active || file) return;
@@ -136,19 +242,20 @@ export function TournamentsView({ active }: { active: boolean }) {
 
   return (
     <>
+      <VideosCard file={vfile ?? { items: [] }} play={play} setPlay={setPlay} boxRef={boxRef} />
       {modeSwitch}
-      {mode === 'cal' && <CalendarCard items={file.items} now={now} names={names} />}
+      {mode === 'cal' && <CalendarCard items={file.items} now={now} names={names} videos={videos} onPlay={onPlay} />}
       {mode === 'list' && <section className="card">
         <div className="row between"><h2>다가오는 대회</h2><span className="small muted">{upcoming.length}개</span></div>
         {upcoming.length === 0 && <div className="empty small">올라온 다가오는 대회가 없습니다.</div>}
         {[...months].map(([m, list]) => (
           <div key={m} className="tour-month">
             <div className="tour-month-head">{Number(m.slice(5, 7))}월</div>
-            <ol className="tour-list">{list.map((t) => <Item key={t.id} t={t} now={now} mine={isMyRange(t.place, names)} />)}</ol>
+            <ol className="tour-list">{list.map((t) => <Item key={t.id} t={t} now={now} mine={isMyRange(t.place, names)} videos={videos} onPlay={onPlay} />)}</ol>
           </div>
         ))}
         <button className="btn ghost small" style={{ alignSelf: 'center' }} onClick={() => setShowPast(!showPast)}>{showPast ? '지난 대회 숨기기' : '지난 대회 보기'}</button>
-        {showPast && <ol className="tour-list">{past.slice(0, 20).map((t) => <Item key={t.id} t={t} now={now} mine={isMyRange(t.place, names)} />)}</ol>}
+        {showPast && <ol className="tour-list">{past.slice(0, 20).map((t) => <Item key={t.id} t={t} now={now} mine={isMyRange(t.place, names)} videos={videos} onPlay={onPlay} />)}</ol>}
       </section>}
       <div className="small muted tour-note">
         출처: <a href={file.source ?? SOURCE} target="_blank" rel="noopener noreferrer">대한궁도협회 대회일정</a>. 대회를 누르면 요강이 있는 협회 글이 열립니다.
