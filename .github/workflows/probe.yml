@@ -1,0 +1,20 @@
+name: probe-tournament-sources
+on:
+  push:
+    branches: [claude/kungdo-probe]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: fetch pages
+        run: |
+          mkdir out
+          UA="Mozilla/5.0 (compatible; gukgungrok-probe)"
+          curl -sS -m 30 -A "$UA" -L -o out/list.html -w "list %{http_code} %{url_effective}\n" "http://kungdo.or.kr/bbs/board.php?bo_table=game_news" || true
+          curl -sS -m 30 -A "$UA" -L -o out/robots.txt -w "robots %{http_code}\n" "http://kungdo.or.kr/robots.txt" || true
+          curl -sS -m 30 -A "$UA" -L -o out/share.html -w "share %{http_code} %{url_effective}\n" "https://share.google/cw7aHLKcD9hyj02Tj" || true
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: probe
+          path: out
