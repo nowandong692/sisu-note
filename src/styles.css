@@ -358,3 +358,6 @@ input[type=search] { width: 100%; border: 1px solid var(--line); border-radius: 
 .mini-dots i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--muted); box-sizing: border-box; }
 .mini-dots i.hit { background: var(--hong); border-color: var(--hong); }
 .archer-tiles .tile b { font-size: 16px; white-space: nowrap; }
+.rules h4 { margin: 10px 0 4px; font-size: 14px; }
+.rules ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.55; }
+.rules li + li { margin-top: 3px; }
