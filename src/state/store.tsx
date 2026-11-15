@@ -5,7 +5,7 @@ import { OnlineError, newRecoveryCode, normalizeRecoveryCode, onlineAvailable, r
 import { RANGE_RADIUS_M, migrateRanges, nearestRange, pickOffer, type LatLon, type RangeOffer } from '../domain/range';
 import { kakaoNearbyRanges } from '../platform/kakaoPlaces';
 import { DEFAULT_SETTINGS } from '../domain/types';
-import { sampleData } from '../domain/sample';
+import { SAMPLE_PREFIX, sampleData, withoutSample } from '../domain/sample';
 import { hasWeather } from '../domain/weather';
 import { newId, today } from '../domain/util';
 import type { Repository } from '../storage/repository';
@@ -76,6 +76,8 @@ export interface Store extends Data {
   /** 참여 그만두기: 서버의 내 기록을 모두 지운다 */
   leaveOnline(): Promise<void>;
   loadSample(): Promise<void>;
+  /** 예시 기록과 (직접 쓰지 않은) 예시 장비·활터만 뺀다. 직접 쓴 기록은 남긴다 */
+  removeSample(): Promise<{ ends: number; gear: number; ranges: number }>;
   clearAll(): Promise<void>;
   /** 이 기기의 순 기록만 모두 지운다. 장비와 설정은 남긴다. 지운 순 수를 돌려준다 */
   clearEnds(): Promise<number>;
@@ -302,11 +304,27 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       }
     },
     updateSettings,
+    async removeSample() {
+      const r = withoutSample(data.ends, data.gear, ranges);
+      await repo.replaceAll({ gear: r.gear, ends: r.ends });
+      setData((p) => ({ ...p, gear: r.gear, ends: r.ends }));
+      if (editId && !r.ends.some((e) => e.id === editId)) setEditId(null);
+      const cur = data.settings.current;
+      const keep = (id: string | null | undefined) => (id && r.gear.some((g) => g.id === id) ? id : null);
+      const curRange = data.settings.currentRange;
+      await updateSettings({
+        current: { bow: keep(cur.bow), ring: keep(cur.ring), arrow: keep(cur.arrow), string: keep(cur.string) },
+        ranges: r.ranges,
+        ...(curRange && !r.ranges.some((x) => x.id === curRange) ? { currentRange: null, currentRangeManual: false } : {}),
+      });
+      return r.removed;
+    },
     async loadSample() {
       const { gear, ends, ranges: sampleRanges } = sampleData();
       await repo.replaceAll({ gear, ends });
       setData((p) => ({ ...p, gear, ends }));
-      await updateSettings({ hand: 'right', current: { bow: 'sample-b1', ring: 'sample-r1', arrow: 'sample-a1', string: 'sample-s1' }, ranges: sampleRanges, currentRange: 'sample-g1', currentRangeManual: true });
+      await updateSettings({ hand: 'right', current: { bow: 'sample-b1', ring: 'sample-r1', arrow: 'sample-a1', string: 'sample-s1' }, ranges: [...ranges.filter((x) => !x.id.startsWith(SAMPLE_PREFIX)), ...sampleRanges],
+        ...(data.settings.currentRange ? {} : { currentRange: 'sample-g1', currentRangeManual: true }) });
     },
     online: data.settings.online ?? null,
     onlinePending: data.settings.online?.queue.length ?? 0,
