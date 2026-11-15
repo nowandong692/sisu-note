@@ -95,7 +95,7 @@ const FIRST_NAMES = ['', '첫 1중', '첫 2중', '첫 3중', '첫 4중'];
 
 function catalog(): Achievement[] {
   const list: Achievement[] = [
-    { id: 'jipgung', group: 'first', name: '집궁', desc: '첫 순을 기록했습니다' },
+    { id: 'jipgung', group: 'first', name: '집궁', desc: '첫 순을 저장' },
   ];
   for (let k = 1; k <= 4; k++) list.push({ id: `hit${k}`, group: 'first', name: FIRST_NAMES[k], desc: `한 순에서 ${k}중 이상` });
   list.push({ id: 'chomolgi', group: 'first', name: '초몰기', desc: '처음으로 한 순 5시 5중', special: true });
