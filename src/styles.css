@@ -488,3 +488,8 @@ textarea.autogrow { resize: none; overflow-y: auto; max-height: 60vh; }
 .admin-search { display: flex; gap: 8px; align-items: center; }
 .admin-search input { flex: 1; min-width: 0; }
 .admin-list li.admin-end { flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* 설정: 데이터 지우기 경고 창 */
+.warn-box { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--hong-soft); color: var(--hong); }
+.warn-list ul { margin: 2px 0 8px; padding-left: 18px; }
+.warn-list li { margin: 2px 0; }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ClubSheet } from '../components/ClubSheet';
-import { ConfirmButton, toast } from '../components/ui';
+import { ConfirmButton, Sheet, toast } from '../components/ui';
 import { endsToCsv } from '../domain/csv';
 import { DAN_LEVELS, DAN_ORGS, danLabel, validDan, type DanOrg } from '../domain/dan';
 import { PALETTES, type Palette, type ThemeMode } from '../domain/types';
@@ -87,10 +87,67 @@ function DanSection() {
   );
 }
 
+type DataAction = 'sample' | 'ends' | 'all';
+
+/** 데이터 지우기 전에 띄우는 경고 창: 무엇이 지워지고 무엇이 남는지 보여 준다 */
+function DataWarnSheet({ action, onClose }: { action: DataAction; onClose: () => void }) {
+  const store = useStore();
+  const { ends, gear } = store;
+  const [busy, setBusy] = useState(false);
+  const n = ends.length;
+  const g = gear.length;
+  const spec = {
+    sample: {
+      title: '예시 기록 불러오기',
+      gone: [`이 기기의 순 기록 ${n}순`, `등록한 장비 ${g}개`],
+      added: ['두 달치 예시 기록과 예시 장비·활터'],
+      kept: ['닉네임과 랭킹 참여, 소속, 단, 화면 설정', '랭킹 서버에 이미 올린 기록'],
+      button: '지우고 예시 불러오기',
+      run: () => store.loadSample().then(() => toast('예시 기록을 불러왔습니다')),
+    },
+    ends: {
+      title: '기록만 지우기',
+      gone: [`이 기기의 순 기록 ${n}순 (기록과 통계에서 사라집니다)`],
+      added: [],
+      kept: [`등록한 장비 ${g}개와 오늘 장비`, '닉네임과 랭킹 참여, 소속, 단, 활터, 화면 설정', '랭킹 서버에 이미 올린 기록'],
+      button: `${n}순 지우기`,
+      run: () => store.clearEnds().then((k) => toast(`이 기기의 기록 ${k}순을 지웠습니다. 장비는 그대로입니다`)),
+    },
+    all: {
+      title: '모든 데이터 지우기',
+      gone: [`이 기기의 순 기록 ${n}순`, `등록한 장비 ${g}개와 오늘 장비 선택`],
+      added: [],
+      kept: ['닉네임과 랭킹 참여, 소속, 단, 활터, 화면 설정', '랭킹 서버에 이미 올린 기록'],
+      button: '모두 지우기',
+      run: () => store.clearAll().then(() => toast('이 기기의 모든 기록과 장비를 지웠습니다')),
+    },
+  }[action];
+  const empty = action !== 'sample' && n === 0 && (action === 'ends' || g === 0);
+  return (
+    <Sheet title={spec.title} onClose={onClose} backCloses={!busy}>
+      <div className="warn-box" role="alert">
+        <b>지우면 되돌릴 수 없습니다.</b>
+        <span className="small">필요하면 먼저 CSV로 내보내 두세요.</span>
+      </div>
+      <div className="warn-list">
+        <div className="small"><b>지워지는 것</b></div>
+        <ul className="small">{spec.gone.map((x) => <li key={x}>{x}</li>)}</ul>
+        {spec.added.length > 0 && (<><div className="small"><b>들어오는 것</b></div><ul className="small">{spec.added.map((x) => <li key={x}>{x}</li>)}</ul></>)}
+        <div className="small"><b>남는 것</b></div>
+        <ul className="small muted">{spec.kept.map((x) => <li key={x}>{x}</li>)}</ul>
+      </div>
+      {empty && <div className="small muted">지울 기록이 없습니다.</div>}
+      <button className="btn danger" disabled={busy || empty} onClick={async () => { setBusy(true); try { await spec.run(); onClose(); } finally { setBusy(false); } }}>{busy ? '처리하는 중…' : spec.button}</button>
+      <button className="btn ghost" disabled={busy} onClick={onClose}>취소</button>
+    </Sheet>
+  );
+}
+
 /** 설정 탭: 내 소속, 내 단, 화면 밝기·테마, 데이터 */
 export function SettingsScreen() {
   const store = useStore();
   const { ends, gear } = store;
+  const [warn, setWarn] = useState<DataAction | null>(null);
   return (
     <>
       <ClubSection />
@@ -98,14 +155,15 @@ export function SettingsScreen() {
       <AppearanceSection />
       <section className="card">
         <h2>데이터</h2>
-        <div className="small muted">기록은 이 기기에만 저장됩니다. 가끔 CSV로 내보내 백업해 두세요. "기록만 지우기"는 순 기록만 지우고 장비는 남기며, "모든 기록 지우기"는 장비까지 지웁니다. 둘 다 랭킹 서버에 이미 올린 기록은 지우지 않습니다.</div>
+        <div className="small muted">기록은 이 기기에만 저장됩니다. 가끔 CSV로 내보내 백업해 두세요. "기록만 지우기"는 순 기록만, "모든 데이터 지우기"는 장비까지 지웁니다. 누르면 무엇이 지워지는지 먼저 보여 줍니다.</div>
         <div className="row">
           <button className="btn ghost small" disabled={!ends.length} onClick={() => saveTextFile(`국궁록-${today()}.csv`, endsToCsv(ends, gear, store.ranges))}>CSV 내보내기</button>
-          <ConfirmButton className="btn ghost small" label="예시 기록 불러오기" confirmLabel="지금 기록을 지우고 불러오기" onConfirm={() => store.loadSample().then(() => toast('예시 기록을 불러왔습니다'))} />
-          <ConfirmButton className="btn ghost small" label="기록만 지우기" confirmLabel={`${ends.length}순 지우기 (장비는 남김)`} onConfirm={() => { if (ends.length) void store.clearEnds().then((n) => toast(`이 기기의 기록 ${n}순을 지웠습니다. 장비는 그대로입니다`)); else toast('지울 기록이 없습니다'); }} />
-          <ConfirmButton className="btn ghost small" label="모든 기록 지우기" confirmLabel="정말 지우기" onConfirm={() => store.clearAll().then(() => toast('모든 기록과 장비를 지웠습니다'))} />
+          <button className="btn ghost small" onClick={() => setWarn('sample')}>예시 기록 불러오기</button>
+          <button className="btn ghost small" onClick={() => setWarn('ends')}>기록만 지우기</button>
+          <button className="btn ghost small danger-text" onClick={() => setWarn('all')}>모든 데이터 지우기</button>
         </div>
       </section>
+      {warn && <DataWarnSheet action={warn} onClose={() => setWarn(null)} />}
     </>
   );
 }
