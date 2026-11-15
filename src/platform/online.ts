@@ -19,6 +19,8 @@ const MESSAGES: [RegExp, OnlineErrorCode, string][] = [
   [/unknown key|bad key/, 'unknown-key', '복구 코드가 맞지 않습니다.'],
   [/daily limit/, 'daily-limit', '하루에 올릴 수 있는 순(40순)을 넘었습니다.'],
   [/not admin/, 'server', '관리자 코드가 맞지 않습니다.'],
+  [/no such archer/, 'server', '그런 닉네임의 궁사가 없습니다.'],
+  [/Could not find the function public\.admin_(find_archers|archer_days|archer_day_ends|delete_ends)/, 'server', '서버에 기록 관리 기능이 아직 없습니다. supabase/migrations/005_admin_records.sql을 실행해 주세요.'],
   [/Could not find the function public\.admin_/, 'server', '서버에 관리자 기능이 아직 없습니다. supabase/migrations/003_admin.sql을 실행해 주세요.'],
 ];
 

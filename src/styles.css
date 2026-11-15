@@ -481,3 +481,10 @@ textarea.autogrow { resize: none; overflow-y: auto; max-height: 60vh; }
 .welcome .remark { font-size: 13px; white-space: normal; }
 .welcome b { color: var(--ink); font-weight: 600; }
 .pill.dan { background: var(--paper); color: var(--ink); border: 1px solid var(--line); }
+
+/* 관리자: 궁사 기록 관리 */
+.admin-pick { background: none; border: 0; padding: 0; text-align: left; color: inherit; font: inherit; cursor: pointer; }
+.admin-days { max-height: 96px; overflow-y: auto; }
+.admin-search { display: flex; gap: 8px; align-items: center; }
+.admin-search input { flex: 1; min-width: 0; }
+.admin-list li.admin-end { flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
