@@ -1,3 +1,4 @@
+import type { Dans } from './dan';
 /** 장비 종류: 활, 깍지, 화살, 현, 기타 (궁대, 시복처럼 사용자가 종류를 직접 적는 것) */
 export type GearCategory = 'bow' | 'ring' | 'arrow' | 'string' | 'etc';
 /** 순마다 기록에 붙는 장비 종류 (기타는 목록으로만 관리한다) */
@@ -127,6 +128,8 @@ export interface Club { name: string; region?: string; address?: string; hwalter
 export interface Settings {
   /** 내 소속 활터 */
   club?: Club | null;
+  /** 기관마다 받은 단 (대한궁도협회, 궁도스포츠클럽) */
+  dans?: Dans;
   /** 화면 밝기와 색 테마 (없으면 기기 설정 따라, 홍심) */
   appearance?: { mode: ThemeMode; palette: Palette };
   hand: Hand;
