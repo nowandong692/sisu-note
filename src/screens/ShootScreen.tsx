@@ -145,7 +145,7 @@ export function ShootScreen() {
     }
     const e = await store.saveEnd({ shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim() });
     const h = hitsOf(e);
-    const earned = newlyEarned(achievements(ends), achievements([...ends, e]));
+    const earned = newlyEarned(achievements(ends, {}, today(), store.gear), achievements([...ends, e], {}, today(), store.gear));
     const line = earnedLine(earned);
     const special = earned.filter((a) => a.special);
     // 초몰기·3연몰은 축하 창이 대신 알린다 (알림이 창을 가리지 않게)

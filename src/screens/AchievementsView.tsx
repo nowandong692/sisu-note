@@ -123,15 +123,16 @@ function useRankHistory(active: boolean): { history: RankHistory; joined: boolea
 }
 
 export function AchievementsView({ toLog, active }: { toLog: () => void; active: boolean }) {
-  const { ends } = useStore();
+  const { ends, gear } = useStore();
   const { history, joined, syncing } = useRankHistory(active);
-  const r = useMemo(() => achievements(ends, history), [ends, history]);
+  const r = useMemo(() => achievements(ends, history, today(), gear), [ends, history, gear]);
   const firsts = r.list.filter((a) => a.group === 'first' && !a.special);
   const streaks = r.list.filter((a) => a.group === 'streak');
   const molgis = r.list.filter((a) => a.group === 'molgi');
   const ranks = r.list.filter((a) => a.group === 'rank');
   const totals = r.list.filter((a) => a.group === 'total');
   const steady = r.list.filter((a) => a.group === 'steady');
+  const challenges = r.list.filter((a) => a.group === 'challenge');
   const chomolgi = r.list.find((a) => a.id === 'chomolgi')!;
   const sam = r.list.find((a) => a.id === 'molgi3')!;
   const baekbal = r.list.find((a) => a.id === `molgi${MOLGI_STREAK_MAX}`)!;
@@ -161,6 +162,7 @@ export function AchievementsView({ toLog, active }: { toLog: () => void; active:
             <p><b>연중·연몰</b>은 같은 날 안에서만 이어 셉니다. 순이 바뀌어도 이어지고, 날이 바뀌면 처음부터 셉니다. 20연몰(100시 100중)은 <b>백발백중</b>입니다.</p>
             <p><b>랭킹</b>은 겨루기에 참여한 뒤 끝난 기간(어제까지의 일간, 지난주, 지난달)만 셉니다. 기간이 끝나야 순위가 정해지기 때문입니다.</p>
             <p><b>꾸준함</b>은 순을 하나라도 저장한 날을 습사한 날로 칩니다. 연속 습사는 오늘이나 어제까지 이어져 있어야 지금 이어지는 것으로 봅니다.</p>
+            <p><b>15시 10중</b>은 같은 날 잇따라 쏜 3순을 합쳐 10중 이상이면 이룹니다. <b>강풍·우중·각궁 몰기</b>와 <b>활터</b>는 날씨·활·활터를 남긴 순에서만 셉니다.</p>
             <p>지난 순을 고치거나 지우면 업적도 다시 계산합니다.</p>
           </HelpButton>
         </div>
@@ -207,6 +209,12 @@ export function AchievementsView({ toLog, active }: { toLog: () => void; active:
         <Progress label="지금 연속" value={r.dayRun} unit="일" steps={DAY_RUN_STEPS} names={steady.filter((a) => a.id.startsWith('dayrun'))} />
         <Progress label="이번 달" value={r.monthDays} unit="일" steps={[MONTH_DAYS_GOAL]} names={steady.filter((a) => a.id === 'month20')} />
         <ul className="ach-list">{steady.map((a) => <Row key={a.id} a={a} toLog={toLog} />)}</ul>
+      </section>
+
+      <section className="card">
+        <h2>도전</h2>
+        <ul className="ach-list">{challenges.map((a) => <Row key={a.id} a={a} toLog={toLog} />)}</ul>
+        <div className="small muted">날씨·활·활터 업적은 그것을 남긴 순에서만 셉니다.</div>
       </section>
 
       <section className="card">
