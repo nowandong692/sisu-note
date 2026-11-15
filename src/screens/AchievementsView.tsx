@@ -79,12 +79,13 @@ interface ServerRow { nickname: string; range_name: string | null; ends: number;
  */
 const MAX_FETCH = 30;
 function useRankHistory(active: boolean): { history: RankHistory; joined: boolean; syncing: boolean } {
-  const { ends, online, settings, updateSettings } = useStore();
+  const { ends, online, onlinePending, settings, updateSettings } = useStore();
   const history = useMemo(() => settings.rankHistory ?? {}, [settings.rankHistory]);
   const [syncing, setSyncing] = useState(false);
   const busy = useRef(false);
   useEffect(() => {
-    if (!active || !online || !onlineAvailable() || busy.current) return;
+    // 아직 서버에 올리지 못한 순이 있으면 기다린다. 그 전에 받으면 빠진 결과가 그대로 굳는다
+    if (!active || !online || onlinePending > 0 || !onlineAvailable() || busy.current) return;
     const todo = rankPeriodsToFetch(ends, online.joinedAt, today(), history).slice(0, MAX_FETCH);
     if (!todo.length) return;
     busy.current = true;
@@ -100,11 +101,9 @@ function useRankHistory(active: boolean): { history: RankHistory; joined: boolea
       }
       if (Object.keys(got).length) await updateSettings({ rankHistory: { ...history, ...got } });
     })().finally(() => { busy.current = false; setSyncing(false); });
-  }, [active, online, ends, history, updateSettings]);
+  }, [active, online, onlinePending, ends, history, updateSettings]);
   return { history, joined: !!online && onlineAvailable(), syncing };
 }
-
-
 
 export function AchievementsView({ toLog, active }: { toLog: () => void; active: boolean }) {
   const { ends } = useStore();
