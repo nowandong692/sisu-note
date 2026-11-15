@@ -5,6 +5,7 @@ import { today } from '../domain/util';
 import { loadHwalter } from '../platform/hwalterData';
 import { rpc } from '../platform/online';
 import { loadTournaments, loadVideos } from '../platform/tourData';
+import { AdminRecords } from './AdminRecords';
 import { ConfirmButton, ToastHost, toast } from '../components/ui';
 
 /** 관리자 코드는 이 탭을 닫을 때까지만 기억한다 (기기에 오래 남기지 않는다) */
@@ -76,6 +77,11 @@ function Panel({ code, onOut }: { code: string; onOut: () => void }) {
   const [reports, setReports] = useState<Report[] | null>(null);
   const [suspects, setSuspects] = useState<Suspect[] | null>(null);
   const [err, setErr] = useState('');
+  const [focus, setFocus] = useState<{ nickname: string; day?: string } | null>(null);
+  const manage = (nickname: string, day?: string) => {
+    setFocus({ nickname, day });
+    setTimeout(() => document.getElementById('admin-records')?.scrollIntoView({ behavior: 'smooth' }), 0);
+  };
   const load = useCallback(async () => {
     setErr('');
     try {
@@ -123,6 +129,7 @@ function Panel({ code, onOut }: { code: string; onOut: () => void }) {
               <div className="row">
                 {hideBtn(r.nickname, r.hidden)}
                 <ConfirmButton className="btn ghost small" label="닉네임 초기화" confirmLabel="초기화 확인" onConfirm={() => act('admin_reset_nickname', { p_nickname: r.nickname }, '닉네임을 초기화했습니다')} />
+                <button className="btn ghost small" onClick={() => manage(r.nickname)}>기록 관리</button>
                 <button className="btn ghost small" onClick={() => act('admin_dismiss_report', { p_id: r.id }, '신고를 처리했습니다')}>처리 완료</button>
               </div>
             </li>
@@ -141,12 +148,14 @@ function Panel({ code, onOut }: { code: string; onOut: () => void }) {
               <div className="small">{s.ends}순 {s.hits}중 · {s.minutes}분 동안</div>
               <div className="row">
                 {hideBtn(s.nickname, s.hidden)}
-                <ConfirmButton className="btn ghost small" label="그날 기록 삭제" confirmLabel={`${s.day} ${s.ends}순 삭제 확인`} onConfirm={() => act('admin_delete_day', { p_nickname: s.nickname, p_day: s.day }, '그날 기록을 지웠습니다')} />
+                <button className="btn ghost small" onClick={() => manage(s.nickname, s.day)}>기록 관리</button>
               </div>
             </li>
           ))}
         </ul>
       </section>
+
+      <AdminRecords code={code} focus={focus} onChanged={() => void load()} />
 
       <Collection />
 
