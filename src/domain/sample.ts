@@ -4,6 +4,37 @@ import { BAND, TH, TW, TX, TY, classifyTap } from './target';
 import { MEMO_TAGS, MISS_DIRECTIONS } from './types';
 import { dayOffset, newId } from './util';
 
+/** 예시 기록·장비·활터의 id 앞머리. 나중에 예시만 골라 뺄 때 쓴다 */
+export const SAMPLE_PREFIX = 'sample-';
+const isSampleId = (id: string | null | undefined) => !!id && id.startsWith(SAMPLE_PREFIX);
+
+/**
+ * 예시 기록인지. 새 예시는 id가 sample-로 시작한다.
+ * 예전 버전의 예시는 id가 보통 id라서, 예시 활터(sample-g…)에서 쏘았고 모두 같은 시각(updatedAt)에 만들어진 순으로 알아본다.
+ */
+export function sampleEndIds(ends: End[]): Set<string> {
+  const out = new Set(ends.filter((e) => isSampleId(e.id)).map((e) => e.id));
+  const legacy = ends.filter((e) => !isSampleId(e.id) && isSampleId(e.rangeId) && isSampleId(e.bowId));
+  if (legacy.length) {
+    const count = new Map<number, number>();
+    for (const e of legacy) count.set(e.updatedAt, (count.get(e.updatedAt) ?? 0) + 1);
+    const [stamp, n] = [...count].sort((a, b) => b[1] - a[1])[0];
+    // 예시는 한 번에 수십 순을 같은 시각으로 만든다. 사람이 저장한 순은 시각이 저마다 다르다
+    if (n >= 10) for (const e of legacy) if (e.updatedAt === stamp) out.add(e.id);
+  }
+  return out;
+}
+
+/** 예시를 뺀 뒤 남길 것: 직접 쓴 기록, 그 기록이 쓰는 장비·활터, 직접 등록한 장비·활터 */
+export function withoutSample<R extends { id: string }>(ends: End[], gear: Gear[], ranges: R[]) {
+  const drop = sampleEndIds(ends);
+  const keptEnds = ends.filter((e) => !drop.has(e.id));
+  const used = new Set(keptEnds.flatMap((e) => [e.bowId, e.ringId, e.arrowId, e.stringId, e.rangeId]).filter((x): x is string => !!x));
+  const keptGear = gear.filter((g) => !isSampleId(g.id) || used.has(g.id));
+  const keptRanges = ranges.filter((r) => !isSampleId(r.id) || used.has(r.id));
+  return { ends: keptEnds, gear: keptGear, ranges: keptRanges, removed: { ends: drop.size, gear: gear.length - keptGear.length, ranges: ranges.length - keptRanges.length } };
+}
+
 /** 처음 써 보는 사람을 위한 두 달치 예시 기록 (우궁 기준). 항상 같은 결과가 나오도록 고정 난수를 쓴다. */
 export function sampleData(now = new Date()): { gear: Gear[]; ends: End[]; ranges: Range[] } {
   let s = 20261112;
@@ -69,7 +100,7 @@ export function sampleData(now = new Date()): { gear: Gear[]; ends: End[]; range
         shots.push(miss(dir));
       }
       ends.push({
-        id: newId(), date, recordedAt: t + day * 864e5 + k, bowId: bow, ringId: ring, arrowId: 'sample-a1', stringId: 'sample-s1', shots,
+        id: `${SAMPLE_PREFIX}${newId()}`, date, recordedAt: t + day * 864e5 + k, bowId: bow, ringId: ring, arrowId: 'sample-a1', stringId: 'sample-s1', shots,
         tags: r() < 0.3 ? [MEMO_TAGS[Math.floor(r() * MEMO_TAGS.length)]] : [],
         memo: r() < 0.18 ? memos[Math.floor(r() * memos.length)] : '',
         weather,

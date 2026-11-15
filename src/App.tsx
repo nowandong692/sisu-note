@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { sampleEndIds } from './domain/sample';
 import { ConfirmButton, Sheet, ToastHost, toast } from './components/ui';
 import { formatDate, today } from './domain/util';
 import { RankingScreen } from './screens/RankingScreen';
@@ -126,6 +127,7 @@ export default function App() {
   const canSave = !!store.editSaver.current?.canSave;
 
   const firstRun = store.loaded && !store.ends.length && !store.gear.length;
+  const sampleCount = useMemo(() => sampleEndIds(store.ends).size, [store.ends]);
 
   return (
     <>
@@ -138,6 +140,12 @@ export default function App() {
           </header>
         )}
         {store.error && <div className="error" role="alert">{store.error}</div>}
+        {store.loaded && sampleCount > 0 && tab !== 'settings' && (
+          <div className="banner" role="status">
+            <span>예시 기록 {sampleCount}순이 들어 있습니다. 직접 쏜 기록과 따로 뺄 수 있습니다.</span>
+            <span className="row nowrap"><button onClick={() => go('settings')}>예시 빼러 가기</button></span>
+          </div>
+        )}
         {store.loaded && store.rangeOffer && (
           <div className="banner range-offer" role="status">
             <span>근처에 <b>{'range' in store.rangeOffer ? store.rangeOffer.range.name : store.rangeOffer.place.name}</b>이(가) 있습니다. 지금 활터{store.currentRange ? `(${store.currentRange.name})` : ''}를 바꿀까요?{'place' in store.rangeOffer && <span className="muted"> (새로 등록됩니다)</span>}</span>

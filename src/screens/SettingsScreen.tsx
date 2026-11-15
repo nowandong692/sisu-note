@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ClubSheet } from '../components/ClubSheet';
 import { ConfirmButton, Sheet, toast } from '../components/ui';
 import { endsToCsv } from '../domain/csv';
+import { sampleEndIds } from '../domain/sample';
 import { DAN_LEVELS, DAN_ORGS, danLabel, validDan, type DanOrg } from '../domain/dan';
 import { PALETTES, type Palette, type ThemeMode } from '../domain/types';
 import { today } from '../domain/util';
@@ -87,7 +88,7 @@ function DanSection() {
   );
 }
 
-type DataAction = 'ends' | 'all';
+type DataAction = 'ends' | 'all' | 'sample';
 
 /** 데이터 지우기 전에 띄우는 경고 창: 무엇이 지워지고 무엇이 남는지 보여 준다 */
 function DataWarnSheet({ action, onClose }: { action: DataAction; onClose: () => void }) {
@@ -96,7 +97,15 @@ function DataWarnSheet({ action, onClose }: { action: DataAction; onClose: () =>
   const [busy, setBusy] = useState(false);
   const n = ends.length;
   const g = gear.length;
+  const ns = sampleEndIds(ends).size;
   const spec = {
+    sample: {
+      title: '예시 기록 빼기',
+      gone: [`예시 기록 ${ns}순`, '예시 장비와 예시 활터 (직접 쓴 기록이 쓰고 있는 것은 남깁니다)'],
+      kept: [`직접 기록한 순 ${n - ns}순`, '직접 등록한 장비와 활터', '닉네임과 랭킹 참여, 소속, 단, 화면 설정'],
+      button: `예시 ${ns}순 빼기`,
+      run: () => store.removeSample().then((r) => toast(`예시 기록 ${r.ends}순과 예시 장비 ${r.gear}개를 뺐습니다`)),
+    },
     ends: {
       title: '기록만 지우기',
       gone: [`이 기기의 순 기록 ${n}순 (기록과 통계에서 사라집니다)`],
@@ -112,7 +121,7 @@ function DataWarnSheet({ action, onClose }: { action: DataAction; onClose: () =>
       run: () => store.clearAll().then(() => toast('이 기기의 모든 기록과 장비를 지웠습니다')),
     },
   }[action];
-  const empty = n === 0 && (action === 'ends' || g === 0);
+  const empty = action === 'sample' ? ns === 0 : n === 0 && (action === 'ends' || g === 0);
   return (
     <Sheet title={spec.title} onClose={onClose} backCloses={!busy}>
       <div className="warn-box" role="alert">
@@ -137,6 +146,7 @@ export function SettingsScreen() {
   const store = useStore();
   const { ends, gear } = store;
   const [warn, setWarn] = useState<DataAction | null>(null);
+  const hasSample = useMemo(() => sampleEndIds(ends).size > 0, [ends]);
   return (
     <>
       <ClubSection />
@@ -147,6 +157,7 @@ export function SettingsScreen() {
         <div className="small muted">기록은 이 기기에만 저장됩니다. 가끔 CSV로 내보내 백업해 두세요. "기록만 지우기"는 순 기록만, "모든 데이터 지우기"는 장비까지 지웁니다. 누르면 무엇이 지워지는지 먼저 보여 줍니다.</div>
         <div className="row">
           <button className="btn ghost small" disabled={!ends.length} onClick={() => saveTextFile(`국궁록-${today()}.csv`, endsToCsv(ends, gear, store.ranges))}>CSV 내보내기</button>
+          {hasSample && <button className="btn ghost small" onClick={() => setWarn('sample')}>예시 기록 빼기</button>}
           <button className="btn ghost small" onClick={() => setWarn('ends')}>기록만 지우기</button>
           <button className="btn ghost small danger-text" onClick={() => setWarn('all')}>모든 데이터 지우기</button>
         </div>
