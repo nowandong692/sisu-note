@@ -1,5 +1,5 @@
 /** 업적: 집궁, 처음 1중~5중(초몰기), 연중(2~50연중), 연몰기(2~20연몰, 20연몰은 백발백중), 랭킹. 기록에서 매번 다시 계산한다 */
-import type { End } from './types';
+import type { End, Gear } from './types';
 import { sampleEndIds } from './sample';
 import { hitsOf } from './stats';
 import { periodStart, rankPeriod, rankVolume, type ArcherTotal, type RankPeriod } from './ranking';
@@ -8,7 +8,12 @@ import { ymd } from './util';
 export const STREAK_MAX = 50;
 export const MOLGI_STREAK_MAX = 20;
 
-export type AchievementGroup = 'first' | 'streak' | 'molgi' | 'total' | 'steady' | 'rank';
+export type AchievementGroup = 'first' | 'streak' | 'molgi' | 'total' | 'steady' | 'challenge' | 'rank';
+
+/** 하루에 이만큼 순을 쏘면 '하루 N순' */
+export const DAY_ENDS_GOAL = 10;
+/** 서로 다른 활터 수 단계 */
+export const RANGE_STEPS = [3, 5];
 
 /** 누적 습사량 단계 (순) */
 export const TOTAL_ENDS_STEPS = [100, 500, 1000];
@@ -105,6 +110,14 @@ function catalog(): Achievement[] {
   for (const n of TOTAL_ENDS_STEPS) list.push({ id: `ends${n}`, group: 'total', name: n === 1000 ? '천순' : `${n}순`, desc: `누적 ${n}순 습사` });
   for (const n of DAY_RUN_STEPS) list.push({ id: `dayrun${n}`, group: 'steady', name: `${n}일 연속`, desc: `${n}일 잇따라 습사` });
   list.push({ id: 'month20', group: 'steady', name: `한 달 ${MONTH_DAYS_GOAL}일`, desc: `한 달에 ${MONTH_DAYS_GOAL}일 습사` });
+  list.push(
+    { id: 'dayends10', group: 'challenge', name: `하루 ${DAY_ENDS_GOAL}순`, desc: `하루에 ${DAY_ENDS_GOAL}순(${DAY_ENDS_GOAL * 5}시) 이상 습사` },
+    { id: 'fifteen10', group: 'challenge', name: '15시 10중', desc: '같은 날 잇따른 3순에서 10중 이상 (대회 입상권 시수)' },
+    { id: 'windmolgi', group: 'challenge', name: '강풍 몰기', desc: '바람이 강한 날 몰기' },
+    { id: 'rainmolgi', group: 'challenge', name: '우중 몰기', desc: '비나 눈 오는 날 몰기' },
+    { id: 'gakgungmolgi', group: 'challenge', name: '각궁 몰기', desc: '각궁으로 처음 몰기' },
+    ...RANGE_STEPS.map((n) => ({ id: `ranges${n}`, group: 'challenge' as const, name: `활터 ${n}곳`, desc: `서로 다른 활터 ${n}곳에서 습사` })),
+  );
   for (const n of TOTAL_MOLGI_STEPS) list.push({ id: `molgicount${n}`, group: 'total', name: `몰기 ${n}회`, desc: `누적 몰기 ${n}번` });
   for (const r of RANK_ITEMS) list.push({ id: r.id, group: 'rank', name: r.name, desc: r.desc });
   return list;
@@ -116,7 +129,13 @@ function catalog(): Achievement[] {
  */
 const dayNo = (d: string) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 864e5;
 
-export function achievements(all: End[], ranks: RankHistory = {}, todayDate = ymd(new Date())): AchievementReport {
+/**
+ * gear: 각궁 몰기를 알아보려고 활 종류를 본다. 조건(날씨·활·활터) 업적은 그것을 남긴 순에서만 센다.
+ */
+export function achievements(all: End[], ranks: RankHistory = {}, todayDate = ymd(new Date()), gear: Pick<Gear, 'id' | 'bowType'>[] = []): AchievementReport {
+  const gakgung = new Set(gear.filter((g) => g.bowType === '각궁').map((g) => g.id));
+  const ranges = new Set<string>();
+  let dayHits: number[] = [];
   const sample = sampleEndIds(all);
   const ends = all.filter((e) => !sample.has(e.id))
     .sort((a, b) => (a.date === b.date ? a.recordedAt - b.recordedAt : a.date < b.date ? -1 : 1));
@@ -143,7 +162,7 @@ export function achievements(all: End[], ranks: RankHistory = {}, todayDate = ym
       run = day && dayNo(e.date) - dayNo(day) === 1 ? run + 1 : 1;
       bestDayRun = Math.max(bestDayRun, run);
       monthDays = day.slice(0, 7) === e.date.slice(0, 7) ? monthDays + 1 : 1;
-      day = e.date; no = 0; streak = 0; molgi = 0;
+      day = e.date; no = 0; streak = 0; molgi = 0; dayHits = [];
       if (run >= 2) for (const n of DAY_RUN_STEPS) if (run === n) mark(`dayrun${n}`, e, 1);
       if (monthDays === MONTH_DAYS_GOAL) mark('month20', e, 1);
     }
@@ -152,6 +171,13 @@ export function achievements(all: End[], ranks: RankHistory = {}, todayDate = ym
     const h = hitsOf(e);
     for (let k = 1; k <= Math.min(h, 4); k++) mark(`hit${k}`, e, no);
     if (h === 5) mark('chomolgi', e, no);
+    dayHits.push(h);
+    if (no >= DAY_ENDS_GOAL) mark('dayends10', e, no);
+    if (no >= 3 && dayHits[no - 1] + dayHits[no - 2] + dayHits[no - 3] >= 10) mark('fifteen10', e, no);
+    if (h === 5 && e.weather?.wind === '강함') mark('windmolgi', e, no);
+    if (h === 5 && (e.weather?.sky === '비' || e.weather?.sky === '눈')) mark('rainmolgi', e, no);
+    if (h === 5 && e.bowId && gakgung.has(e.bowId)) mark('gakgungmolgi', e, no);
+    if (e.rangeId && !ranges.has(e.rangeId)) { ranges.add(e.rangeId); mark(`ranges${ranges.size}`, e, no); }
     for (const s of e.shots) {
       if (!s.hit) { streak = 0; continue; }
       streak++;

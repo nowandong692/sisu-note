@@ -142,4 +142,27 @@ describe('업적', () => {
     // 달을 넘어 이어지는 연속
     expect(got([...days(25, 7, '2026-10'), ...days(1, 1, '2026-11')]).dayrun7).toBe('2026-10-31#1');
   });
+
+  it('도전: 하루 10순, 15시 10중, 조건 몰기, 활터 수', () => {
+    const ends = [
+      end('2026-11-01', 'ooooo', { weather: { sky: '맑음', temp: 10, wind: '강함', windDir: null }, rangeId: 'g1' }),
+      end('2026-11-01', 'oooxx', { rangeId: 'g1' }),
+      end('2026-11-01', 'ooxxx', { rangeId: 'g2' }),
+      end('2026-11-02', 'ooooo', { weather: { sky: '비', temp: 10, wind: '없음', windDir: null }, bowId: 'b2', rangeId: 'g3' }),
+      ...Array.from({ length: 9 }, () => end('2026-11-03', 'xxxxx')),
+      end('2026-11-03', 'ooooo', { bowId: 'b1' }),
+    ];
+    const r = achievements(ends, {}, '2026-11-03', [{ id: 'b1', bowType: '각궁' }, { id: 'b2', bowType: '개량궁' }]);
+    const g = Object.fromEntries(r.list.filter((a) => a.date).map((a) => [a.id, `${a.date}#${a.endNo}`]));
+    expect(g.windmolgi).toBe('2026-11-01#1');
+    expect(g.fifteen10).toBe('2026-11-01#3');
+    expect(g.rainmolgi).toBe('2026-11-02#1');
+    expect(g.gakgungmolgi).toBe('2026-11-03#10');
+    expect(g.dayends10).toBe('2026-11-03#10');
+    expect(g.ranges3).toBe('2026-11-02#1');
+    expect(g.ranges5).toBeUndefined();
+    // 날마다 3순은 새로 센다: 전날 끝 2순과 다음 날 첫 순은 잇지 않는다
+    expect(got([end('2026-11-05', 'xxxxx'), end('2026-11-05', 'ooooo'), end('2026-11-05', 'ooooo'), end('2026-11-06', 'xxxxx')]).fifteen10).toBe('2026-11-05#3');
+    expect(got([end('2026-11-05', 'ooooo'), end('2026-11-05', 'ooooo'), end('2026-11-06', 'ooooo')]).fifteen10).toBeUndefined();
+  });
 });
