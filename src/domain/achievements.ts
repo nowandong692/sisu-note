@@ -8,7 +8,12 @@ import { ymd } from './util';
 export const STREAK_MAX = 50;
 export const MOLGI_STREAK_MAX = 20;
 
-export type AchievementGroup = 'first' | 'streak' | 'molgi' | 'rank';
+export type AchievementGroup = 'first' | 'streak' | 'molgi' | 'total' | 'rank';
+
+/** 누적 습사량 단계 (순) */
+export const TOTAL_ENDS_STEPS = [100, 500, 1000];
+/** 누적 몰기 단계 (회) */
+export const TOTAL_MOLGI_STEPS = [10, 50, 100];
 
 /** 끝난 랭킹 기간 하나에서 내 결과. 끝난 기간은 바뀌지 않으므로 이 기기에 모아 둔다 */
 export interface RankResult {
@@ -46,6 +51,10 @@ export interface AchievementReport {
   bestStreak: number;
   /** 지금까지 가장 긴 연몰 (몰기 순이 이어진 수) */
   bestMolgi: number;
+  /** 지금까지 쏜 순 (예시 기록 뺀 것) */
+  totalEnds: number;
+  /** 지금까지 몰기 횟수 */
+  totalMolgi: number;
   /** 셈에 넣은 순 수 (예시 기록 뺀 것) */
   counted: number;
 }
@@ -83,6 +92,8 @@ function catalog(): Achievement[] {
       special: n === 3 || n === MOLGI_STREAK_MAX ? true : undefined,
     });
   }
+  for (const n of TOTAL_ENDS_STEPS) list.push({ id: `ends${n}`, group: 'total', name: n === 1000 ? '천순' : `${n}순`, desc: `누적 ${n}순 습사` });
+  for (const n of TOTAL_MOLGI_STEPS) list.push({ id: `molgicount${n}`, group: 'total', name: `몰기 ${n}회`, desc: `누적 몰기 ${n}번` });
   for (const r of RANK_ITEMS) list.push({ id: r.id, group: 'rank', name: r.name, desc: r.desc });
   return list;
 }
@@ -108,7 +119,8 @@ export function achievements(all: End[], ranks: RankHistory = {}): AchievementRe
   let molgi = 0;
   let bestStreak = 0;
   let bestMolgi = 0;
-  for (const e of ends) {
+  let totalMolgi = 0;
+  for (const [i, e] of ends.entries()) {
     if (e.date !== day) { day = e.date; no = 0; streak = 0; molgi = 0; }
     no++;
     mark('jipgung', e, no);
@@ -123,6 +135,8 @@ export function achievements(all: End[], ranks: RankHistory = {}): AchievementRe
     }
     molgi = h === 5 ? molgi + 1 : 0;
     bestMolgi = Math.max(bestMolgi, molgi);
+    if (h === 5) { totalMolgi++; mark(`molgicount${totalMolgi}`, e, no); }
+    mark(`ends${i + 1}`, e, no);
     if (molgi >= 2 && molgi <= MOLGI_STREAK_MAX) mark(`molgi${molgi}`, e, no);
   }
 
@@ -137,7 +151,7 @@ export function achievements(all: End[], ranks: RankHistory = {}): AchievementRe
       if (!a.date) { a.date = start; a.label = periodLabel(p, start); }
     }
   }
-  return { list, bestStreak, bestMolgi, counted: ends.length };
+  return { list, bestStreak, bestMolgi, totalEnds: ends.length, totalMolgi, counted: ends.length };
 }
 
 /**

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { HelpButton } from '../components/ui';
-import { MOLGI_STREAK_MAX, STREAK_MAX, achievements, myRankResult, rankPeriodsToFetch, type Achievement, type RankHistory } from '../domain/achievements';
+import { MOLGI_STREAK_MAX, STREAK_MAX, TOTAL_ENDS_STEPS, TOTAL_MOLGI_STEPS, achievements, myRankResult, rankPeriodsToFetch, type Achievement, type RankHistory } from '../domain/achievements';
 import type { ArcherTotal } from '../domain/ranking';
 import { onlineAvailable, rpc } from '../platform/online';
 import { formatDate, today } from '../domain/util';
@@ -78,6 +78,23 @@ interface ServerRow { nickname: string; range_name: string | null; ends: number;
  * 한 번에 너무 많이 부르지 않게 열 때마다 최대 MAX_FETCH 기간까지만 받는다 (나머지는 다음에).
  */
 const MAX_FETCH = 30;
+
+/** 누적 단계까지 얼마나 왔는지 막대로 */
+function Progress({ label, value, unit, steps, names }: { label: string; value: number; unit: string; steps: number[]; names: Achievement[] }) {
+  const i = steps.findIndex((n) => value < n);
+  const goal = i < 0 ? steps[steps.length - 1] : steps[i];
+  const from = i <= 0 ? 0 : steps[i - 1];
+  const pct = i < 0 ? 100 : Math.round(((value - from) / (goal - from)) * 100);
+  return (
+    <div className="ach-prog">
+      <div className="row between small">
+        <span>{label} <b>{value.toLocaleString()}{unit}</b></span>
+        <span className="muted">{i < 0 ? '모두 이뤘습니다' : `${names[i].name}까지 ${(goal - value).toLocaleString()}${unit}`}</span>
+      </div>
+      <div className="ach-track" aria-hidden><div className="fill" style={{ width: `${pct}%` }} /></div>
+    </div>
+  );
+}
 function useRankHistory(active: boolean): { history: RankHistory; joined: boolean; syncing: boolean } {
   const { ends, online, onlinePending, settings, updateSettings } = useStore();
   const history = useMemo(() => settings.rankHistory ?? {}, [settings.rankHistory]);
@@ -113,6 +130,7 @@ export function AchievementsView({ toLog, active }: { toLog: () => void; active:
   const streaks = r.list.filter((a) => a.group === 'streak');
   const molgis = r.list.filter((a) => a.group === 'molgi');
   const ranks = r.list.filter((a) => a.group === 'rank');
+  const totals = r.list.filter((a) => a.group === 'total');
   const chomolgi = r.list.find((a) => a.id === 'chomolgi')!;
   const sam = r.list.find((a) => a.id === 'molgi3')!;
   const baekbal = r.list.find((a) => a.id === `molgi${MOLGI_STREAK_MAX}`)!;
@@ -170,6 +188,13 @@ export function AchievementsView({ toLog, active }: { toLog: () => void; active:
           <span className="small muted">가장 긴 연몰 <b className="ink">{r.bestMolgi}순</b></span>
         </div>
         <StepGrid items={molgis} unit="연몰" max={MOLGI_STREAK_MAX} toLog={toLog} />
+      </section>
+
+      <section className="card">
+        <h2>누적</h2>
+        <Progress label="습사량" value={r.totalEnds} unit="순" steps={TOTAL_ENDS_STEPS} names={totals.filter((a) => a.id.startsWith('ends'))} />
+        <Progress label="몰기" value={r.totalMolgi} unit="회" steps={TOTAL_MOLGI_STEPS} names={totals.filter((a) => a.id.startsWith('molgicount'))} />
+        <ul className="ach-list">{totals.map((a) => <Row key={a.id} a={a} toLog={toLog} />)}</ul>
       </section>
 
       <section className="card">
