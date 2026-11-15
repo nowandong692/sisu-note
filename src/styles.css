@@ -528,3 +528,6 @@ button.link { background: none; border: none; padding: 0; color: var(--hong); fo
 .ach-req { font-size: 12px; color: var(--muted); }
 .ach-row:not(.on) .ach-text b { color: var(--muted); }
 .ach-row .ach-when { text-align: right; line-height: 1.35; }
+.ach-row.sp { border-left: 3px solid var(--hong); padding-left: 8px; margin-left: -11px; }
+.ach-row.sp.on { background: var(--hong-soft); border-radius: 0 8px 8px 0; }
+.ach-row.sp b { font-family: var(--font-display); font-size: 16px; }

@@ -48,7 +48,7 @@ describe('업적', () => {
     expect(g.streak16).toBe('2026-11-03#4');
     expect(g.streak17).toBeUndefined();
     expect(r.bestMolgi).toBe(3);
-    expect(r.list.filter((a) => a.special).map((a) => a.name)).toEqual(['초몰기', '3연몰', '백발백중']);
+    expect(r.list.filter((a) => a.special).map((a) => a.name)).toEqual(['초몰기', '3연몰', '6연몰', '9연몰', '12연몰', '15연몰', '18연몰', '백발백중']);
   });
 
   it('예시 기록은 넣지 않는다', () => {
