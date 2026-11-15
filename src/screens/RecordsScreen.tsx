@@ -35,7 +35,7 @@ export function RecordsScreen() {
       </div>
       <div className="screen" hidden={view !== 'log'}><LogScreen /></div>
       <div className="screen" hidden={view !== 'stats'}><StatsScreen /></div>
-      <div className="screen" hidden={view !== 'achieve'}><AchievementsView toLog={() => pick('log')} /></div>
+      <div className="screen" hidden={view !== 'achieve'}><AchievementsView toLog={() => pick('log')} active={view === 'achieve'} /></div>
     </>
   );
 }

@@ -525,3 +525,5 @@ button.link { background: none; border: none; padding: 0; color: var(--hong); fo
 .celebrate { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .celebrate .feat-badge { width: 72px; height: 72px; font-size: 36px; background: var(--hong); border-color: var(--hong); color: #fff; }
 .celebrate .feat-name { font-size: 28px; }
+.feats .feat:nth-child(3) { grid-column: 1 / -1; }
+.streak-grid button.sp:not(.on) { border-color: var(--hong); color: var(--hong); }

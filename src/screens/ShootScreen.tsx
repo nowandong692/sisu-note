@@ -319,7 +319,7 @@ export function ShootScreen() {
             <div key={a.id} className="celebrate">
               <span className="feat-badge" aria-hidden>中</span>
               <b className="feat-name">{a.name}</b>
-              <span className="small muted">{a.id === 'molgi3' ? '15시 15중' : '첫 5시 5중'}</span>
+              <span className="small muted">{a.desc}</span>
               <span className="small"><b>{a.date!.slice(0, 4)}년 {formatDate(a.date!)}</b> {a.endNo}순</span>
             </div>
           ))}
