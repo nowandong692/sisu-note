@@ -122,4 +122,24 @@ describe('업적', () => {
     expect(g.molgicount10).toBe('2026-11-02#37');
     expect(r.list.find((a) => a.id === 'ends1000')!.name).toBe('천순');
   });
+
+  it('꾸준함: 연속 습사일과 한 달 20일', () => {
+    const days = (from: number, n: number, month = '2026-10') => Array.from({ length: n }, (_, i) => end(`${month}-${String(from + i).padStart(2, '0')}`, 'oxxxx'));
+    // 10월 1~7일 연속, 하루 쉬고 9~30일 연속(22일)
+    const ends = [...days(1, 7), ...days(9, 22)];
+    const r = achievements(ends, {}, '2026-10-31');
+    const g = got(ends);
+    expect(g.dayrun7).toBe('2026-10-07#1');
+    expect(g.dayrun30).toBeUndefined();
+    expect(g.month20).toBe('2026-10-21#1');
+    expect(r.bestDayRun).toBe(22);
+    expect(r.dayRun).toBe(22);
+    expect(r.monthDays).toBe(29);
+    // 이틀 지나면 지금 연속은 끊긴 것으로, 달이 바뀌면 이번 달은 0
+    const later = achievements(ends, {}, '2026-11-02');
+    expect(later.dayRun).toBe(0);
+    expect(later.monthDays).toBe(0);
+    // 달을 넘어 이어지는 연속
+    expect(got([...days(25, 7, '2026-10'), ...days(1, 1, '2026-11')]).dayrun7).toBe('2026-10-31#1');
+  });
 });

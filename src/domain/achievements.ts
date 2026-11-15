@@ -8,12 +8,16 @@ import { ymd } from './util';
 export const STREAK_MAX = 50;
 export const MOLGI_STREAK_MAX = 20;
 
-export type AchievementGroup = 'first' | 'streak' | 'molgi' | 'total' | 'rank';
+export type AchievementGroup = 'first' | 'streak' | 'molgi' | 'total' | 'steady' | 'rank';
 
 /** 누적 습사량 단계 (순) */
 export const TOTAL_ENDS_STEPS = [100, 500, 1000];
 /** 누적 몰기 단계 (회) */
 export const TOTAL_MOLGI_STEPS = [10, 50, 100];
+/** 며칠 잇따라 습사했는지 단계 (일) */
+export const DAY_RUN_STEPS = [7, 30];
+/** 한 달에 습사한 날 */
+export const MONTH_DAYS_GOAL = 20;
 
 /** 끝난 랭킹 기간 하나에서 내 결과. 끝난 기간은 바뀌지 않으므로 이 기기에 모아 둔다 */
 export interface RankResult {
@@ -55,6 +59,12 @@ export interface AchievementReport {
   totalEnds: number;
   /** 지금까지 몰기 횟수 */
   totalMolgi: number;
+  /** 지금 이어지는 연속 습사일 (오늘이나 어제까지 이어진 것, 끊겼으면 0) */
+  dayRun: number;
+  /** 가장 길었던 연속 습사일 */
+  bestDayRun: number;
+  /** 이번 달 습사한 날 */
+  monthDays: number;
   /** 셈에 넣은 순 수 (예시 기록 뺀 것) */
   counted: number;
 }
@@ -93,6 +103,8 @@ function catalog(): Achievement[] {
     });
   }
   for (const n of TOTAL_ENDS_STEPS) list.push({ id: `ends${n}`, group: 'total', name: n === 1000 ? '천순' : `${n}순`, desc: `누적 ${n}순 습사` });
+  for (const n of DAY_RUN_STEPS) list.push({ id: `dayrun${n}`, group: 'steady', name: `${n}일 연속`, desc: `${n}일 잇따라 습사` });
+  list.push({ id: 'month20', group: 'steady', name: `한 달 ${MONTH_DAYS_GOAL}일`, desc: `한 달에 ${MONTH_DAYS_GOAL}일 습사` });
   for (const n of TOTAL_MOLGI_STEPS) list.push({ id: `molgicount${n}`, group: 'total', name: `몰기 ${n}회`, desc: `누적 몰기 ${n}번` });
   for (const r of RANK_ITEMS) list.push({ id: r.id, group: 'rank', name: r.name, desc: r.desc });
   return list;
@@ -102,7 +114,9 @@ function catalog(): Achievement[] {
  * 기록으로 업적을 계산한다. 예시 기록은 넣지 않는다.
  * 연중과 연몰은 같은 날 안에서만 잇는다. 그날 순서대로(저장한 순서) 시를 세고, 날이 바뀌면 처음부터 센다.
  */
-export function achievements(all: End[], ranks: RankHistory = {}): AchievementReport {
+const dayNo = (d: string) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 864e5;
+
+export function achievements(all: End[], ranks: RankHistory = {}, todayDate = ymd(new Date())): AchievementReport {
   const sample = sampleEndIds(all);
   const ends = all.filter((e) => !sample.has(e.id))
     .sort((a, b) => (a.date === b.date ? a.recordedAt - b.recordedAt : a.date < b.date ? -1 : 1));
@@ -120,8 +134,19 @@ export function achievements(all: End[], ranks: RankHistory = {}): AchievementRe
   let bestStreak = 0;
   let bestMolgi = 0;
   let totalMolgi = 0;
+  let run = 0;
+  let bestDayRun = 0;
+  let monthDays = 0;
   for (const [i, e] of ends.entries()) {
-    if (e.date !== day) { day = e.date; no = 0; streak = 0; molgi = 0; }
+    if (e.date !== day) {
+      // 새 날: 어제도 쐈으면 연속 습사일을 잇고, 달이 같으면 이 달 습사일을 더한다
+      run = day && dayNo(e.date) - dayNo(day) === 1 ? run + 1 : 1;
+      bestDayRun = Math.max(bestDayRun, run);
+      monthDays = day.slice(0, 7) === e.date.slice(0, 7) ? monthDays + 1 : 1;
+      day = e.date; no = 0; streak = 0; molgi = 0;
+      if (run >= 2) for (const n of DAY_RUN_STEPS) if (run === n) mark(`dayrun${n}`, e, 1);
+      if (monthDays === MONTH_DAYS_GOAL) mark('month20', e, 1);
+    }
     no++;
     mark('jipgung', e, no);
     const h = hitsOf(e);
@@ -151,7 +176,11 @@ export function achievements(all: End[], ranks: RankHistory = {}): AchievementRe
       if (!a.date) { a.date = start; a.label = periodLabel(p, start); }
     }
   }
-  return { list, bestStreak, bestMolgi, totalEnds: ends.length, totalMolgi, counted: ends.length };
+  const gap = day ? dayNo(todayDate) - dayNo(day) : 99;
+  return {
+    list, bestStreak, bestMolgi, totalEnds: ends.length, totalMolgi, counted: ends.length,
+    dayRun: gap <= 1 ? run : 0, bestDayRun, monthDays: day.slice(0, 7) === todayDate.slice(0, 7) ? monthDays : 0,
+  };
 }
 
 /**
