@@ -11,7 +11,7 @@ import type { End, Shot, TrackedCategory } from '../domain/types';
 import { MEMO_TAGS, SHOTS_PER_END } from '../domain/types';
 import { formatDate, today } from '../domain/util';
 import { weatherLabel } from '../domain/weather';
-import { honorific, welcomeFor, welcomeWho } from '../domain/welcome';
+import { honorific, trendOf, welcomeFor, welcomeWho } from '../domain/welcome';
 import { danShort, topDan } from '../domain/dan';
 import { useStore } from '../state/store';
 import { focusLogEnd } from './LogScreen';
@@ -153,7 +153,7 @@ export function ShootScreen() {
   const marks: Mark[] = d.shots.flatMap((s, i) => (s ? [{ x: s.x, y: s.y, hit: s.hit, n: i + 1 }] : []));
   const noGear = !gearOf('bow').length;
   const myDan = topDan(settings.dans);
-  const welcome = welcomeFor(today());
+  const welcome = welcomeFor(today(), trendOf(ends, today()));
 
   return (
     <>
