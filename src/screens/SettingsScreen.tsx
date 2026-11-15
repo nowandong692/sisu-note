@@ -98,10 +98,11 @@ export function SettingsScreen() {
       <AppearanceSection />
       <section className="card">
         <h2>데이터</h2>
-        <div className="small muted">기록은 이 기기에만 저장됩니다. 가끔 CSV로 내보내 백업해 두세요.</div>
+        <div className="small muted">기록은 이 기기에만 저장됩니다. 가끔 CSV로 내보내 백업해 두세요. "기록만 지우기"는 순 기록만 지우고 장비는 남기며, "모든 기록 지우기"는 장비까지 지웁니다. 둘 다 랭킹 서버에 이미 올린 기록은 지우지 않습니다.</div>
         <div className="row">
           <button className="btn ghost small" disabled={!ends.length} onClick={() => saveTextFile(`국궁록-${today()}.csv`, endsToCsv(ends, gear, store.ranges))}>CSV 내보내기</button>
           <ConfirmButton className="btn ghost small" label="예시 기록 불러오기" confirmLabel="지금 기록을 지우고 불러오기" onConfirm={() => store.loadSample().then(() => toast('예시 기록을 불러왔습니다'))} />
+          <ConfirmButton className="btn ghost small" label="기록만 지우기" confirmLabel={`${ends.length}순 지우기 (장비는 남김)`} onConfirm={() => { if (ends.length) void store.clearEnds().then((n) => toast(`이 기기의 기록 ${n}순을 지웠습니다. 장비는 그대로입니다`)); else toast('지울 기록이 없습니다'); }} />
           <ConfirmButton className="btn ghost small" label="모든 기록 지우기" confirmLabel="정말 지우기" onConfirm={() => store.clearAll().then(() => toast('모든 기록과 장비를 지웠습니다'))} />
         </div>
       </section>

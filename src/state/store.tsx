@@ -77,6 +77,8 @@ export interface Store extends Data {
   leaveOnline(): Promise<void>;
   loadSample(): Promise<void>;
   clearAll(): Promise<void>;
+  /** 이 기기의 순 기록만 모두 지운다. 장비와 설정은 남긴다. 지운 순 수를 돌려준다 */
+  clearEnds(): Promise<number>;
   /** 오늘 저장한 순을 모두 지운다 (랭킹에 올린 오늘 순도 지운다). 지운 순 수를 돌려준다. */
   clearToday(): Promise<number>;
 }
@@ -359,6 +361,13 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       endsRef.current = endsRef.current.filter((e) => !ids.has(e.id));
       for (const e of gone) await enqueue('del', e);
       return gone.length;
+    },
+    async clearEnds() {
+      const n = data.ends.length;
+      await repo.replaceAll({ gear: data.gear, ends: [] });
+      setData((p) => ({ ...p, ends: [] }));
+      setEditId(null);
+      return n;
     },
     async clearAll() {
       await repo.replaceAll({ gear: [], ends: [] });
