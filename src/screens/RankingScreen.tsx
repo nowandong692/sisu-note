@@ -1,3 +1,4 @@
+import { danShort } from '../domain/dan';
 import { useEffect, useState } from 'react';
 import { ConfirmButton, Sheet, toast } from '../components/ui';
 import {
@@ -18,7 +19,7 @@ const PERIODS: [RankPeriod, string][] = [['day', '일간'], ['week', '주간'], 
 const PLACE_LABEL = ['장려', '1위', '2위', '3위'];
 
 interface ServerEnd { day: string; recorded_at: string; hits: boolean[] }
-interface ServerRow { nickname: string; range_name: string | null; ends: number; hits: number; seq: boolean[] | null; me: boolean }
+interface ServerRow { nickname: string; range_name: string | null; dan?: number | null; ends: number; hits: number; seq: boolean[] | null; me: boolean }
 
 function periodLabel(date: string, p: RankPeriod): string {
   const s = periodStart(date, p);
@@ -233,7 +234,7 @@ function Row({ r, kind, canReport, onOpen }: { r: RankRow; kind: Kind; canReport
         : <span className="place num">{r.order}</span>}
       <button className="who-btn" onClick={onOpen} aria-label={`${r.name} 기록 보기`}>
         <span className="who">
-          <b>{r.name}</b>{r.me && <span className="pill best">나</span>}
+          <b>{r.name}</b>{r.dan ? <span className="pill dan">{danShort(r.dan)}</span> : null}{r.me && <span className="pill best">나</span>}
           {r.range && <span className="small muted"> · {r.range}</span>}
         </span>
         <span className="score">
@@ -278,7 +279,7 @@ function RankingBoard({ active }: { active: boolean }) {
     let alive = true;
     setLoading(true); setErr('');
     rpc<ServerRow[]>('period_totals', { p_period: period, p_date: start, p_key: o?.key ?? null })
-      .then((list) => { if (alive) setRows(list.map((x) => ({ name: x.nickname, range: x.range_name, ends: x.ends, hits: x.hits, seq: x.seq ?? [], me: x.me }))); })
+      .then((list) => { if (alive) setRows(list.map((x) => ({ name: x.nickname, range: x.range_name, dan: x.dan ?? null, ends: x.ends, hits: x.hits, seq: x.seq ?? [], me: x.me }))); })
       .catch((e) => { if (alive) { setRows(null); setErr(e instanceof OnlineError ? e.message : errText(e)); } })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };

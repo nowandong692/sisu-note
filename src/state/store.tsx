@@ -1,3 +1,4 @@
+import { topDan, type Dans } from '../domain/dan';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Club, End, Gear, GearCategory, OnlineProfile, Range, Settings, Weather } from '../domain/types';
 import { OnlineError, newRecoveryCode, normalizeRecoveryCode, onlineAvailable, rpc } from '../platform/online';
@@ -70,6 +71,8 @@ export interface Store extends Data {
   setOnlineProfile(nickname: string, rangeName: string | null): Promise<void>;
   /** 내 소속을 바꾼다. 랭킹에 참여 중이면 서버 프로필의 활터도 소속으로 바꾼다 */
   setClub(club: Club | null): Promise<void>;
+  /** 내 단을 바꾼다. 랭킹에 참여 중이면 가장 높은 단을 서버에도 올린다 */
+  setDans(dans: Dans): Promise<void>;
   /** 참여 그만두기: 서버의 내 기록을 모두 지운다 */
   leaveOnline(): Promise<void>;
   loadSample(): Promise<void>;
@@ -79,6 +82,11 @@ export interface Store extends Data {
 }
 
 const Ctx = createContext<Store | null>(null);
+
+/** 랭킹에 보일 단(가장 높은 단)을 서버에 올린다. 서버에 004가 없거나 연결이 안 돼도 설정 저장은 그대로 둔다 */
+async function syncDan(key: string, dans: Dans | null | undefined) {
+  try { await rpc('set_dan', { p_key: key, p_dan: topDan(dans) }); } catch { /* 다음에 단을 바꿀 때 다시 올린다 */ }
+}
 
 const offerKey = (o: RangeOffer) => ('range' in o ? o.range.id : `${o.place.name}|${o.place.lat.toFixed(3)}|${o.place.lon.toFixed(3)}`);
 
@@ -305,6 +313,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       await rpc('register', { p_key: key, p_nickname: nickname.trim() });
       if (rangeName) await rpc('set_profile', { p_key: key, p_nickname: nickname.trim(), p_range_name: rangeName });
       await updateSettings({ online: { key, nickname: nickname.trim(), rangeName, joinedAt: Date.now(), queue: [] } });
+      await syncDan(key, data.settings.dans);
     },
     async restoreOnline(code) {
       const key = normalizeRecoveryCode(code);
@@ -315,6 +324,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
         // 다른 기기에서 쓰던 소속을 이어받는다 (이 기기에 소속이 없을 때만)
         ...(!data.settings.club && rows[0].range_name ? { club: { name: rows[0].range_name } } : {}),
       });
+      await syncDan(key, data.settings.dans);
     },
     async setOnlineProfile(nickname, rangeName) {
       const o = data.settings.online;
@@ -328,6 +338,11 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       if (!o || (o.rangeName ?? null) === (club?.name ?? null)) return;
       await rpc('set_profile', { p_key: o.key, p_nickname: o.nickname, p_range_name: club?.name ?? '' });
       await updateSettings({ online: { ...o, rangeName: club?.name ?? null } });
+    },
+    async setDans(dans) {
+      await updateSettings({ dans });
+      const o = data.settings.online;
+      if (o) await syncDan(o.key, dans);
     },
     async leaveOnline() {
       const o = data.settings.online;

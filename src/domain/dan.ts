@@ -22,3 +22,14 @@ export function danLabel(level: number): string {
 export function validDan(v: unknown): number | null {
   return typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 9 ? v : null;
 }
+
+/** 랭킹과 인사에 붙이는 짧은 이름: 초단, 2단 … 8단, 신궁 */
+export function danShort(level: number): string {
+  return danAlias(level) ?? `${level}단`;
+}
+
+/** 여러 기관 단 가운데 가장 높은 단 (없으면 null) */
+export function topDan(dans: Dans | null | undefined): number | null {
+  const ls = Object.values(dans ?? {}).map(validDan).filter((v): v is number => v !== null);
+  return ls.length ? Math.max(...ls) : null;
+}

@@ -22,8 +22,9 @@ export function honorific(hasMolgi: boolean): string {
 }
 
 /** "관덕정 홍길동 접장님"처럼 소속과 닉네임을 이어 부른다. 닉네임이 없으면 호칭만 */
-export function welcomeWho(club: string | null | undefined, nickname: string | null | undefined, title: string): string {
+export function welcomeWho(club: string | null | undefined, nickname: string | null | undefined, title: string, dan?: string | null): string {
   const c = club?.trim();
   const n = nickname?.trim();
-  return [c, n ? `${n} ${title}` : title].filter(Boolean).join(' ');
+  const who = [c, n ? `${n} ${title}` : title].filter(Boolean).join(' ');
+  return dan ? `${who} · ${dan}` : who;
 }

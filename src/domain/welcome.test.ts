@@ -7,6 +7,7 @@ describe('welcome', () => {
     expect(welcomeWho(null, '홍길동', '사우님')).toBe('홍길동 사우님');
     expect(welcomeWho('관덕정', null, '접장님')).toBe('관덕정 접장님');
     expect(welcomeWho(undefined, ' ', '사우님')).toBe('사우님');
+    expect(welcomeWho('관덕정', '홍길동', '접장님', '3단')).toBe('관덕정 홍길동 접장님 · 3단');
   });
   it('몰기를 했으면 접장, 아니면 사우', () => {
     expect(honorific(true)).toBe('접장님');

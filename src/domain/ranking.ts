@@ -24,6 +24,8 @@ export const VOLUME_TOP = 10;
 export interface ArcherTotal {
   name: string;
   range?: string | null;
+  /** 가장 높은 단 (1~9) */
+  dan?: number | null;
   ends: number;
   hits: number;
   /** 기간 안에서 쏜 차례대로 관중 여부 (선다시수용, 앞 50시) */

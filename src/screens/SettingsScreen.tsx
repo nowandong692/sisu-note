@@ -62,13 +62,13 @@ function ClubSection() {
 
 /** 내 단: 기관마다 하나씩 */
 function DanSection() {
-  const { settings, updateSettings } = useStore();
+  const { settings, setDans } = useStore();
   const dans = settings.dans ?? {};
   const set = (org: DanOrg, v: string) => {
     const next = { ...dans };
     const level = validDan(Number(v));
     if (level) next[org] = level; else delete next[org];
-    void updateSettings({ dans: next }).then(() => toast(level ? `${org} ${danLabel(level)}로 정했습니다` : `${org} 단을 지웠습니다`));
+    void setDans(next).then(() => toast(level ? `${org} ${danLabel(level)}로 정했습니다` : `${org} 단을 지웠습니다`));
   };
   return (
     <section className="card">
@@ -82,7 +82,7 @@ function DanSection() {
           </select>
         </div>
       ))}
-      <div className="small muted">받은 단이 있는 기관만 고르세요. 이 기기에만 저장됩니다.</div>
+      <div className="small muted">받은 단이 있는 기관만 고르세요. 겨루기에 참여 중이면 가장 높은 단 하나만 랭킹에 함께 보입니다 (기관 이름은 올리지 않습니다).</div>
     </section>
   );
 }
