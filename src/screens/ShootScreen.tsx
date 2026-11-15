@@ -99,7 +99,10 @@ export function ShootScreen() {
   const [resetting, setResetting] = useState(false);
   const [rangeOpen, setRangeOpen] = useState(false);
 
-  const todays = ends.filter((e) => e.date === today()).sort((a, b) => a.recordedAt - b.recordedAt);
+  /** 지난 날짜에 순을 넣는 중이면 그날, 아니면 오늘 */
+  const past = store.pastDate;
+  const day = past ?? today();
+  const todays = ends.filter((e) => e.date === day).sort((a, b) => a.recordedAt - b.recordedAt);
   const todayHits = todays.reduce((a, e) => a + hitsOf(e), 0);
   const filled = d.shots.filter(Boolean).length;
   const hitCount = d.shots.filter((s) => s?.hit).length;
@@ -143,8 +146,16 @@ export function ShootScreen() {
       if (editing.date !== today()) { focusLogEnd(editing.date, editing.id); showLogView(); location.hash = 'log'; }
       return;
     }
-    const e = await store.saveEnd({ shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim() });
+    const e = await store.saveEnd({ shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim() }, past ?? undefined);
     const h = hitsOf(e);
+    if (past) {
+      // 지난 순은 업적을 다시 계산해 목록에만 남긴다 (축하 창은 오늘 순에만 띄운다)
+      const line = earnedLine(newlyEarned(achievements(ends, {}, today(), store.gear), achievements([...ends, e], {}, today(), store.gear)));
+      toast(`${formatDate(past)} ${todays.length + 1}순 저장 · ${h}중${h === 5 ? ' 몰기!' : ''}${line ? ` · ${line}` : ''}`);
+      setD(emptyDraft());
+      setAsking(false);
+      return;
+    }
     const earned = newlyEarned(achievements(ends, {}, today(), store.gear), achievements([...ends, e], {}, today(), store.gear));
     const line = earnedLine(earned);
     const special = earned.filter((a) => a.special);
@@ -165,7 +176,7 @@ export function ShootScreen() {
 
   return (
     <>
-      {!editing && (
+      {!editing && !past && (
         <div className="welcome">
           <p><b>{welcomeWho(settings.club?.name, settings.online?.nickname, honorific(ends.some((e) => hitsOf(e) === SHOTS_PER_END)), myDan ? danShort(myDan) : null)}</b>, {welcome.greet}</p>
           <p className="remark">{welcome.remark}</p>
@@ -178,8 +189,19 @@ export function ShootScreen() {
             <button className="btn ghost small" onClick={cancelEdit}>그만 고치기</button>
           </div>
         )}
+        {past && !editing && (
+          <div className="edit-banner">
+            <span><b>{formatDate(past)}</b> 기록 넣는 중</span>
+            <button className="btn ghost small" onClick={() => store.setPastDate(null)}>오늘로 돌아가기</button>
+          </div>
+        )}
+        {past && !editing && (
+          <div className="small muted">{todays.length
+            ? '장비·활터·날씨는 그날 마지막 순과 같게 저장하고, 그날 마지막 순 뒤에 붙습니다.'
+            : '그날 기록이 없어 지금 고른 장비와 활터로 저장하고 날씨는 비워 둡니다.'} 지난 순은 랭킹에 오르지 않고, 업적은 날짜에 맞춰 다시 계산됩니다.</div>
+        )}
         <div className="end-head">
-          <span className="title">{editing ? `${editIndex}순 고치기` : `${todays.length + 1}순`} {!editing && <span className="end-date">{formatDate(today())}</span>}</span>
+          <span className="title">{editing ? `${editIndex}순 고치기` : `${todays.length + 1}순`} {!editing && <span className="end-date">{formatDate(day)}</span>}</span>
           <span className="row">
             <span className="seg" role="group" aria-label="우궁 좌궁">
               <button className={settings.hand === 'right' ? 'on' : ''} onClick={() => setHand('right')}>우궁</button>
@@ -230,9 +252,11 @@ export function ShootScreen() {
         {editing && <button className="btn ghost" onClick={cancelEdit}>고치지 않고 돌아가기</button>}
       </section>
 
+      {/* 지난 날짜에 그날 기록이 있으면 장비·활터는 그날 마지막 순을 따르므로 고르는 칸을 숨긴다 */}
+      {!(past && todays.length > 0) && <>
       <button className="gear" onClick={() => (noGear ? setManaging(true) : setPicking(true))}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="label">오늘 장비</div>
+          <div className="label">{past ? '이 날 장비' : '오늘 장비'}</div>
           <div className="names">
             {noGear ? '눌러서 활을 추가하면 장비별 분석을 볼 수 있습니다' : `${gearName(settings.current.bow)} · ${gearName(settings.current.ring)} · ${gearName(settings.current.arrow)}${settings.current.string ? ` · ${gearName(settings.current.string)}` : ''}`}
           </div>
@@ -248,17 +272,18 @@ export function ShootScreen() {
         </div>
         <span className="change">{store.currentRange ? '바꾸기' : '등록'}</span>
       </button>
-      <button className="gear" onClick={() => setWeathering(true)}>
+      </>}
+      {!past && <button className="gear" onClick={() => setWeathering(true)}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="label">오늘 날씨 <span className="opt">선택</span></div>
           <div className={`names ${store.todayWeather ? '' : 'muted-names'}`}>{weatherLabel(store.todayWeather) || '날씨·기온·바람을 남기면 날씨별로 비교할 수 있습니다'}</div>
         </div>
         <span className="change">{store.todayWeather ? '바꾸기' : '입력'}</span>
-      </button>
+      </button>}
 
       <section className="card">
         <div className="row between">
-          <h2>오늘 기록</h2>
+          <h2>{past ? `${formatDate(past)} 기록` : '오늘 기록'}</h2>
           <span className="num"><b>{todays.length}순 {todayHits}중</b>{todays.length > 0 && <span className="muted small"> 순당 {(todayHits / todays.length).toFixed(1)}중</span>}</span>
         </div>
         {todays.length === 0
@@ -270,7 +295,7 @@ export function ShootScreen() {
             )).reverse()}</div>
             <div className="row between">
               <span className="small muted">저장한 순을 누르면 위 입력 칸에 불러와 고칠 수 있습니다.</span>
-              <button className="btn ghost small danger-text" onClick={() => setResetting(true)}>오늘 기록 초기화</button>
+              {!past && <button className="btn ghost small danger-text" onClick={() => setResetting(true)}>오늘 기록 초기화</button>}
             </div>
           </>}
       </section>
