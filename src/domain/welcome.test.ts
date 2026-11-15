@@ -23,6 +23,10 @@ describe('welcome', () => {
     const seen = new Set(Array.from({ length: 30 }, (_, i) => welcomeFor(`2026-11-${String(i + 1).padStart(2, '0')}`).remark));
     expect(seen.size).toBeGreaterThan(2);
   });
+  it('궁도 9계훈이 모두 들어 있다', () => {
+    const all = Object.values(REMARKS).flat().join(' ');
+    for (const w of ['인애덕행', '성실겸손', '자중절조', '예의엄수', '염직과감', '습사무언', '정심정기', '불원승자', '막만타궁']) expect(all).toContain(w);
+  });
 });
 
 /** n중짜리 순 */
