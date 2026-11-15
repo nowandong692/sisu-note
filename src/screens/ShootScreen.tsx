@@ -153,11 +153,15 @@ export function ShootScreen() {
   const marks: Mark[] = d.shots.flatMap((s, i) => (s ? [{ x: s.x, y: s.y, hit: s.hit, n: i + 1 }] : []));
   const noGear = !gearOf('bow').length;
   const myDan = topDan(settings.dans);
+  const welcome = welcomeFor(today());
 
   return (
     <>
       {!editing && (
-        <p className="welcome"><b>{welcomeWho(settings.club?.name, settings.online?.nickname, honorific(ends.some((e) => hitsOf(e) === SHOTS_PER_END)), myDan ? danShort(myDan) : null)}</b>, {welcomeFor(today())}</p>
+        <div className="welcome">
+          <p><b>{welcomeWho(settings.club?.name, settings.online?.nickname, honorific(ends.some((e) => hitsOf(e) === SHOTS_PER_END)), myDan ? danShort(myDan) : null)}</b>, {welcome.greet}</p>
+          <p className="remark">{welcome.remark}</p>
+        </div>
       )}
       <section className={`card shoot-card ${editing ? 'editing' : ''}`}>
         {editing && (

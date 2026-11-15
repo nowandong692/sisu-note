@@ -14,9 +14,10 @@ describe('welcome', () => {
     expect(honorific(false)).toBe('사우님');
   });
   it('같은 날에는 같은 인사, 날마다 목록 안에서 고른다', () => {
-    expect(welcomeFor('2026-11-15')).toBe(welcomeFor('2026-11-15'));
-    const seen = new Set(Array.from({ length: 30 }, (_, i) => welcomeFor(`2026-11-${String(i + 1).padStart(2, '0')}`)));
+    expect(welcomeFor('2026-11-15')).toEqual(welcomeFor('2026-11-15'));
+    const seen = new Set(Array.from({ length: 30 }, (_, i) => welcomeFor(`2026-11-${String(i + 1).padStart(2, '0')}`).remark));
     expect(seen.size).toBeGreaterThan(2);
-    for (const w of seen) expect(WELCOMES).toContain(w);
+    for (const r of seen) expect(WELCOMES.map(([, x]) => x)).toContain(r);
+    for (const [g] of WELCOMES) expect(g).toMatch(/^(반갑습니다|어서 오세요)\.$/);
   });
 });
