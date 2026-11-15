@@ -107,4 +107,19 @@ describe('업적', () => {
     expect(myRankResult([t('a', 3, 12), t('나', 3, 14, true), t('b', 5, 5)], 'day')).toEqual({ place: 1, volume: 2 });
     expect(myRankResult([t('a', 3, 12), t('나', 1, 5, true)], 'day')).toEqual({ place: null, volume: 2 });
   });
+
+  it('누적 습사량과 몰기 횟수', () => {
+    const ends = [
+      ...Array.from({ length: 60 }, () => end('2026-11-01', 'oxxxx')),
+      ...Array.from({ length: 40 }, (_, i) => end('2026-11-02', i % 4 === 0 ? 'ooooo' : 'xxxxx')),
+    ];
+    const r = achievements(ends);
+    const g = got(ends);
+    expect(r.totalEnds).toBe(100);
+    expect(r.totalMolgi).toBe(10);
+    expect(g.ends100).toBe('2026-11-02#40');
+    expect(g.ends500).toBeUndefined();
+    expect(g.molgicount10).toBe('2026-11-02#37');
+    expect(r.list.find((a) => a.id === 'ends1000')!.name).toBe('천순');
+  });
 });

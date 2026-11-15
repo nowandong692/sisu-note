@@ -527,3 +527,6 @@ button.link { background: none; border: none; padding: 0; color: var(--hong); fo
 .celebrate .feat-name { font-size: 28px; }
 .feats .feat:nth-child(3) { grid-column: 1 / -1; }
 .streak-grid button.sp:not(.on) { border-color: var(--hong); color: var(--hong); }
+.ach-prog { display: flex; flex-direction: column; gap: 6px; }
+.ach-track { height: 8px; background: var(--paper); border-radius: 4px; overflow: hidden; }
+.ach-track .fill { height: 100%; background: var(--hong); border-radius: 4px; }
