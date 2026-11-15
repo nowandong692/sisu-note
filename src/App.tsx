@@ -30,7 +30,7 @@ function readTab(): Tab {
   // 통계는 기록 탭 안으로 옮겼다 (#stats는 기록 탭의 통계 보기)
   // 장비는 습사 화면의 "오늘 장비" 안으로 옮겼다 (#gear는 습사로)
   const raw = location.hash.slice(1);
-  const h = raw === 'stats' ? 'log' : raw === 'gear' ? 'shoot' : raw;
+  const h = raw === 'stats' || raw === 'achieve' ? 'log' : raw === 'gear' ? 'shoot' : raw;
   return (TABS.some(([t]) => t === h) ? h : 'shoot') as Tab;
 }
 

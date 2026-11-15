@@ -17,6 +17,7 @@ import { useStore } from '../state/store';
 import { focusLogEnd } from './LogScreen';
 import { showLogView } from './RecordsScreen';
 import { GearScreen } from './GearScreen';
+import { achievements, earnedLine, newlyEarned, type Achievement } from '../domain/achievements';
 
 interface Draft {
   /** 고치는 중인 순 id (새 순이면 null) */
@@ -104,6 +105,8 @@ export function ShootScreen() {
   const hitCount = d.shots.filter((s) => s?.hit).length;
 
   const [asking, setAsking] = useState(false);
+  /** 방금 이룬 초몰기·3연몰 (축하 창) */
+  const [cheer, setCheer] = useState<Achievement[]>([]);
 
   /** 5시가 처음 다 채워지는 순간 저장할지 묻는다 */
   const applyShots = (shots: (Shot | null)[], active: number) => {
@@ -142,7 +145,12 @@ export function ShootScreen() {
     }
     const e = await store.saveEnd({ shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim() });
     const h = hitsOf(e);
-    toast(`${todays.length + 1}순 저장 · ${h}중${h === 5 ? ' 몰기!' : ''}`);
+    const earned = newlyEarned(achievements(ends), achievements([...ends, e]));
+    const line = earnedLine(earned);
+    const special = earned.filter((a) => a.special);
+    // 초몰기·3연몰은 축하 창이 대신 알린다 (알림이 창을 가리지 않게)
+    if (special.length) setCheer(special);
+    else toast(`${todays.length + 1}순 저장 · ${h}중${h === 5 ? ' 몰기!' : ''}${line ? ` · ${line}` : ''}`);
     setD(emptyDraft());
     setAsking(false);
   };
@@ -303,6 +311,20 @@ export function ShootScreen() {
             <button className="btn ghost small" onClick={() => { setPicking(false); setManaging(true); }}>장비 추가·고치기</button>
           </div>
           <button className="btn" onClick={() => setPicking(false)}>완료</button>
+        </Sheet>
+      )}
+      {cheer.length > 0 && (
+        <Sheet title="업적 달성" onClose={() => setCheer([])}>
+          {cheer.map((a) => (
+            <div key={a.id} className="celebrate">
+              <span className="feat-badge" aria-hidden>中</span>
+              <b className="feat-name">{a.name}</b>
+              <span className="small muted">{a.id === 'molgi3' ? '15시 15중' : '첫 5시 5중'}</span>
+              <span className="small"><b>{a.date!.slice(0, 4)}년 {formatDate(a.date!)}</b> {a.endNo}순</span>
+            </div>
+          ))}
+          <div className="small muted" style={{ textAlign: 'center' }}>축하합니다! {todays.length}순 저장. 기록과 통계 탭의 업적에 이 날짜로 남습니다.</div>
+          <button className="btn" onClick={() => setCheer([])}>확인</button>
         </Sheet>
       )}
       {managing && (
