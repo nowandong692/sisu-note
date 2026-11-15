@@ -87,7 +87,7 @@ function DanSection() {
   );
 }
 
-type DataAction = 'sample' | 'ends' | 'all';
+type DataAction = 'ends' | 'all';
 
 /** 데이터 지우기 전에 띄우는 경고 창: 무엇이 지워지고 무엇이 남는지 보여 준다 */
 function DataWarnSheet({ action, onClose }: { action: DataAction; onClose: () => void }) {
@@ -97,18 +97,9 @@ function DataWarnSheet({ action, onClose }: { action: DataAction; onClose: () =>
   const n = ends.length;
   const g = gear.length;
   const spec = {
-    sample: {
-      title: '예시 기록 불러오기',
-      gone: [`이 기기의 순 기록 ${n}순`, `등록한 장비 ${g}개`],
-      added: ['두 달치 예시 기록과 예시 장비·활터'],
-      kept: ['닉네임과 랭킹 참여, 소속, 단, 화면 설정', '랭킹 서버에 이미 올린 기록'],
-      button: '지우고 예시 불러오기',
-      run: () => store.loadSample().then(() => toast('예시 기록을 불러왔습니다')),
-    },
     ends: {
       title: '기록만 지우기',
       gone: [`이 기기의 순 기록 ${n}순 (기록과 통계에서 사라집니다)`],
-      added: [],
       kept: [`등록한 장비 ${g}개와 오늘 장비`, '닉네임과 랭킹 참여, 소속, 단, 활터, 화면 설정', '랭킹 서버에 이미 올린 기록'],
       button: `${n}순 지우기`,
       run: () => store.clearEnds().then((k) => toast(`이 기기의 기록 ${k}순을 지웠습니다. 장비는 그대로입니다`)),
@@ -116,13 +107,12 @@ function DataWarnSheet({ action, onClose }: { action: DataAction; onClose: () =>
     all: {
       title: '모든 데이터 지우기',
       gone: [`이 기기의 순 기록 ${n}순`, `등록한 장비 ${g}개와 오늘 장비 선택`],
-      added: [],
       kept: ['닉네임과 랭킹 참여, 소속, 단, 활터, 화면 설정', '랭킹 서버에 이미 올린 기록'],
       button: '모두 지우기',
       run: () => store.clearAll().then(() => toast('이 기기의 모든 기록과 장비를 지웠습니다')),
     },
   }[action];
-  const empty = action !== 'sample' && n === 0 && (action === 'ends' || g === 0);
+  const empty = n === 0 && (action === 'ends' || g === 0);
   return (
     <Sheet title={spec.title} onClose={onClose} backCloses={!busy}>
       <div className="warn-box" role="alert">
@@ -132,7 +122,6 @@ function DataWarnSheet({ action, onClose }: { action: DataAction; onClose: () =>
       <div className="warn-list">
         <div className="small"><b>지워지는 것</b></div>
         <ul className="small">{spec.gone.map((x) => <li key={x}>{x}</li>)}</ul>
-        {spec.added.length > 0 && (<><div className="small"><b>들어오는 것</b></div><ul className="small">{spec.added.map((x) => <li key={x}>{x}</li>)}</ul></>)}
         <div className="small"><b>남는 것</b></div>
         <ul className="small muted">{spec.kept.map((x) => <li key={x}>{x}</li>)}</ul>
       </div>
@@ -158,7 +147,6 @@ export function SettingsScreen() {
         <div className="small muted">기록은 이 기기에만 저장됩니다. 가끔 CSV로 내보내 백업해 두세요. "기록만 지우기"는 순 기록만, "모든 데이터 지우기"는 장비까지 지웁니다. 누르면 무엇이 지워지는지 먼저 보여 줍니다.</div>
         <div className="row">
           <button className="btn ghost small" disabled={!ends.length} onClick={() => saveTextFile(`국궁록-${today()}.csv`, endsToCsv(ends, gear, store.ranges))}>CSV 내보내기</button>
-          <button className="btn ghost small" onClick={() => setWarn('sample')}>예시 기록 불러오기</button>
           <button className="btn ghost small" onClick={() => setWarn('ends')}>기록만 지우기</button>
           <button className="btn ghost small danger-text" onClick={() => setWarn('all')}>모든 데이터 지우기</button>
         </div>
