@@ -130,6 +130,8 @@ export interface Settings {
   club?: Club | null;
   /** 기관마다 받은 단 (대한궁도협회, 궁도스포츠클럽) */
   dans?: Dans;
+  /** 끝난 랭킹 기간마다 내 결과 (업적에 쓴다). 키는 `week:2026-11-02` 꼴 */
+  rankHistory?: Record<string, { place: 0 | 1 | 2 | 3 | null; volume: number | null }>;
   /** 화면 밝기와 색 테마 (없으면 기기 설정 따라, 홍심) */
   appearance?: { mode: ThemeMode; palette: Palette };
   hand: Hand;

@@ -332,7 +332,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       const key = newRecoveryCode();
       await rpc('register', { p_key: key, p_nickname: nickname.trim() });
       if (rangeName) await rpc('set_profile', { p_key: key, p_nickname: nickname.trim(), p_range_name: rangeName });
-      await updateSettings({ online: { key, nickname: nickname.trim(), rangeName, joinedAt: Date.now(), queue: [] } });
+      await updateSettings({ online: { key, nickname: nickname.trim(), rangeName, joinedAt: Date.now(), queue: [] }, rankHistory: {} });
       await syncDan(key, data.settings.dans);
     },
     async restoreOnline(code) {
@@ -340,7 +340,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       const rows = await rpc<{ nickname: string; range_name: string | null }[]>('whoami', { p_key: key });
       if (!rows?.length) throw new OnlineError('복구 코드가 맞지 않습니다.', 'unknown-key');
       await updateSettings({
-        online: { key, nickname: rows[0].nickname, rangeName: rows[0].range_name, joinedAt: Date.now(), queue: [] },
+        online: { key, nickname: rows[0].nickname, rangeName: rows[0].range_name, joinedAt: Date.now(), queue: [] }, rankHistory: {},
         // 다른 기기에서 쓰던 소속을 이어받는다 (이 기기에 소속이 없을 때만)
         ...(!data.settings.club && rows[0].range_name ? { club: { name: rows[0].range_name } } : {}),
       });
@@ -368,7 +368,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       const o = data.settings.online;
       if (!o) return;
       await rpc('delete_me', { p_key: o.key });
-      await updateSettings({ online: null });
+      await updateSettings({ online: null, rankHistory: {} });
     },
     async clearToday() {
       const gone = data.ends.filter((e) => e.date === today());
