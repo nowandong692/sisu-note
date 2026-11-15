@@ -104,7 +104,7 @@ function catalog(): Achievement[] {
     list.push({
       id: `molgi${n}`, group: 'molgi', name: `${n}연몰`, desc: `${n}순 연속 몰기 (${n * 5}시 ${n * 5}중)`,
       ...(n === MOLGI_STREAK_MAX ? { name: '백발백중', desc: `${n}순 연속 몰기 (100시 100중)` } : {}),
-      special: n === 3 || n === MOLGI_STREAK_MAX ? true : undefined,
+      special: n % 3 === 0 || n === MOLGI_STREAK_MAX ? true : undefined,
     });
   }
   for (const n of TOTAL_ENDS_STEPS) list.push({ id: `ends${n}`, group: 'total', name: n === 1000 ? '천순' : `${n}순`, desc: `누적 ${n}순 습사` });

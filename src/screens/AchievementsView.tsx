@@ -36,7 +36,7 @@ function Row({ a, toLog }: { a: Achievement; toLog: () => void }) {
     : !a.label ? `${short} · ${a.endNo}순`
     : `${a.label.endsWith('월') ? `${short.slice(0, 2)}년 ${Number(short.slice(3, 5))}월` : a.label.endsWith('주') ? `${short} 주` : short}${a.times && a.times > 1 ? ` · ${a.times}회` : ''}`;
   return (
-    <li className={`ach-row ${a.date ? 'on' : ''}`}>
+    <li className={`ach-row ${a.date ? 'on' : ''} ${a.special ? 'sp' : ''}`}>
       <button disabled={!a.date || !a.endId} onClick={() => openEnd(a, toLog)} title={a.label}
         aria-label={`${a.name}, ${a.desc}, ${a.date ? `달성 ${when}` : '미달성'}`}>
         <span className="ach-check" aria-hidden>{a.date ? '✓' : ''}</span>
