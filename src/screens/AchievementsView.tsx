@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { HelpButton } from '../components/ui';
-import { MOLGI_STREAK_MAX, STREAK_MAX, DAY_RUN_STEPS, MONTH_DAYS_GOAL, TOTAL_ENDS_STEPS, TOTAL_MOLGI_STEPS, achievements, myRankResult, rankPeriodsToFetch, type Achievement, type RankHistory } from '../domain/achievements';
+import { MOLGI_STREAK_MAX, DAY_RUN_STEPS, MONTH_DAYS_GOAL, TOTAL_ENDS_STEPS, TOTAL_MOLGI_STEPS, achievements, myRankResult, rankPeriodsToFetch, type Achievement, type RankHistory } from '../domain/achievements';
 import type { ArcherTotal } from '../domain/ranking';
 import { onlineAvailable, rpc } from '../platform/online';
 import { formatDate, today } from '../domain/util';
@@ -8,7 +8,6 @@ import { useStore } from '../state/store';
 import { focusLogEnd } from './LogScreen';
 
 const fullDate = (s: string) => `${s.slice(0, 4)}년 ${formatDate(s)}`;
-const when = (a: Achievement) => (a.date ? `${fullDate(a.date)} · ${a.endNo}순` : '');
 
 /** 업적을 이룬 순을 기록 보기에서 펼쳐 보여 준다 */
 function openEnd(a: Achievement, toLog: () => void) {
@@ -33,41 +32,41 @@ function Feature({ a, hint, sub, toLog }: { a: Achievement; hint: string; sub?: 
 
 function Row({ a, toLog }: { a: Achievement; toLog: () => void }) {
   const short = a.date ? a.date.slice(2).replace(/-/g, '.') : '';
-  const label = !a.date ? '아직'
+  const when = !a.date ? ''
     : !a.label ? `${short} · ${a.endNo}순`
     : `${a.label.endsWith('월') ? `${short.slice(0, 2)}년 ${Number(short.slice(3, 5))}월` : a.label.endsWith('주') ? `${short} 주` : short}${a.times && a.times > 1 ? ` · ${a.times}회` : ''}`;
   return (
     <li className={`ach-row ${a.date ? 'on' : ''}`}>
-      <button disabled={!a.date || !a.endId} onClick={() => openEnd(a, toLog)} title={a.label}>
-        <span className="ach-dot" aria-hidden />
-        <span className="ach-name">{a.name}<span className="small muted"> {a.desc}</span></span>
-        <span className="ach-when">{label}</span>
+      <button disabled={!a.date || !a.endId} onClick={() => openEnd(a, toLog)} title={a.label}
+        aria-label={`${a.name}, ${a.desc}, ${a.date ? `달성 ${when}` : '미달성'}`}>
+        <span className="ach-check" aria-hidden>{a.date ? '✓' : ''}</span>
+        <span className="ach-text">
+          <b>{a.name}{a.special && <span className="pill best">특기</span>}</b>
+          <span className="ach-req">{a.desc}</span>
+        </span>
+        <span className="ach-when">{a.date ? <>달성<br />{when}</> : '미달성'}</span>
       </button>
     </li>
   );
 }
 
-/** 연중·연몰처럼 이어지는 단계: 숫자 칸으로 보이고, 누르면 이룬 날짜가 아래에 나온다 */
-function StepGrid({ items, unit, max, toLog }: { items: Achievement[]; unit: string; max: number; toLog: () => void }) {
-  const [pick, setPick] = useState<string | null>(null);
-  const picked = items.find((a) => a.id === pick && a.date);
-  const next = items.find((a) => !a.date);
+type Filter = 'all' | 'done' | 'todo';
+
+/** 한 묶음의 업적 목록. 보기 거르기(전체·달성·미달성)를 따른다 */
+function Group({ title, items, filter, toLog, extra, side }: { title: string; items: Achievement[]; filter: Filter; toLog: () => void; extra?: React.ReactNode; side?: React.ReactNode }) {
+  const shown = items.filter((a) => (filter === 'all' ? true : filter === 'done' ? !!a.date : !a.date));
+  const n = items.filter((a) => a.date).length;
   return (
-    <>
-      <div className="streak-grid" role="list" aria-label={`2${unit}부터 ${max}${unit}까지`}>
-        {items.map((a) => (
-          <button key={a.id} role="listitem" className={`${a.date ? 'on' : ''} ${a.special ? 'sp' : ''} ${pick === a.id ? 'sel' : ''}`}
-            aria-label={`${a.name} ${a.date ? when(a) : '아직'}`} onClick={() => setPick(pick === a.id ? null : a.id)}>
-            {a.id.replace(/\D/g, '')}
-          </button>
-        ))}
+    <section className="card">
+      <div className="row between">
+        <h2>{title} <span className="muted small">{n} / {items.length}</span></h2>
+        {side}
       </div>
-      <div className="small muted streak-note">
-        {picked
-          ? <><b className="ink">{picked.name}</b> {when(picked)} <button className="link" onClick={() => openEnd(picked, toLog)}>그 순 보기</button></>
-          : next ? <>다음 목표 <b className="ink">{next.name}</b> · {next.desc}. 이룬 칸을 누르면 날짜가 보입니다.</> : <>{max}{unit}까지 모두 이뤘습니다.</>}
-      </div>
-    </>
+      {extra}
+      {shown.length
+        ? <ul className="ach-list">{shown.map((a) => <Row key={a.id} a={a} toLog={toLog} />)}</ul>
+        : <div className="small muted">{filter === 'done' ? '아직 달성한 업적이 없습니다.' : '모두 달성했습니다.'}</div>}
+    </section>
   );
 }
 
@@ -137,25 +136,17 @@ export function AchievementsView({ toLog, active }: { toLog: () => void; active:
   const sam = r.list.find((a) => a.id === 'molgi3')!;
   const baekbal = r.list.find((a) => a.id === `molgi${MOLGI_STREAK_MAX}`)!;
   const done = r.list.filter((a) => a.date).length;
-  const bestHit = firsts.filter((a) => a.date).length - 1;
+  const bestHit = Math.max(0, firsts.filter((a) => a.date).length - 1);
   const molgiHint = r.bestMolgi ? `아직 · 가장 긴 연몰 ${r.bestMolgi}순` : '아직';
 
-  if (!r.counted) {
-    return (
-      <section className="card">
-        <h2>업적</h2>
-        <div className="empty small">
-          {ends.length ? '예시 기록은 업적에 들어가지 않습니다. 직접 쏜 순을 저장하면 집궁부터 시작합니다.' : '첫 순을 저장하면 집궁 업적부터 시작합니다.'}
-        </div>
-      </section>
-    );
-  }
+  const [filter, setFilter] = useState<Filter>('all');
+  const g = { filter, toLog };
 
   return (
     <>
       <section className="card">
         <div className="row between">
-          <h2>업적 <span className="muted small">{done} / {r.list.length}</span></h2>
+          <h2>업적 <span className="muted small">{done} / {r.list.length} 달성</span></h2>
           <HelpButton title="업적은 이렇게 셉니다">
             <p>저장한 순을 날짜와 저장한 차례대로 보고 계산합니다. 예시 기록은 넣지 않습니다.</p>
             <p><b>첫 1중~4중</b>은 한 순에서 그 시수 이상을 처음 낸 순입니다. 처음부터 3중을 내면 1중·2중·3중을 함께 이룹니다.</p>
@@ -163,9 +154,14 @@ export function AchievementsView({ toLog, active }: { toLog: () => void; active:
             <p><b>랭킹</b>은 겨루기에 참여한 뒤 끝난 기간(어제까지의 일간, 지난주, 지난달)만 셉니다. 기간이 끝나야 순위가 정해지기 때문입니다.</p>
             <p><b>꾸준함</b>은 순을 하나라도 저장한 날을 습사한 날로 칩니다. 연속 습사는 오늘이나 어제까지 이어져 있어야 지금 이어지는 것으로 봅니다.</p>
             <p><b>15시 10중</b>은 같은 날 잇따라 쏜 3순을 합쳐 10중 이상이면 이룹니다. <b>강풍·우중·각궁 몰기</b>와 <b>활터</b>는 날씨·활·활터를 남긴 순에서만 셉니다.</p>
-            <p>지난 순을 고치거나 지우면 업적도 다시 계산합니다.</p>
+            <p>달성한 업적을 누르면 그 순을 기록에서 펼쳐 보여 줍니다. 지난 순을 고치거나 지우면 업적도 다시 계산합니다.</p>
           </HelpButton>
         </div>
+        {!r.counted && (
+          <div className="small muted">
+            {ends.length ? '예시 기록은 업적에 들어가지 않습니다. 직접 쏜 순을 저장하면 집궁부터 달성됩니다.' : '첫 순을 저장하면 집궁부터 달성됩니다.'}
+          </div>
+        )}
         <div className="feats">
           <Feature a={chomolgi} toLog={toLog} sub="첫 5시 5중" hint={bestHit ? `아직 · 한 순 최고 ${bestHit}중` : '아직'} />
           <Feature a={sam} toLog={toLog} sub="15시 15중" hint={molgiHint} />
@@ -173,58 +169,27 @@ export function AchievementsView({ toLog, active }: { toLog: () => void; active:
         </div>
       </section>
 
-      <section className="card">
-        <h2>첫 기록</h2>
-        <ul className="ach-list">{firsts.map((a) => <Row key={a.id} a={a} toLog={toLog} />)}</ul>
-      </section>
+      <div className="seg view-switch" role="group" aria-label="업적 거르기">
+        {([['all', '전체'], ['done', '달성'], ['todo', '미달성']] as [Filter, string][]).map(([f, label]) => (
+          <button key={f} className={filter === f ? 'on' : ''} aria-pressed={filter === f} onClick={() => setFilter(f)}>{label}</button>
+        ))}
+      </div>
 
-      <section className="card">
-        <div className="row between">
-          <h2>연중</h2>
-          <span className="small muted">가장 긴 연중 <b className="ink">{r.bestStreak}시</b></span>
-        </div>
-        <StepGrid items={streaks} unit="연중" max={STREAK_MAX} toLog={toLog} />
-      </section>
-
-      <section className="card">
-        <div className="row between">
-          <h2>연몰기</h2>
-          <span className="small muted">가장 긴 연몰 <b className="ink">{r.bestMolgi}순</b></span>
-        </div>
-        <StepGrid items={molgis} unit="연몰" max={MOLGI_STREAK_MAX} toLog={toLog} />
-      </section>
-
-      <section className="card">
-        <h2>누적</h2>
+      <Group title="첫 기록" items={[...firsts, chomolgi]} {...g} />
+      <Group title="연중" items={streaks} {...g} side={<span className="small muted">가장 긴 연중 <b className="ink">{r.bestStreak}시</b></span>} />
+      <Group title="연몰기" items={molgis} {...g} side={<span className="small muted">가장 긴 연몰 <b className="ink">{r.bestMolgi}순</b></span>} />
+      <Group title="누적" items={totals} {...g} extra={<>
         <Progress label="습사량" value={r.totalEnds} unit="순" steps={TOTAL_ENDS_STEPS} names={totals.filter((a) => a.id.startsWith('ends'))} />
         <Progress label="몰기" value={r.totalMolgi} unit="회" steps={TOTAL_MOLGI_STEPS} names={totals.filter((a) => a.id.startsWith('molgicount'))} />
-        <ul className="ach-list">{totals.map((a) => <Row key={a.id} a={a} toLog={toLog} />)}</ul>
-      </section>
-
-      <section className="card">
-        <div className="row between">
-          <h2>꾸준함</h2>
-          <span className="small muted">가장 긴 연속 <b className="ink">{r.bestDayRun}일</b></span>
-        </div>
+      </>} />
+      <Group title="꾸준함" items={steady} {...g} side={<span className="small muted">가장 긴 연속 <b className="ink">{r.bestDayRun}일</b></span>} extra={<>
         <Progress label="지금 연속" value={r.dayRun} unit="일" steps={DAY_RUN_STEPS} names={steady.filter((a) => a.id.startsWith('dayrun'))} />
         <Progress label="이번 달" value={r.monthDays} unit="일" steps={[MONTH_DAYS_GOAL]} names={steady.filter((a) => a.id === 'month20')} />
-        <ul className="ach-list">{steady.map((a) => <Row key={a.id} a={a} toLog={toLog} />)}</ul>
-      </section>
-
-      <section className="card">
-        <h2>도전</h2>
-        <ul className="ach-list">{challenges.map((a) => <Row key={a.id} a={a} toLog={toLog} />)}</ul>
-        <div className="small muted">날씨·활·활터 업적은 그것을 남긴 순에서만 셉니다.</div>
-      </section>
-
-      <section className="card">
-        <div className="row between">
-          <h2>랭킹</h2>
-          {syncing && <span className="small muted">랭킹 결과 받는 중…</span>}
-        </div>
-        {!joined && <div className="small muted">겨루기 탭에서 온라인 랭킹에 참여하면, 참여한 뒤의 순위로 업적을 받습니다.</div>}
-        <ul className="ach-list">{ranks.map((a) => <Row key={a.id} a={a} toLog={toLog} />)}</ul>
-      </section>
+      </>} />
+      <Group title="도전" items={challenges} {...g} extra={<div className="small muted">날씨·활·활터 업적은 그것을 남긴 순에서만 셉니다.</div>} />
+      <Group title="랭킹" items={ranks} {...g}
+        side={syncing ? <span className="small muted">랭킹 결과 받는 중…</span> : undefined}
+        extra={!joined ? <div className="small muted">겨루기 탭에서 온라인 랭킹에 참여하면, 참여한 뒤의 순위로 업적을 받습니다.</div> : undefined} />
     </>
   );
 }
