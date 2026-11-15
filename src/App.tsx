@@ -157,7 +157,7 @@ export default function App() {
             {firstRun && tab !== 'rank' && tab !== 'settings' && (
               <section className="card setup">
                 <h2>처음 오셨나요?</h2>
-                <div className="small muted">습사 화면의 "오늘 장비"에서 활·깍지·화살·현을 별명으로 등록하면 장비별로 시수를 비교할 수 있습니다. 먼저 둘러보려면 두 달치 예시 기록을 넣어 보세요. 나중에 설정 탭에서 지울 수 있습니다.</div>
+                <div className="small muted">습사 화면의 "오늘 장비"에서 활·깍지·화살·현을 별명으로 등록하면 장비별로 시수를 비교할 수 있습니다. 먼저 둘러보려면 두 달치 예시 기록을 넣어 보세요. 나중에 설정 탭의 "모든 데이터 지우기"로 지울 수 있습니다.</div>
                 <div className="row">
                   <button className="btn ghost small" onClick={() => { go('shoot'); setTimeout(openGearManager, 0); }}>장비 등록하기</button>
                   <ConfirmButton className="btn ghost small" label="예시 기록 넣기" confirmLabel="예시 기록 넣기 (확인)" onConfirm={() => store.loadSample().then(() => toast('예시 기록을 불러왔습니다'))} />
