@@ -11,6 +11,7 @@ import type { End, Shot, TrackedCategory } from '../domain/types';
 import { MEMO_TAGS, SHOTS_PER_END } from '../domain/types';
 import { formatDate, today } from '../domain/util';
 import { weatherLabel } from '../domain/weather';
+import { welcomeFor, welcomeWho } from '../domain/welcome';
 import { useStore } from '../state/store';
 import { focusLogEnd } from './LogScreen';
 import { showLogView } from './RecordsScreen';
@@ -153,6 +154,9 @@ export function ShootScreen() {
 
   return (
     <>
+      {!editing && (
+        <p className="welcome"><b>{welcomeWho(settings.club?.name, settings.online?.nickname)}</b>, {welcomeFor(today())}</p>
+      )}
       <section className={`card shoot-card ${editing ? 'editing' : ''}`}>
         {editing && (
           <div className="edit-banner">
