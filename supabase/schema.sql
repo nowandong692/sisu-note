@@ -19,9 +19,12 @@ create table if not exists public.archers (
   range_name text,
   -- 관리자가 랭킹에서 숨긴 궁사 (본인에게는 보인다)
   hidden boolean not null default false,
+  -- 가장 높은 단 (1~9). 어느 기관 단인지는 저장하지 않는다
+  dan smallint,
   created_at timestamptz not null default now(),
   constraint nickname_len check (char_length(nickname) between 1 and 12),
-  constraint range_len check (range_name is null or char_length(range_name) <= 30)
+  constraint range_len check (range_name is null or char_length(range_name) <= 30),
+  constraint dan_range check (dan is null or dan between 1 and 9)
 );
 create unique index if not exists archers_nickname_uq on public.archers (lower(nickname));
 
@@ -78,6 +81,14 @@ exception when unique_violation then
   raise exception 'nickname taken';
 end $$;
 
+-- 내 단 (1~9, 없으면 null). 여러 기관 단이 있으면 앱이 가장 높은 단만 보낸다.
+create or replace function public.set_dan(p_key text, p_dan int) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if p_dan is not null and (p_dan < 1 or p_dan > 9) then raise exception 'bad dan'; end if;
+  update archers set dan = p_dan where id = _archer(p_key);
+end $$;
+
 -- 복구 코드 확인 (새 휴대폰에서): 맞으면 닉네임을 돌려준다
 create or replace function public.whoami(p_key text) returns table (nickname text, range_name text)
 language sql stable security definer set search_path = public, extensions as $$
@@ -123,7 +134,7 @@ $$;
 -- 기간 집계: 'day' | 'week' | 'month', 기준 날짜. 궁사별 순 수, 관중 수, 선다시수용 앞 50시.
 -- 순위·시상은 앱이 같은 규칙(src/domain/ranking.ts)으로 매긴다. 궁사 id 대신 닉네임만 내보낸다.
 create or replace function public.period_totals(p_period text, p_date date, p_key text default null)
-returns table (nickname text, range_name text, ends int, hits int, seq boolean[], me boolean)
+returns table (nickname text, range_name text, dan int, ends int, hits int, seq boolean[], me boolean)
 language sql stable security definer set search_path = public, extensions as $$
   with span as (
     select case p_period
@@ -142,10 +153,11 @@ language sql stable security definer set search_path = public, extensions as $$
     from picked, unnest(hits) with ordinality as u(h, i)
     group by archer_id
   )
-  select a.nickname, a.range_name, g.shots / 5, g.hits, g.seq,
+  select a.nickname, a.range_name, a.dan::int, g.shots / 5, g.hits, g.seq,
          (p_key is not null and a.key_hash = digest(p_key, 'sha256'))
   from agg g join archers a on a.id = g.archer_id
   where p_period in ('day', 'week', 'month')
+    and (not a.hidden or (p_key is not null and a.key_hash = digest(p_key, 'sha256')))
 $$;
 
 -- 랭킹에서 궁사를 눌렀을 때: 그 기간에 올린 순마다 날짜, 저장 시각, 다섯 시의 관중 여부
@@ -164,7 +176,7 @@ language sql stable security definer set search_path = public, extensions as $$
   )
   select e.day, e.recorded_at, e.hits
   from ends e join archers a on a.id = e.archer_id, span
-  where lower(a.nickname) = lower(p_nickname) and e.day between span.d0 and span.d1
+  where lower(a.nickname) = lower(p_nickname) and not a.hidden and e.day between span.d0 and span.d1
     and p_period in ('day', 'week', 'month')
   order by e.day, e.recorded_at
   limit 1500
@@ -176,7 +188,7 @@ language sql security definer set search_path = public, extensions as $$
 $$;
 
 revoke all on function public._archer(text), public._today(), public._max_ends_per_day() from public, anon, authenticated;
-grant execute on function public.register(text, text), public.whoami(text), public.set_profile(text, text, text),
+grant execute on function public.register(text, text), public.whoami(text), public.set_profile(text, text, text), public.set_dan(text, int),
   public.submit_end(text, text, boolean[], timestamptz), public.delete_end(text, text), public.delete_me(text),
   public.period_totals(text, date, text), public.archer_ends(text, text, date), public.report(text, text) to anon;
 

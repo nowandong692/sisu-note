@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ClubSheet } from '../components/ClubSheet';
 import { ConfirmButton, toast } from '../components/ui';
 import { endsToCsv } from '../domain/csv';
+import { DAN_LEVELS, DAN_ORGS, danLabel, validDan, type DanOrg } from '../domain/dan';
 import { PALETTES, type Palette, type ThemeMode } from '../domain/types';
 import { today } from '../domain/util';
 import { saveTextFile } from '../platform/files';
@@ -59,13 +60,41 @@ function ClubSection() {
   );
 }
 
-/** 설정 탭: 내 소속, 화면 밝기·테마, 데이터 */
+/** 내 단: 기관마다 하나씩 */
+function DanSection() {
+  const { settings, setDans } = useStore();
+  const dans = settings.dans ?? {};
+  const set = (org: DanOrg, v: string) => {
+    const next = { ...dans };
+    const level = validDan(Number(v));
+    if (level) next[org] = level; else delete next[org];
+    void setDans(next).then(() => toast(level ? `${org} ${danLabel(level)}로 정했습니다` : `${org} 단을 지웠습니다`));
+  };
+  return (
+    <section className="card">
+      <h2>내 단</h2>
+      {DAN_ORGS.map((org) => (
+        <div className="field dan-row" key={org}>
+          <label htmlFor={`dan-${org}`}>{org}</label>
+          <select id={`dan-${org}`} value={validDan(dans[org]) ?? ''} onChange={(e) => set(org, e.target.value)}>
+            <option value="">없음</option>
+            {DAN_LEVELS.map((l) => <option key={l} value={l}>{danLabel(l)}</option>)}
+          </select>
+        </div>
+      ))}
+      <div className="small muted">받은 단이 있는 기관만 고르세요. 겨루기에 참여 중이면 가장 높은 단 하나만 랭킹에 함께 보입니다 (기관 이름은 올리지 않습니다).</div>
+    </section>
+  );
+}
+
+/** 설정 탭: 내 소속, 내 단, 화면 밝기·테마, 데이터 */
 export function SettingsScreen() {
   const store = useStore();
   const { ends, gear } = store;
   return (
     <>
       <ClubSection />
+      <DanSection />
       <AppearanceSection />
       <section className="card">
         <h2>데이터</h2>

@@ -11,6 +11,8 @@ import type { End, Shot, TrackedCategory } from '../domain/types';
 import { MEMO_TAGS, SHOTS_PER_END } from '../domain/types';
 import { formatDate, today } from '../domain/util';
 import { weatherLabel } from '../domain/weather';
+import { honorific, welcomeFor, welcomeWho } from '../domain/welcome';
+import { danShort, topDan } from '../domain/dan';
 import { useStore } from '../state/store';
 import { focusLogEnd } from './LogScreen';
 import { showLogView } from './RecordsScreen';
@@ -150,9 +152,13 @@ export function ShootScreen() {
 
   const marks: Mark[] = d.shots.flatMap((s, i) => (s ? [{ x: s.x, y: s.y, hit: s.hit, n: i + 1 }] : []));
   const noGear = !gearOf('bow').length;
+  const myDan = topDan(settings.dans);
 
   return (
     <>
+      {!editing && (
+        <p className="welcome"><b>{welcomeWho(settings.club?.name, settings.online?.nickname, honorific(ends.some((e) => hitsOf(e) === SHOTS_PER_END)), myDan ? danShort(myDan) : null)}</b>, {welcomeFor(today())}</p>
+      )}
       <section className={`card shoot-card ${editing ? 'editing' : ''}`}>
         {editing && (
           <div className="edit-banner">
