@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { HelpButton } from '../components/ui';
-import { MOLGI_STREAK_MAX, STREAK_MAX, TOTAL_ENDS_STEPS, TOTAL_MOLGI_STEPS, achievements, myRankResult, rankPeriodsToFetch, type Achievement, type RankHistory } from '../domain/achievements';
+import { MOLGI_STREAK_MAX, STREAK_MAX, DAY_RUN_STEPS, MONTH_DAYS_GOAL, TOTAL_ENDS_STEPS, TOTAL_MOLGI_STEPS, achievements, myRankResult, rankPeriodsToFetch, type Achievement, type RankHistory } from '../domain/achievements';
 import type { ArcherTotal } from '../domain/ranking';
 import { onlineAvailable, rpc } from '../platform/online';
 import { formatDate, today } from '../domain/util';
@@ -131,6 +131,7 @@ export function AchievementsView({ toLog, active }: { toLog: () => void; active:
   const molgis = r.list.filter((a) => a.group === 'molgi');
   const ranks = r.list.filter((a) => a.group === 'rank');
   const totals = r.list.filter((a) => a.group === 'total');
+  const steady = r.list.filter((a) => a.group === 'steady');
   const chomolgi = r.list.find((a) => a.id === 'chomolgi')!;
   const sam = r.list.find((a) => a.id === 'molgi3')!;
   const baekbal = r.list.find((a) => a.id === `molgi${MOLGI_STREAK_MAX}`)!;
@@ -159,6 +160,7 @@ export function AchievementsView({ toLog, active }: { toLog: () => void; active:
             <p><b>첫 1중~4중</b>은 한 순에서 그 시수 이상을 처음 낸 순입니다. 처음부터 3중을 내면 1중·2중·3중을 함께 이룹니다.</p>
             <p><b>연중·연몰</b>은 같은 날 안에서만 이어 셉니다. 순이 바뀌어도 이어지고, 날이 바뀌면 처음부터 셉니다. 20연몰(100시 100중)은 <b>백발백중</b>입니다.</p>
             <p><b>랭킹</b>은 겨루기에 참여한 뒤 끝난 기간(어제까지의 일간, 지난주, 지난달)만 셉니다. 기간이 끝나야 순위가 정해지기 때문입니다.</p>
+            <p><b>꾸준함</b>은 순을 하나라도 저장한 날을 습사한 날로 칩니다. 연속 습사는 오늘이나 어제까지 이어져 있어야 지금 이어지는 것으로 봅니다.</p>
             <p>지난 순을 고치거나 지우면 업적도 다시 계산합니다.</p>
           </HelpButton>
         </div>
@@ -195,6 +197,16 @@ export function AchievementsView({ toLog, active }: { toLog: () => void; active:
         <Progress label="습사량" value={r.totalEnds} unit="순" steps={TOTAL_ENDS_STEPS} names={totals.filter((a) => a.id.startsWith('ends'))} />
         <Progress label="몰기" value={r.totalMolgi} unit="회" steps={TOTAL_MOLGI_STEPS} names={totals.filter((a) => a.id.startsWith('molgicount'))} />
         <ul className="ach-list">{totals.map((a) => <Row key={a.id} a={a} toLog={toLog} />)}</ul>
+      </section>
+
+      <section className="card">
+        <div className="row between">
+          <h2>꾸준함</h2>
+          <span className="small muted">가장 긴 연속 <b className="ink">{r.bestDayRun}일</b></span>
+        </div>
+        <Progress label="지금 연속" value={r.dayRun} unit="일" steps={DAY_RUN_STEPS} names={steady.filter((a) => a.id.startsWith('dayrun'))} />
+        <Progress label="이번 달" value={r.monthDays} unit="일" steps={[MONTH_DAYS_GOAL]} names={steady.filter((a) => a.id === 'month20')} />
+        <ul className="ach-list">{steady.map((a) => <Row key={a.id} a={a} toLog={toLog} />)}</ul>
       </section>
 
       <section className="card">
