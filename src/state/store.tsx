@@ -73,6 +73,12 @@ export interface Store extends Data {
   onlinePending: number;
   /** 공개 상태를 서버에 아직 알리지 못한 메모 수 */
   memoPending: number;
+  /** 내 메모에 남이 단 새 댓글 (활쏜얘기 탭 빨간 점). latest: 가장 최근 댓글 id */
+  commentNews: { unread: number; latest: number };
+  /** 서버에 새 댓글을 다시 물어본다 */
+  refreshCommentNews(): Promise<void>;
+  /** 내 메모 댓글을 여기까지 봤다고 적어 둔다 */
+  markCommentsSeen(latest: number): Promise<void>;
   /** 새로 참여: 복구 코드를 만들고 닉네임을 등록한다 */
   joinOnline(nickname: string, rangeName: string | null): Promise<void>;
   /** 다른 기기에서 쓰던 복구 코드로 이어 하기 */
@@ -175,6 +181,22 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     }
   }, [updateSettings]);
 
+  const [commentNews, setCommentNews] = useState({ unread: 0, latest: 0 });
+  /** 내 메모의 새 댓글 수. 서버에 009가 없거나 인터넷이 없으면 조용히 그대로 둔다 */
+  const refreshCommentNews = useCallback(async () => {
+    const o = settingsRef.current.online;
+    if (!o || !onlineAvailable()) { setCommentNews({ unread: 0, latest: 0 }); return; }
+    try {
+      const rows = await rpc<{ latest: number | null; unread: number }[]>('comment_news', { p_key: o.key, p_after: settingsRef.current.commentSeen ?? 0 });
+      setCommentNews({ unread: rows[0]?.unread ?? 0, latest: rows[0]?.latest ?? 0 });
+    } catch { /* 다음에 다시 묻는다 */ }
+  }, []);
+  const markCommentsSeen = useCallback(async (latest: number) => {
+    if (latest <= (settingsRef.current.commentSeen ?? 0)) return;
+    await updateSettings({ commentSeen: latest });
+    setCommentNews((p) => ({ ...p, unread: 0 }));
+  }, [updateSettings]);
+
   const flushingMemos = useRef(false);
   /** 공개 메모를 서버에 맞춘다: 공개한 순은 올리고, 내렸거나 지운 순은 내린다. */
   const flushMemos = useCallback(async () => {
@@ -187,7 +209,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
         if (!o || !id) return;
         try {
           const args = shareArgs(endsRef.current.find((x) => x.id === id), endsRef.current);
-          if (args) await rpc('share_memo', { p_key: o.key, ...args });
+          if (args) { await rpc('share_memo', { p_key: o.key, ...args }); void refreshCommentNews(); }
           else await rpc('unshare_memo', { p_key: o.key, p_client_id: id });
         } catch (err) {
           // 인터넷이 없거나 서버에 아직 기능이 없으면 모아 둔 채로 다음에 다시 한다
@@ -199,7 +221,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     } finally {
       flushingMemos.current = false;
     }
-  }, [updateSettings]);
+  }, [updateSettings, refreshCommentNews]);
 
   /** 메모 공개 상태가 바뀐 순을 서버에 알린다 (참여하지 않았으면 할 일 없음) */
   const enqueueMemos = useCallback(async (ids: string[]) => {
@@ -226,6 +248,17 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     window.addEventListener('online', on);
     return () => window.removeEventListener('online', on);
   }, [data.loaded, flushOnline, flushMemos]);
+
+  // 새 댓글: 앱을 열 때, 다시 볼 때, 5분마다 물어본다
+  const onlineKey = data.settings.online?.key;
+  useEffect(() => {
+    if (!data.loaded) return;
+    void refreshCommentNews();
+    const vis = () => { if (document.visibilityState === 'visible') void refreshCommentNews(); };
+    document.addEventListener('visibilitychange', vis);
+    const t = setInterval(() => void refreshCommentNews(), 5 * 60 * 1000);
+    return () => { document.removeEventListener('visibilitychange', vis); clearInterval(t); };
+  }, [data.loaded, onlineKey, refreshCommentNews]);
 
   const w = data.settings.weather;
   const todayWeather = useMemo<Weather | null>(
@@ -386,6 +419,9 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     online: data.settings.online ?? null,
     onlinePending: data.settings.online?.queue.length ?? 0,
     memoPending: data.settings.online?.memoQueue?.length ?? 0,
+    commentNews,
+    refreshCommentNews,
+    markCommentsSeen,
     async joinOnline(raw, rangeName) {
       const nickname = cleanNickname(raw);
       const key = newRecoveryCode();
@@ -457,7 +493,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       await updateSettings({ current: { bow: null, ring: null, arrow: null } });
       await enqueueMemos(data.ends.filter((e) => e.share).map((e) => e.id));
     },
-  }), [data, repo, updateSettings, todayWeather, editId, pastDate, setPastDate, ranges, unknownSpot, rangeOffer, noticePosition, enqueue, enqueueMemos]);
+  }), [data, repo, updateSettings, todayWeather, editId, pastDate, setPastDate, ranges, unknownSpot, rangeOffer, noticePosition, enqueue, enqueueMemos, commentNews, refreshCommentNews, markCommentsSeen]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

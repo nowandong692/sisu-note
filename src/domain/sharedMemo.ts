@@ -69,7 +69,15 @@ export interface SharedMemo {
   mine: boolean;
   /** 댓글 수 (서버에 008이 없으면 없음) */
   comments?: number;
+  /** 남이 단 가장 최근 댓글 id (서버에 009가 없으면 없음) */
+  last_comment?: number | null;
 }
+
+/** 내 메모에 새 댓글이 있는가: 남이 단 가장 최근 댓글이 내가 본 것보다 뒤 */
+export const hasNewComment = (m: Pick<SharedMemo, 'mine' | 'last_comment'>, seen: number) => m.mine && (m.last_comment ?? 0) > seen;
+
+/** 신고 사유 (고르기 쉽게 몇 가지만) */
+export const REPORT_REASONS = ['욕설·비방', '광고·도배', '기타 부적절한 내용'] as const;
 
 /** 댓글 글자 수 한도 (서버도 같은 한도) */
 export const COMMENT_MAX = 300;

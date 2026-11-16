@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { danShort } from '../domain/dan';
 import { AutoTextarea, ConfirmButton, toast } from '../components/ui';
-import { agoLabel, cleanComment, COMMENT_MAX, type MemoComment, type SharedMemo } from '../domain/sharedMemo';
+import { agoLabel, cleanComment, COMMENT_MAX, hasNewComment, REPORT_REASONS, type MemoComment, type SharedMemo } from '../domain/sharedMemo';
 import { formatDate } from '../domain/util';
 import { onlineAvailable, rpc } from '../platform/online';
 import { useStore } from '../state/store';
@@ -10,6 +10,33 @@ type Filter = 'all' | 'club' | 'mine';
 const PAGE = 30;
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/** 남의 메모나 댓글 신고. 누르면 사유를 고르고, 고르면 바로 보낸다 */
+function ReportButton({ memoId, commentId, who }: { memoId?: number; commentId?: number; who: string }) {
+  const { online } = useStore();
+  const [open, setOpen] = useState(false);
+  const [done, setDone] = useState(false);
+  if (!online) return null;
+  if (done) return <span className="small muted report-done">신고함</span>;
+  const send = async (reason: string) => {
+    try {
+      await rpc('report_content', { p_key: online.key, p_memo_id: memoId ?? null, p_comment_id: commentId ?? null, p_reason: reason });
+      setDone(true);
+      toast('신고를 받았습니다. 관리자가 확인합니다');
+    } catch (e) {
+      toast(errText(e));
+    } finally {
+      setOpen(false);
+    }
+  };
+  if (!open) return <button className="report-btn" aria-label={`${who}님 ${commentId ? '댓글' : '메모'} 신고`} onClick={() => setOpen(true)}>신고</button>;
+  return (
+    <div className="report-pick" role="group" aria-label="신고 사유">
+      {REPORT_REASONS.map((r) => <button key={r} className="chip" onClick={() => void send(r)}>{r}</button>)}
+      <button className="chip quiet" onClick={() => setOpen(false)}>취소</button>
+    </div>
+  );
+}
 
 /** 한 메모의 댓글: 보기, 달기, 지우기 (내가 쓴 댓글과 내 메모에 달린 댓글) */
 function Comments({ m, onCount }: { m: SharedMemo; onCount: (n: number) => void }) {
@@ -70,6 +97,7 @@ function Comments({ m, onCount }: { m: SharedMemo; onCount: (n: number) => void 
                 {c.nickname === m.nickname && <span className="pill best">글쓴이</span>}
                 {c.range_name && <span className="small muted"> · {c.range_name}</span>}
                 <span className="small muted c-ago">{agoLabel(c.created_at)}</span>
+                {!c.mine && !c.can_delete && <ReportButton commentId={c.id} who={c.nickname} />}
                 {c.can_delete && <ConfirmButton className="act-btn danger small-del" label="지우기" confirmLabel="지우기 확인" ariaLabel={`${c.nickname}님 댓글 지우기`} onConfirm={() => void remove(c)} />}
               </div>
               <div className="c-body">{c.body}</div>
@@ -95,7 +123,7 @@ function Comments({ m, onCount }: { m: SharedMemo; onCount: (n: number) => void 
   );
 }
 
-function MemoCard({ m }: { m: SharedMemo }) {
+function MemoCard({ m, seen }: { m: SharedMemo; seen: number }) {
   const n = m.hits.filter(Boolean).length;
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(m.comments ?? 0);
@@ -113,12 +141,16 @@ function MemoCard({ m }: { m: SharedMemo }) {
         </span>
         <span className="small">{n}중{n === 5 && <span className="pill best">몰기</span>}</span>
         {m.scope === 'club' && <span className="pill scope">같은 활터만</span>}
+        {hasNewComment(m, seen) && <span className="pill best">새 댓글</span>}
       </div>
       {m.memo && <div className="sm-text">{m.memo}</div>}
       {m.tags.length > 0 && <div className="sm-tags">{m.tags.map((t) => <span key={t} className="pill tag">#{t}</span>)}</div>}
-      <button className="comment-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-        {open ? '댓글 접기' : count > 0 ? `댓글 ${count}개` : '댓글 달기'}
-      </button>
+      <div className="row between sm-actions">
+        <button className="comment-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+          {open ? '댓글 접기' : count > 0 ? `댓글 ${count}개` : '댓글 달기'}
+        </button>
+        {!m.mine && <ReportButton memoId={m.id} who={m.nickname} />}
+      </div>
       {open && <Comments m={m} onCount={setCount} />}
     </li>
   );
@@ -134,6 +166,8 @@ export function SharedMemosView({ active }: { active: boolean }) {
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const [tick, setTick] = useState(0);
+  /** 목록을 불러올 때 본 곳 (이번에 보는 동안 "새 댓글" 표시를 그대로 둔다) */
+  const [seen, setSeen] = useState(store.settings.commentSeen ?? 0);
 
   const load = async (before: number | null) => {
     setLoading(true);
@@ -142,6 +176,12 @@ export function SharedMemosView({ active }: { active: boolean }) {
       const rows = await rpc<SharedMemo[]>('shared_memo_list', { p_key: o?.key ?? null, p_filter: filter, p_before: before, p_limit: PAGE });
       setList((p) => (before && p ? [...p, ...rows] : rows));
       setMore(rows.length === PAGE);
+      if (!before) setSeen(store.settings.commentSeen ?? 0);
+      // 내 메모 목록을 보면 새 댓글을 본 것으로 친다 (빨간 점이 사라진다)
+      if (filter === 'mine') {
+        const top = Math.max(0, ...rows.map((r) => r.last_comment ?? 0));
+        if (top) void store.markCommentsSeen(Math.max(top, store.commentNews.latest));
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
       if (!before) setList(null);
@@ -153,6 +193,7 @@ export function SharedMemosView({ active }: { active: boolean }) {
   useEffect(() => {
     if (!active || !onlineAvailable()) return;
     void load(null);
+    void store.refreshCommentNews();
   }, [active, filter, o?.key, tick, store.memoPending === 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!onlineAvailable()) {
@@ -176,11 +217,16 @@ export function SharedMemosView({ active }: { active: boolean }) {
         <button className="act-btn" aria-label="새로 고침" onClick={() => setTick((t) => t + 1)} disabled={loading}>↻</button>
       </div>
       {!o && <div className="small muted">겨루기 탭의 랭킹에서 닉네임을 정하면 내 메모도 공개하고, 같은 활터 메모도 볼 수 있습니다.</div>}
+      {o && filter !== 'mine' && store.commentNews.unread > 0 && (
+        <button className="banner news-banner" onClick={() => setFilter('mine')}>
+          <span>내 메모에 새 댓글 {store.commentNews.unread}개가 달렸습니다.</span><b>보기</b>
+        </button>
+      )}
       {o && store.memoPending > 0 && <div className="small muted">아직 서버에 알리지 못한 메모 {store.memoPending}개가 있습니다. 인터넷에 연결되면 올라갑니다.</div>}
       {err && <div className="small err-text" role="alert">{err}</div>}
       {loading && !list && <div className="empty small">불러오는 중…</div>}
       {list && list.length === 0 && <div className="empty small">{emptyText}</div>}
-      {list && list.length > 0 && <ol className="shared-list">{list.map((m) => <MemoCard key={m.id} m={m} />)}</ol>}
+      {list && list.length > 0 && <ol className="shared-list">{list.map((m) => <MemoCard key={m.id} m={m} seen={seen} />)}</ol>}
       {list && more && <button className="btn ghost small" disabled={loading} onClick={() => void load(list[list.length - 1].id)}>{loading ? '불러오는 중…' : '더 보기'}</button>}
     </section>
   );
