@@ -82,8 +82,13 @@ export interface End {
   rangeId?: string | null;
   /** 이 순을 쏠 때의 날씨 (입력하지 않았으면 없음) */
   weather?: Weather | null;
+  /** 메모를 다른 궁사에게 공개 (없으면 나만 본다) */
+  share?: MemoShare | null;
   updatedAt: number;
 }
+
+/** 메모 공개 범위: 전체, 같은 활터(소속이 같은 궁사)만 */
+export type MemoShare = 'all' | 'club';
 
 export interface Place {
   name: string;
@@ -111,6 +116,8 @@ export interface OnlineProfile {
   joinedAt: number;
   /** 아직 서버에 올리지 못한 일 (인터넷이 없을 때 모아 둔다) */
   queue: { op: 'put' | 'del'; id: string }[];
+  /** 공개 상태를 서버에 아직 알리지 못한 순 id (공개, 고침, 내림) */
+  memoQueue?: string[];
 }
 
 export type ThemeMode = 'system' | 'light' | 'dark';
@@ -132,6 +139,8 @@ export interface Settings {
   dans?: Dans;
   /** 끝난 랭킹 기간마다 내 결과 (업적에 쓴다). 키는 `week:2026-11-02` 꼴 */
   rankHistory?: Record<string, { place: 0 | 1 | 2 | 3 | null; volume: number | null }>;
+  /** 마지막으로 고른 메모 공개 범위. 새 순에 그대로 쓴다 (없으면 나만 보기) */
+  lastShare?: MemoShare | null;
   /** 내 메모 태그 목록 (없으면 기본 태그 MEMO_TAGS) */
   memoTags?: string[];
   /** 화면 밝기와 색 테마 (없으면 기기 설정 따라, 홍심) */

@@ -241,7 +241,7 @@ nav.tabs {
   padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
 }
-nav.tabs .in { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); }
+nav.tabs .in { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); }
 nav.tabs button { background: none; border: none; padding: 10px 0 12px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; color: var(--muted); }
 nav.tabs button svg { width: 22px; height: 22px; }
 nav.tabs button.on { color: var(--hong); font-weight: 600; }
@@ -542,3 +542,25 @@ button.link { background: none; border: none; padding: 0; color: var(--hong); fo
 .tag-list li { display: flex; align-items: center; gap: 6px; }
 .tag-list .tag-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .tag-list .btn.small { min-width: 36px; }
+
+/* 공개 메모 */
+.share-field .seg { align-self: flex-start; }
+.share-field .seg button:disabled { opacity: 0.45; }
+.share-hint { margin-top: -4px; }
+.shared-memos { display: flex; flex-direction: column; gap: 10px; }
+.shared-list { list-style: none; margin: 0; padding: 0; }
+.shared-memo { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding: 12px 0; }
+.shared-memo:first-child { border-top: none; padding-top: 4px; }
+.shared-memo .sm-who { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; font-size: 14px; }
+.shared-memo .sm-ago { margin-left: auto; }
+.shared-memo .sm-end { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--muted); }
+.shared-memo .sm-text { font-size: 15px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.shared-memo .sm-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.shared-memo .sm-tags .pill { margin-left: 0; }
+.pill.tag { background: var(--paper); color: var(--muted); border: 1px solid var(--line); }
+.pill.scope { background: var(--paper); color: var(--ink); border: 1px solid var(--line); margin-left: 0; }
+.pill.share { margin-left: 0; }
+.pill.share.all, .pill.share.club { background: var(--hong-soft); color: var(--hong); }
+.pill.share.private { background: var(--paper); color: var(--muted); border: 1px solid var(--line); }
+.memo.share-line { margin-top: -2px; }
+.memo-view > .seg { align-self: flex-start; }

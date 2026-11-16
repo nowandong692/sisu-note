@@ -374,7 +374,7 @@ function RankingBoard({ active }: { active: boolean }) {
   );
 }
 
-/** 랭킹 탭: 온라인 랭킹과 대회 일정 */
+/** 겨루기 탭: 온라인 랭킹, 대회 일정, 활터 */
 export function RankingScreen({ active }: { active: boolean }) {
   const [view, setView] = useState<'rank' | 'tour' | 'hwalter'>('rank');
   return (

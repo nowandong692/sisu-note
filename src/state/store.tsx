@@ -1,6 +1,7 @@
 import { topDan, type Dans } from '../domain/dan';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Club, End, Gear, GearCategory, OnlineProfile, Range, Settings, Weather } from '../domain/types';
+import { shareArgs, shareTouched } from '../domain/sharedMemo';
 import { OnlineError, newRecoveryCode, normalizeRecoveryCode, onlineAvailable, rpc } from '../platform/online';
 import { RANGE_RADIUS_M, migrateRanges, nearestRange, pickOffer, type LatLon, type RangeOffer } from '../domain/range';
 import { kakaoNearbyRanges } from '../platform/kakaoPlaces';
@@ -70,6 +71,8 @@ export interface Store extends Data {
   online: OnlineProfile | null;
   /** 서버에 올리지 못한 일이 있으면 그 수 */
   onlinePending: number;
+  /** 공개 상태를 서버에 아직 알리지 못한 메모 수 */
+  memoPending: number;
   /** 새로 참여: 복구 코드를 만들고 닉네임을 등록한다 */
   joinOnline(nickname: string, rangeName: string | null): Promise<void>;
   /** 다른 기기에서 쓰던 복구 코드로 이어 하기 */
@@ -172,6 +175,41 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     }
   }, [updateSettings]);
 
+  const flushingMemos = useRef(false);
+  /** 공개 메모를 서버에 맞춘다: 공개한 순은 올리고, 내렸거나 지운 순은 내린다. */
+  const flushMemos = useCallback(async () => {
+    if (flushingMemos.current || !onlineAvailable()) return;
+    flushingMemos.current = true;
+    try {
+      for (;;) {
+        const o = settingsRef.current.online;
+        const id = o?.memoQueue?.[0];
+        if (!o || !id) return;
+        try {
+          const args = shareArgs(endsRef.current.find((x) => x.id === id), endsRef.current);
+          if (args) await rpc('share_memo', { p_key: o.key, ...args });
+          else await rpc('unshare_memo', { p_key: o.key, p_client_id: id });
+        } catch (err) {
+          // 인터넷이 없거나 서버에 아직 기능이 없으면 모아 둔 채로 다음에 다시 한다
+          if (err instanceof OnlineError && (err.code === 'network' || err.code === 'missing')) return;
+        }
+        const cur = settingsRef.current.online;
+        if (cur) await updateSettings({ online: { ...cur, memoQueue: (cur.memoQueue ?? []).filter((q) => q !== id) } });
+      }
+    } finally {
+      flushingMemos.current = false;
+    }
+  }, [updateSettings]);
+
+  /** 메모 공개 상태가 바뀐 순을 서버에 알린다 (참여하지 않았으면 할 일 없음) */
+  const enqueueMemos = useCallback(async (ids: string[]) => {
+    const o = settingsRef.current.online;
+    if (!o || !ids.length) return;
+    const q = o.memoQueue ?? [];
+    await updateSettings({ online: { ...o, memoQueue: [...q.filter((x) => !ids.includes(x)), ...ids] } });
+    void flushMemos();
+  }, [updateSettings, flushMemos]);
+
   /** 참여 뒤 오늘 저장·고치기·삭제한 순만 랭킹에 올린다. 지난 날짜 순은 서버가 받지 않는다. */
   const enqueue = useCallback(async (op: 'put' | 'del', e: Pick<End, 'id' | 'date' | 'recordedAt'>) => {
     const o = settingsRef.current.online;
@@ -183,10 +221,11 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
   useEffect(() => {
     if (!data.loaded) return;
     void flushOnline();
-    const on = () => void flushOnline();
+    void flushMemos();
+    const on = () => { void flushOnline(); void flushMemos(); };
     window.addEventListener('online', on);
     return () => window.removeEventListener('online', on);
-  }, [data.loaded, flushOnline]);
+  }, [data.loaded, flushOnline, flushMemos]);
 
   const w = data.settings.weather;
   const todayWeather = useMemo<Weather | null>(
@@ -250,14 +289,17 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       setData((p) => ({ ...p, ends: [...p.ends, e] }));
       endsRef.current = [...endsRef.current, e];
       void enqueue('put', e);
+      if (shareTouched(undefined, e)) void enqueueMemos([e.id]);
       return e;
     },
     async updateEnd(e) {
+      const prev = endsRef.current.find((x) => x.id === e.id);
       const next = { ...e, updatedAt: Date.now() };
       await repo.putEnd(next);
       setData((p) => ({ ...p, ends: p.ends.map((x) => (x.id === e.id ? next : x)) }));
       endsRef.current = endsRef.current.map((x) => (x.id === e.id ? next : x));
       void enqueue('put', next);
+      if (shareTouched(prev, next)) void enqueueMemos([next.id]);
     },
     editId,
     setEditId,
@@ -268,8 +310,10 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       if (id === editId) setEditId(null);
       const gone = data.ends.find((e) => e.id === id);
       await repo.deleteEnd(id);
-      if (gone) void enqueue('del', gone);
       setData((p) => ({ ...p, ends: p.ends.filter((e) => e.id !== id) }));
+      endsRef.current = endsRef.current.filter((e) => e.id !== id);
+      if (gone) void enqueue('del', gone);
+      if (gone?.share) void enqueueMemos([id]);
     },
     async addGear(input) {
       const g: Gear = { ...input, id: newId(), startedOn: today(), archived: false, updatedAt: Date.now() };
@@ -341,6 +385,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     },
     online: data.settings.online ?? null,
     onlinePending: data.settings.online?.queue.length ?? 0,
+    memoPending: data.settings.online?.memoQueue?.length ?? 0,
     async joinOnline(raw, rangeName) {
       const nickname = cleanNickname(raw);
       const key = newRecoveryCode();
@@ -393,21 +438,26 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       setData((p) => ({ ...p, ends: p.ends.filter((e) => !ids.has(e.id)) }));
       endsRef.current = endsRef.current.filter((e) => !ids.has(e.id));
       for (const e of gone) await enqueue('del', e);
+      await enqueueMemos(gone.filter((e) => e.share).map((e) => e.id));
       return gone.length;
     },
     async clearEnds() {
       const n = data.ends.length;
       await repo.replaceAll({ gear: data.gear, ends: [] });
       setData((p) => ({ ...p, ends: [] }));
+      endsRef.current = [];
       setEditId(null);
+      await enqueueMemos(data.ends.filter((e) => e.share).map((e) => e.id));
       return n;
     },
     async clearAll() {
       await repo.replaceAll({ gear: [], ends: [] });
       setData((p) => ({ ...p, gear: [], ends: [] }));
+      endsRef.current = [];
       await updateSettings({ current: { bow: null, ring: null, arrow: null } });
+      await enqueueMemos(data.ends.filter((e) => e.share).map((e) => e.id));
     },
-  }), [data, repo, updateSettings, todayWeather, editId, pastDate, setPastDate, ranges, unknownSpot, rangeOffer, noticePosition, enqueue]);
+  }), [data, repo, updateSettings, todayWeather, editId, pastDate, setPastDate, ranges, unknownSpot, rangeOffer, noticePosition, enqueue, enqueueMemos]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }
