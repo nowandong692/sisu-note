@@ -8,7 +8,8 @@ import { AutoTextarea, Sheet, toast } from '../components/ui';
 import { classifyTap, directionFor, hitShot, shotLabel } from '../domain/target';
 import { hitsOf } from '../domain/stats';
 import type { End, Shot, TrackedCategory } from '../domain/types';
-import { MEMO_TAGS, SHOTS_PER_END } from '../domain/types';
+import { SHOTS_PER_END } from '../domain/types';
+import { addTag, myTags, tagChoices, tagProblem, TAG_MAX } from '../domain/tags';
 import { formatDate, today } from '../domain/util';
 import { weatherLabel } from '../domain/weather';
 import { honorific, trendOf, welcomeFor, welcomeWho } from '../domain/welcome';
@@ -70,6 +71,47 @@ function ResetTodaySheet({ count, hits, onClose }: { count: number; hits: number
       <button className="btn danger" disabled={!ok || busy} onClick={() => void run()}>{busy ? '지우는 중…' : '오늘 기록 초기화'}</button>
       <button className="btn ghost small" onClick={onClose}>취소</button>
     </Sheet>
+  );
+}
+
+/** 순에 붙일 메모 태그. 끝의 "+ 태그"로 내 목록에 새 태그를 더하고 바로 붙인다. */
+function TagPicker({ picked, onChange }: { picked: string[]; onChange: (tags: string[]) => void }) {
+  const store = useStore();
+  const list = myTags(store.settings);
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState('');
+  const [err, setErr] = useState('');
+  const toggle = (t: string) => onChange(picked.includes(t) ? picked.filter((x) => x !== t) : [...picked, t]);
+  const add = async () => {
+    const bad = tagProblem(name, list);
+    if (bad) { setErr(bad); return; }
+    const next = addTag(list, name);
+    const t = next[next.length - 1];
+    await store.updateSettings({ memoTags: next });
+    if (!picked.includes(t)) onChange([...picked, t]);
+    setName(''); setErr(''); setAdding(false);
+  };
+  const close = () => { setAdding(false); setName(''); setErr(''); };
+  return (
+    <div className="field">
+      <label>메모 태그</label>
+      <div className="chips">
+        {tagChoices(list, picked).map((t) => (
+          <button key={t} className={`chip ${picked.includes(t) ? 'on' : ''}`} aria-pressed={picked.includes(t)} onClick={() => toggle(t)}>{t}</button>
+        ))}
+        {!adding && <button className="chip add-chip" onClick={() => setAdding(true)}>+ 태그</button>}
+      </div>
+      {adding && (
+        <div className="row tag-add">
+          <input type="text" autoFocus aria-label="새 태그 이름" placeholder="예: 발디딤" maxLength={TAG_MAX + 2} value={name}
+            onChange={(e) => { setName(e.target.value); setErr(''); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') void add(); if (e.key === 'Escape') close(); }} />
+          <button className="btn small" onClick={() => void add()}>추가</button>
+          <button className="btn ghost small" onClick={close}>취소</button>
+        </div>
+      )}
+      {err && <div className="small err-text" role="alert">{err}</div>}
+    </div>
   );
 }
 
@@ -233,15 +275,7 @@ export function ShootScreen() {
               : `${d.active + 1}시: 과녁을 누르면 관중${settings.grid ? '(칸 위치 기록)' : ''}, 바깥 띠를 누르면 불입니다. 안쪽 띠는 조금, 바깥 띠는 많이 빠진 것입니다.`}
           </div>
         </div>
-        <div className="field">
-          <label>메모 태그</label>
-          <div className="chips">
-            {MEMO_TAGS.map((t) => (
-              <button key={t} className={`chip ${d.tags.includes(t) ? 'on' : ''}`} aria-pressed={d.tags.includes(t)}
-                onClick={() => setD((p) => ({ ...p, tags: p.tags.includes(t) ? p.tags.filter((x) => x !== t) : [...p.tags, t] }))}>{t}</button>
-            ))}
-          </div>
-        </div>
+        <TagPicker picked={d.tags} onChange={(tags) => setD((p) => ({ ...p, tags }))} />
         <div className="field">
           <label htmlFor="memo">순 메모</label>
           <AutoTextarea id="memo" rows={2} placeholder="예: 만작을 길게 가져가니 좋았음" value={d.memo} onChange={(e) => setD({ ...d, memo: e.target.value })} />

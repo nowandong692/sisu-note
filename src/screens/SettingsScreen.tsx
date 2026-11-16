@@ -10,6 +10,8 @@ import { sampleEndIds } from '../domain/sample';
 import { DAN_LEVELS, DAN_ORGS, danLabel, validDan, type DanOrg } from '../domain/dan';
 import { PALETTES, type Palette, type ThemeMode } from '../domain/types';
 import { today } from '../domain/util';
+import { addTag, moveTag, myTags, removeTag, restoreDefaults, tagProblem, tagUseCount, TAG_MAX } from '../domain/tags';
+import { MEMO_TAGS } from '../domain/types';
 import { saveTextFile } from '../platform/files';
 import { useStore } from '../state/store';
 
@@ -145,6 +147,55 @@ function DanSection() {
   );
 }
 
+/** 내 메모 태그: 습사 화면에 보일 태그를 더하고, 빼고, 순서를 바꾼다 */
+function MemoTagSection() {
+  const { settings, ends, updateSettings } = useStore();
+  const list = myTags(settings);
+  const [name, setName] = useState('');
+  const [err, setErr] = useState('');
+  const save = (memoTags: string[]) => updateSettings({ memoTags });
+  const add = () => {
+    const bad = tagProblem(name, list);
+    if (bad) { setErr(bad); return; }
+    void save(addTag(list, name)).then(() => toast('태그를 더했습니다'));
+    setName(''); setErr('');
+  };
+  const remove = (t: string) => {
+    const n = tagUseCount(ends, t);
+    void save(removeTag(list, t)).then(() => toast(n ? `#${t} 태그를 목록에서 뺐습니다. 이미 붙인 ${n}순은 그대로 두어 메모 모아보기에서 찾을 수 있습니다` : `#${t} 태그를 뺐습니다`));
+  };
+  const missing = MEMO_TAGS.filter((t) => !list.includes(t)).length;
+  return (
+    <section className="card">
+      <h2>메모 태그</h2>
+      {list.length ? (
+        <ul className="tag-list">
+          {list.map((t, i) => {
+            const n = tagUseCount(ends, t);
+            return (
+              <li key={t}>
+                <span className="tag-name">#{t}</span>
+                <span className="small muted">{n ? `${n}순` : ''}</span>
+                <button className="btn ghost small" aria-label={`${t} 앞으로`} disabled={i === 0} onClick={() => void save(moveTag(list, t, -1))}>↑</button>
+                <button className="btn ghost small" aria-label={`${t} 뒤로`} disabled={i === list.length - 1} onClick={() => void save(moveTag(list, t, 1))}>↓</button>
+                <ConfirmButton className="btn ghost small" label="빼기" confirmLabel={n ? `${n}순에 붙어 있음 · 빼기` : '빼기'} ariaLabel={`${t} 빼기`} onConfirm={() => remove(t)} />
+              </li>
+            );
+          })}
+        </ul>
+      ) : <div className="small muted">태그가 없습니다. 아래에서 더해 보세요.</div>}
+      <div className="row tag-add">
+        <input type="text" aria-label="새 태그 이름" placeholder="새 태그 (예: 발디딤)" maxLength={TAG_MAX + 2} value={name}
+          onChange={(e) => { setName(e.target.value); setErr(''); }} onKeyDown={(e) => { if (e.key === 'Enter') add(); }} />
+        <button className="btn small" onClick={add}>더하기</button>
+      </div>
+      {err && <div className="small err-text" role="alert">{err}</div>}
+      {missing > 0 && <button className="btn ghost small" onClick={() => void save(restoreDefaults(list)).then(() => toast('기본 태그를 되살렸습니다'))}>기본 태그 되살리기 ({missing}개)</button>}
+      <div className="small muted">태그를 빼도 이미 붙인 순의 태그는 지우지 않습니다. 메모 모아보기에서 그대로 찾을 수 있고, 그 순을 고칠 때도 보입니다. 태그는 이 기기에만 저장되고 서버에 올리지 않습니다.</div>
+    </section>
+  );
+}
+
 type DataAction = 'ends' | 'all' | 'sample';
 
 /** 데이터 지우기 전에 띄우는 경고 창: 무엇이 지워지고 무엇이 남는지 보여 준다 */
@@ -198,7 +249,7 @@ function DataWarnSheet({ action, onClose }: { action: DataAction; onClose: () =>
   );
 }
 
-/** 설정 탭: 내 닉네임, 내 소속, 내 단, 화면 밝기·테마, 데이터 */
+/** 설정 탭: 내 닉네임, 내 소속, 내 단, 메모 태그, 화면 밝기·테마, 데이터 */
 export function SettingsScreen() {
   const store = useStore();
   const { ends, gear } = store;
@@ -209,6 +260,7 @@ export function SettingsScreen() {
       <NicknameSection />
       <ClubSection />
       <DanSection />
+      <MemoTagSection />
       <AppearanceSection />
       <section className="card">
         <h2>데이터</h2>
