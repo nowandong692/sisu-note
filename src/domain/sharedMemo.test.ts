@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agoLabel, cleanComment, defaultShare, hasNewComment, endNoOf, shareArgs, shareStateOf, shareTouched } from './sharedMemo';
+import { agoLabel, cleanComment, dayClientId, dayShareArgs, dayShareStateOf, defaultShare, hasNewComment, endNoOf, isDayClientId, shareArgs, shareStateOf, shareTouched } from './sharedMemo';
 import type { End, Shot } from './types';
 
 const shot = (hit: boolean): Shot => ({ hit, x: null, y: null, zone: null, side: null, level: null, direction: null });
@@ -83,5 +83,32 @@ describe('새 댓글 표시', () => {
     expect(hasNewComment({ mine: true, last_comment: 10 }, 10)).toBe(false);
     expect(hasNewComment({ mine: true, last_comment: null }, 0)).toBe(false);
     expect(hasNewComment({ mine: false, last_comment: 99 }, 0)).toBe(false);
+  });
+});
+
+describe('하루 메모 공개', () => {
+  const shots = (s: string) => [...s].map((c) => ({ hit: c === 'o', x: null, y: null, zone: null, side: null, level: null, direction: null }));
+  const e = (id: string, date: string, s: string) => ({ id, date, recordedAt: 1, bowId: null, ringId: null, arrowId: null, shots: shots(s), tags: [], memo: '', updatedAt: 1 });
+  const ends = [e('a', '2026-11-16', 'ooxox'), e('b', '2026-11-16', 'ooooo'), e('c', '2026-11-15', 'ooooo')];
+
+  it('공개한 하루 메모는 그날 순 수와 관중 수를 함께 올린다', () => {
+    expect(dayShareArgs({ date: '2026-11-16', memo: ' 사범님 조언 ', share: 'club', updatedAt: 1 }, ends))
+      .toEqual({ p_day: '2026-11-16', p_ends: 2, p_hits: 8, p_memo: '사범님 조언', p_scope: 'club' });
+    expect(dayShareArgs({ date: '2026-11-14', memo: '메모만', share: 'all', updatedAt: 1 }, ends)).toMatchObject({ p_ends: 0, p_hits: 0 });
+  });
+
+  it('나만 보기거나 메모가 비었으면 내린다', () => {
+    expect(dayShareArgs({ date: '2026-11-16', memo: '혼자 보기', updatedAt: 1 }, ends)).toBeNull();
+    expect(dayShareArgs({ date: '2026-11-16', memo: '  ', share: 'all', updatedAt: 1 }, ends)).toBeNull();
+    expect(dayShareArgs(undefined, ends)).toBeNull();
+  });
+
+  it('서버 이름과 공개 상태', () => {
+    expect(dayClientId('2026-11-16')).toBe('day:2026-11-16');
+    expect(isDayClientId('day:2026-11-16')).toBe(true);
+    expect(isDayClientId('k3j2-abc')).toBe(false);
+    expect(dayShareStateOf({ date: 'd', memo: '글', updatedAt: 1 })).toBe('private');
+    expect(dayShareStateOf({ date: 'd', memo: '글', share: 'all', updatedAt: 1 })).toBe('all');
+    expect(dayShareStateOf(undefined)).toBeNull();
   });
 });

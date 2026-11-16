@@ -1,7 +1,7 @@
 import { topDan, type Dans } from '../domain/dan';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Club, DayNote, End, Gear, GearCategory, OnlineProfile, Range, Settings, Weather } from '../domain/types';
-import { shareArgs, shareTouched } from '../domain/sharedMemo';
+import type { Club, DayNote, End, MemoShare, Gear, GearCategory, OnlineProfile, Range, Settings, Weather } from '../domain/types';
+import { dayClientId, dayShareArgs, isDayClientId, shareArgs, shareTouched } from '../domain/sharedMemo';
 import { OnlineError, newRecoveryCode, normalizeRecoveryCode, onlineAvailable, rpc } from '../platform/online';
 import { RANGE_RADIUS_M, migrateRanges, nearestRange, pickOffer, type LatLon, type RangeOffer } from '../domain/range';
 import { kakaoNearbyRanges } from '../platform/kakaoPlaces';
@@ -59,8 +59,10 @@ export interface Store extends Data {
   deleteEnd(id: string): Promise<void>;
   /** 그날 하루 메모 (없으면 빈 글) */
   dayMemo(date: string): string;
-  /** 하루 메모 저장. 비우면 지운다 */
-  setDayMemo(date: string, memo: string): Promise<void>;
+  /** 그날 하루 메모의 공개 범위 (없으면 나만 보기) */
+  dayShare(date: string): MemoShare | null;
+  /** 하루 메모 저장. 비우면 지운다. share를 주면 공개 범위도 바꾼다 */
+  setDayMemo(date: string, memo: string, share?: MemoShare | null): Promise<void>;
   /** 습사 화면에 불러와 고치는 중인 순 */
   editId: string | null;
   setEditId(id: string | null): void;
@@ -153,6 +155,8 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
 
   const endsRef = useRef<End[]>([]);
   endsRef.current = data.ends;
+  const daysRef = useRef<DayNote[]>([]);
+  daysRef.current = data.days;
   const flushing = useRef(false);
 
   /** 모아 둔 일을 서버에 올린다. 인터넷이 없으면 그대로 두고 다음에 다시 한다. */
@@ -214,9 +218,16 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
         const id = o?.memoQueue?.[0];
         if (!o || !id) return;
         try {
-          const args = shareArgs(endsRef.current.find((x) => x.id === id), endsRef.current);
-          if (args) { await rpc('share_memo', { p_key: o.key, ...args }); void refreshCommentNews(); }
-          else await rpc('unshare_memo', { p_key: o.key, p_client_id: id });
+          if (isDayClientId(id)) {
+            // 하루 메모: 그날 순 수와 관중 수를 함께 올린다
+            const args = dayShareArgs(daysRef.current.find((d) => dayClientId(d.date) === id), endsRef.current);
+            if (args) { await rpc('share_day_memo', { p_key: o.key, ...args }); void refreshCommentNews(); }
+            else await rpc('unshare_memo', { p_key: o.key, p_client_id: id });
+          } else {
+            const args = shareArgs(endsRef.current.find((x) => x.id === id), endsRef.current);
+            if (args) { await rpc('share_memo', { p_key: o.key, ...args }); void refreshCommentNews(); }
+            else await rpc('unshare_memo', { p_key: o.key, p_client_id: id });
+          }
         } catch (err) {
           // 인터넷이 없거나 서버에 아직 기능이 없으면 모아 둔 채로 다음에 다시 한다
           if (err instanceof OnlineError && (err.code === 'network' || err.code === 'missing')) return;
@@ -237,6 +248,10 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     await updateSettings({ online: { ...o, memoQueue: [...q.filter((x) => !ids.includes(x)), ...ids] } });
     void flushMemos();
   }, [updateSettings, flushMemos]);
+
+  /** 이 날들의 공개 하루 메모는 순이 바뀌면 시수를 다시 올린다 */
+  const sharedDayIds = useCallback((dates: string[]) =>
+    daysRef.current.filter((d) => d.share && dates.includes(d.date)).map((d) => dayClientId(d.date)), []);
 
   /** 참여 뒤 오늘 저장·고치기·삭제한 순만 랭킹에 올린다. 지난 날짜 순은 서버가 받지 않는다. */
   const enqueue = useCallback(async (op: 'put' | 'del', e: Pick<End, 'id' | 'date' | 'recordedAt'>) => {
@@ -328,7 +343,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       setData((p) => ({ ...p, ends: [...p.ends, e] }));
       endsRef.current = [...endsRef.current, e];
       void enqueue('put', e);
-      if (shareTouched(undefined, e)) void enqueueMemos([e.id]);
+      void enqueueMemos([...(shareTouched(undefined, e) ? [e.id] : []), ...sharedDayIds([e.date])]);
       return e;
     },
     async updateEnd(e) {
@@ -338,15 +353,21 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       setData((p) => ({ ...p, ends: p.ends.map((x) => (x.id === e.id ? next : x)) }));
       endsRef.current = endsRef.current.map((x) => (x.id === e.id ? next : x));
       void enqueue('put', next);
-      if (shareTouched(prev, next)) void enqueueMemos([next.id]);
+      void enqueueMemos([...(shareTouched(prev, next) ? [next.id] : []), ...sharedDayIds([next.date])]);
     },
     dayMemo: (date) => data.days.find((d) => d.date === date)?.memo ?? '',
-    async setDayMemo(date, raw) {
+    dayShare: (date) => data.days.find((d) => d.date === date)?.share ?? null,
+    async setDayMemo(date, raw, shareArg) {
       const memo = raw.trim();
-      if (memo === (data.days.find((d) => d.date === date)?.memo ?? '')) return;
-      const d: DayNote = { date, memo, updatedAt: Date.now() };
+      const prev = daysRef.current.find((d) => d.date === date);
+      const share = shareArg === undefined ? prev?.share ?? null : shareArg;
+      if (memo === (prev?.memo ?? '') && (share ?? null) === (prev?.share ?? null)) return;
+      const d: DayNote = { date, memo, ...(share ? { share } : {}), updatedAt: Date.now() };
       await repo.putDay(d);
-      setData((p) => ({ ...p, days: [...p.days.filter((x) => x.date !== date), ...(memo ? [d] : [])] }));
+      const next = [...daysRef.current.filter((x) => x.date !== date), ...(memo ? [d] : [])];
+      daysRef.current = next;
+      setData((p) => ({ ...p, days: next }));
+      if (prev?.share || (memo && share)) void enqueueMemos([dayClientId(date)]);
     },
     editId,
     setEditId,
@@ -360,7 +381,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       setData((p) => ({ ...p, ends: p.ends.filter((e) => e.id !== id) }));
       endsRef.current = endsRef.current.filter((e) => e.id !== id);
       if (gone) void enqueue('del', gone);
-      if (gone?.share) void enqueueMemos([id]);
+      if (gone) void enqueueMemos([...(gone.share ? [id] : []), ...sharedDayIds([gone.date])]);
     },
     async addGear(input) {
       const g: Gear = { ...input, id: newId(), startedOn: today(), archived: false, updatedAt: Date.now() };
@@ -488,26 +509,28 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       setData((p) => ({ ...p, ends: p.ends.filter((e) => !ids.has(e.id)) }));
       endsRef.current = endsRef.current.filter((e) => !ids.has(e.id));
       for (const e of gone) await enqueue('del', e);
-      await enqueueMemos(gone.filter((e) => e.share).map((e) => e.id));
+      await enqueueMemos([...gone.filter((e) => e.share).map((e) => e.id), ...sharedDayIds([today()])]);
       return gone.length;
     },
     async clearEnds() {
       const n = data.ends.length;
       await repo.replaceAll({ gear: data.gear, ends: [], days: [] });
       setData((p) => ({ ...p, ends: [], days: [] }));
+      daysRef.current = [];
       endsRef.current = [];
       setEditId(null);
-      await enqueueMemos(data.ends.filter((e) => e.share).map((e) => e.id));
+      await enqueueMemos([...data.ends.filter((e) => e.share).map((e) => e.id), ...data.days.filter((d) => d.share).map((d) => dayClientId(d.date))]);
       return n;
     },
     async clearAll() {
       await repo.replaceAll({ gear: [], ends: [], days: [] });
       setData((p) => ({ ...p, gear: [], ends: [], days: [] }));
+      daysRef.current = [];
       endsRef.current = [];
       await updateSettings({ current: { bow: null, ring: null, arrow: null } });
-      await enqueueMemos(data.ends.filter((e) => e.share).map((e) => e.id));
+      await enqueueMemos([...data.ends.filter((e) => e.share).map((e) => e.id), ...data.days.filter((d) => d.share).map((d) => dayClientId(d.date))]);
     },
-  }), [data, repo, updateSettings, todayWeather, editId, pastDate, setPastDate, ranges, unknownSpot, rangeOffer, noticePosition, enqueue, enqueueMemos, commentNews, refreshCommentNews, markCommentsSeen]);
+  }), [data, repo, updateSettings, todayWeather, editId, pastDate, setPastDate, ranges, unknownSpot, rangeOffer, noticePosition, enqueue, enqueueMemos, sharedDayIds, commentNews, refreshCommentNews, markCommentsSeen]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

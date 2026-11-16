@@ -91,6 +91,8 @@ export interface End {
 export interface DayNote {
   date: string; // YYYY-MM-DD
   memo: string;
+  /** 다른 궁사에게 공개 (없으면 나만 본다) */
+  share?: MemoShare | null;
   updatedAt: number;
 }
 

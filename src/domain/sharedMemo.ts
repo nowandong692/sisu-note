@@ -1,4 +1,4 @@
-import type { End, MemoShare, OnlineProfile, Settings } from './types';
+import type { DayNote, End, MemoShare, OnlineProfile, Settings } from './types';
 
 /** 공개 메모 글자 수 한도 (서버도 같은 한도로 자른다) */
 export const SHARED_MEMO_MAX = 500;
@@ -49,6 +49,32 @@ export function shareArgs(e: End | undefined, ends: End[]): ShareArgs | null {
   return { p_client_id: e.id, p_day: e.date, p_end_no: endNoOf(ends, e), p_hits: e.shots.map((s) => s.hit), p_tags: tags, p_memo: memo, p_scope: e.share };
 }
 
+/** 하루 메모를 서버에 올릴 때 쓰는 이름. 궁사마다 하루에 하나 */
+export const DAY_PREFIX = 'day:';
+export const dayClientId = (date: string) => `${DAY_PREFIX}${date}`;
+export const isDayClientId = (id: string) => id.startsWith(DAY_PREFIX);
+
+export interface DayShareArgs {
+  p_day: string;
+  p_ends: number;
+  p_hits: number;
+  p_memo: string;
+  p_scope: MemoShare;
+}
+
+/** 서버에 올릴 공개 하루 메모 (그날 순 수와 관중 수를 함께). 공개하지 않았거나 메모가 비었으면 null (= 서버에서 내린다) */
+export function dayShareArgs(d: DayNote | undefined, ends: End[]): DayShareArgs | null {
+  if (!d?.share) return null;
+  const memo = d.memo.trim().slice(0, SHARED_MEMO_MAX);
+  if (!memo) return null;
+  const day = ends.filter((e) => e.date === d.date);
+  const hits = day.reduce((n, e) => n + e.shots.filter((s) => s.hit).length, 0);
+  return { p_day: d.date, p_ends: day.length, p_hits: hits, p_memo: memo, p_scope: d.share };
+}
+
+/** 하루 메모 공개 상태. 메모가 없으면 null */
+export const dayShareStateOf = (d: DayNote | undefined): ShareState | null => (d?.memo.trim() ? d.share ?? 'private' : null);
+
 /** 이 순의 공개 상태를 서버에 다시 알려야 하는가 (공개 중이었거나 공개하게 됐으면) */
 export const shareTouched = (before: End | undefined, after: End | undefined) => !!(before?.share || after?.share);
 
@@ -71,6 +97,11 @@ export interface SharedMemo {
   comments?: number;
   /** 남이 단 가장 최근 댓글 id (서버에 009가 없으면 없음) */
   last_comment?: number | null;
+  /** 'day'면 하루 메모 (서버에 010이 없으면 없음 = 순 메모) */
+  kind?: 'end' | 'day';
+  /** 하루 메모만: 그날 쏜 순 수와 관중 수 */
+  ends?: number | null;
+  hit_count?: number | null;
 }
 
 /** 내 메모에 새 댓글이 있는가: 남이 단 가장 최근 댓글이 내가 본 것보다 뒤 */
