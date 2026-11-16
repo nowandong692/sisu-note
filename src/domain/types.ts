@@ -93,6 +93,8 @@ export interface DayNote {
   memo: string;
   /** 다른 궁사에게 공개 (없으면 나만 본다) */
   share?: MemoShare | null;
+  /** 공개 중인 하루 메모를 고쳤지만 아직 공개를 확인하지 않은 글 (이 기기에만, 서버에 올리지 않는다) */
+  draft?: string;
   updatedAt: number;
 }
 

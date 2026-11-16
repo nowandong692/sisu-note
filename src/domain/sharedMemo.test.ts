@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agoLabel, cleanComment, dayClientId, dayShareArgs, dayShareStateOf, defaultShare, hasNewComment, endNoOf, isDayClientId, shareArgs, shareStateOf, shareTouched } from './sharedMemo';
+import { agoLabel, cleanComment, dayClientId, dayShareArgs, dayShareStateOf, defaultShare, hasNewComment, endNoOf, isDayClientId, needsShareConfirm, shareAudience, shareArgs, shareStateOf, shareTouched } from './sharedMemo';
 import type { End, Shot } from './types';
 
 const shot = (hit: boolean): Shot => ({ hit, x: null, y: null, zone: null, side: null, level: null, direction: null });
@@ -110,5 +110,30 @@ describe('하루 메모 공개', () => {
     expect(dayShareStateOf({ date: 'd', memo: '글', updatedAt: 1 })).toBe('private');
     expect(dayShareStateOf({ date: 'd', memo: '글', share: 'all', updatedAt: 1 })).toBe('all');
     expect(dayShareStateOf(undefined)).toBeNull();
+  });
+});
+
+describe('공개 저장 확인', () => {
+  const m = (memo: string, share: 'all' | 'club' | null, tags: string[] = []) => ({ memo, tags, share });
+  it('새로 공개하는 메모는 묻는다', () => {
+    expect(needsShareConfirm(null, m('만작 길게', 'all'))).toBe(true);
+    expect(needsShareConfirm(null, m('', 'club', ['줌손']))).toBe(true);
+    expect(needsShareConfirm(m('만작 길게', null), m('만작 길게', 'club'))).toBe(true);
+  });
+  it('나만 보기거나 공개할 내용이 없으면 묻지 않는다', () => {
+    expect(needsShareConfirm(null, m('만작 길게', null))).toBe(false);
+    expect(needsShareConfirm(null, m('  ', 'all'))).toBe(false);
+    expect(needsShareConfirm(m('a', 'all'), m('a', null))).toBe(false);
+  });
+  it('이미 공개한 메모는 범위·메모·태그가 바뀔 때만 묻는다', () => {
+    expect(needsShareConfirm(m('a', 'all', ['줌손']), m(' a ', 'all', ['줌손']))).toBe(false);
+    expect(needsShareConfirm(m('a', 'all'), m('a', 'club'))).toBe(true);
+    expect(needsShareConfirm(m('a', 'all'), m('b', 'all'))).toBe(true);
+    expect(needsShareConfirm(m('a', 'all', ['줌손']), m('a', 'all', ['호흡']))).toBe(true);
+  });
+  it('공개 범위 설명', () => {
+    expect(shareAudience('club', '동네 활터')).toBe('동네 활터 궁사에게');
+    expect(shareAudience('club', null)).toBe('내 소속 활터 궁사에게');
+    expect(shareAudience('all', '동네 활터')).toBe('모든 궁사에게');
   });
 });

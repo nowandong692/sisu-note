@@ -59,7 +59,7 @@ const FOCUS_EVENT = 'log-focus';
 export function focusLogEnd(date: string, id: string) { window.dispatchEvent(new CustomEvent(FOCUS_EVENT, { detail: { date, id } })); }
 
 export function LogScreen() {
-  const { ends, days, dayMemo, gearName, deleteEnd, settings, setEditId, rangeName, setPastDate, online } = useStore();
+  const { ends, days, dayMemo, dayDraft, gearName, deleteEnd, settings, setEditId, rangeName, setPastDate, online } = useStore();
   /** 하루 메모를 고치는 중인 날짜 */
   const [memoEdit, setMemoEdit] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
@@ -125,6 +125,8 @@ export function LogScreen() {
       {dates.map((date) => {
         const list = (byDate.get(date) ?? []).sort((a, b) => a.recordedAt - b.recordedAt);
         const memo = dayMemo(date);
+        /** 공개 중인 하루 메모를 고쳤지만 아직 공개를 확인하지 않은 글 */
+        const draft = dayDraft(date);
         const h = list.reduce((a, e) => a + hitsOf(e), 0);
         const bows = [...new Set(list.map((e) => gearName(e.bowId)))].join(', ');
         const where = [...new Set(list.flatMap((e) => (e.rangeId ? [rangeName(e.rangeId)] : [])))].join(', ');
@@ -133,17 +135,18 @@ export function LogScreen() {
           <div className="session" key={date}>
             <button aria-expanded={isOpen} onClick={() => setOpen({ ...open, [date]: !isOpen })}>
               <span><span className="d">{formatDate(date)}</span> <span className="muted small">{where ? `${where} · ` : ''}{bows}</span></span>
-              <span className="s">{memo && <span className="day-memo-mark" aria-label="하루 메모 있음" title="하루 메모">{NOTE}</span>}{list.length ? `${list.length}순 ${h}중 · ${Math.round((h / (list.length * 5)) * 100)}%` : '메모만'}</span>
+              <span className="s">{(memo || draft) && <span className="day-memo-mark" aria-label="하루 메모 있음" title="하루 메모">{NOTE}</span>}{list.length ? `${list.length}순 ${h}중 · ${Math.round((h / (list.length * 5)) * 100)}%` : '메모만'}</span>
             </button>
             {isOpen && (
               <div className="detail">
                 {memoEdit === date
                   ? <DayMemoField date={date} label="하루 메모" autoFocus onDone={() => setMemoEdit(null)} />
-                  : memo
+                  : memo || draft
                     ? (
                       <div className="day-memo-view" id={`daymemo-${date}`}>
                         <div className="dm-head"><span>하루 메모 <DayShareBadge date={date} /></span><button className="act-btn" aria-label={`${formatDate(date)} 하루 메모 고치기`} title="고치기" onClick={() => setMemoEdit(date)}>{PENCIL}</button></div>
-                        <div className="dm-text">{memo}</div>
+                        {memo && <div className="dm-text">{memo}</div>}
+                        {draft != null && <div className="small dm-draft">공개 전에 고친 글이 있습니다. 연필을 눌러 확인하고 저장하세요.</div>}
                       </div>
                     )
                     : <div className="row"><button className="btn ghost small" onClick={() => setMemoEdit(date)}>+ 하루 메모 쓰기</button></div>}

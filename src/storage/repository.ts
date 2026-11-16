@@ -12,7 +12,7 @@ export interface Repository {
   deleteGear(id: string): Promise<void>;
   putEnd(e: End): Promise<void>;
   deleteEnd(id: string): Promise<void>;
-  /** 하루 메모 저장. 메모가 비었으면 그날 메모를 지운다 */
+  /** 하루 메모 저장. 메모와 초안이 모두 비었으면 그날 메모를 지운다 */
   putDay(d: DayNote): Promise<void>;
   saveSettings(s: Settings): Promise<void>;
   /** 모든 기록과 장비를 한 번에 바꾼다 (예시 불러오기, 가져오기, 전체 삭제). days를 주면 하루 메모도 바꾼다 */

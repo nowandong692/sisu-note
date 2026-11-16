@@ -1,6 +1,8 @@
 import { onlineAvailable } from '../platform/online';
 import type { MemoShare } from '../domain/types';
 import { useStore } from '../state/store';
+import { SHARE_LABEL, shareAudience } from '../domain/sharedMemo';
+import { Sheet } from './ui';
 
 /** 메모 공개 범위 고르기. 랭킹(겨루기)에 참여해 닉네임이 있어야 공개할 수 있다. */
 export function SharePicker({ value, hasContent, onChange, id = 'share', label = '메모 공개', what = '시수, 태그, 메모가', empty = '메모나 태그를 남겨야 올라갑니다.' }: {
@@ -33,3 +35,37 @@ export function SharePicker({ value, hasContent, onChange, id = 'share', label =
   );
 }
 
+
+/** 공개하기 전에 보여 주는 안내: 누구에게 무엇이 보이는지와 올라갈 글 */
+export function ShareNotice({ scope, what, memo, tags = [] }: { scope: MemoShare; what: string; memo: string; tags?: string[] }) {
+  const { online } = useStore();
+  return (
+    <div className="share-notice">
+      <div className="small"><b>{online?.nickname}</b> 이름으로 <b>{shareAudience(scope, online?.rangeName)}</b> {what} 보입니다. 공개한 뒤에도 나만 보기로 바꾸면 내려갑니다.</div>
+      {(memo.trim() || tags.length > 0) && (
+        <blockquote className="share-preview">
+          {memo.trim() && <div>{memo.trim()}</div>}
+          {tags.length > 0 && <div className="small muted">{tags.map((t) => `#${t}`).join(' ')}</div>}
+        </blockquote>
+      )}
+    </div>
+  );
+}
+
+/** 같은 활터·전체 공개로 저장하기 전에 한 번 묻는 창 */
+export function ShareConfirmSheet({ scope, what, memo, tags, onConfirm, onPrivate, onClose }: {
+  scope: MemoShare; what: string; memo: string; tags?: string[];
+  onConfirm: () => void;
+  /** 나만 보기로 저장 (없으면 그 버튼을 감춘다) */
+  onPrivate?: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <Sheet title={`${SHARE_LABEL[scope]}로 저장할까요?`} onClose={onClose}>
+      <ShareNotice scope={scope} what={what} memo={memo} tags={tags} />
+      <button className="btn" onClick={onConfirm}>{SHARE_LABEL[scope]}하고 저장</button>
+      {onPrivate && <button className="btn ghost" onClick={onPrivate}>나만 보기로 저장</button>}
+      <button className="btn ghost small" onClick={onClose}>취소</button>
+    </Sheet>
+  );
+}

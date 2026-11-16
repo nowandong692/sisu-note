@@ -75,6 +75,20 @@ export function dayShareArgs(d: DayNote | undefined, ends: End[]): DayShareArgs 
 /** 하루 메모 공개 상태. 메모가 없으면 null */
 export const dayShareStateOf = (d: DayNote | undefined): ShareState | null => (d?.memo.trim() ? d.share ?? 'private' : null);
 
+/**
+ * 같은 활터·전체 공개로 저장하기 전에 한 번 물어봐야 하는가.
+ * 공개할 내용이 있고, 새로 공개하거나 공개 범위·메모·태그가 이미 공개한 것과 다를 때 묻는다 (시만 고치면 묻지 않는다).
+ */
+export function needsShareConfirm(prev: Pick<End, 'memo' | 'tags' | 'share'> | null | undefined, next: Pick<End, 'memo' | 'tags' | 'share'>): boolean {
+  const memo = next.memo.trim();
+  if (!next.share || (!memo && !next.tags.length)) return false;
+  if (!prev?.share) return true;
+  return prev.share !== next.share || prev.memo.trim() !== memo || prev.tags.join('\u0000') !== next.tags.join('\u0000');
+}
+
+/** 확인 창에 쓰는 공개 범위 설명: "동네 활터 궁사에게", "모든 궁사에게" */
+export const shareAudience = (scope: MemoShare, rangeName: string | null | undefined) => (scope === 'club' ? `${rangeName ?? '내 소속 활터'} 궁사에게` : '모든 궁사에게');
+
 /** 이 순의 공개 상태를 서버에 다시 알려야 하는가 (공개 중이었거나 공개하게 됐으면) */
 export const shareTouched = (before: End | undefined, after: End | undefined) => !!(before?.share || after?.share);
 

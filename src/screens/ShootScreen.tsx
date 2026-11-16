@@ -16,8 +16,8 @@ import { weatherLabel } from '../domain/weather';
 import { honorific, trendOf, welcomeFor, welcomeWho } from '../domain/welcome';
 import { danShort, topDan } from '../domain/dan';
 import { DayMemoField } from '../components/DayMemoField';
-import { SharePicker } from '../components/SharePicker';
-import { defaultShare } from '../domain/sharedMemo';
+import { ShareConfirmSheet, ShareNotice, SharePicker } from '../components/SharePicker';
+import { defaultShare, needsShareConfirm, SHARE_LABEL } from '../domain/sharedMemo';
 import { useStore } from '../state/store';
 import { focusLogEnd } from './LogScreen';
 import { showLogView } from './RecordsScreen';
@@ -196,11 +196,23 @@ export function ShootScreen() {
     setD((p) => ({ ...p, shots: p.shots.map((s) => (s && !s.hit && s.side ? { ...s, direction: directionFor(s.side, hand) } : s)) }));
   };
 
-  /** stay: 다른 탭으로 가면서 저장할 때는 기록 탭으로 데려가지 않는다 */
-  const save = async (stay = false) => {
+  /** 같은 활터·전체 공개로 저장하려면 한 번 묻는다 (store.online이 없으면 공개되지 않으니 묻지 않는다) */
+  const askShare = !!store.online && needsShareConfirm(editing, d);
+  /** 공개 확인 창 (stay: 아래 save와 같다) */
+  const [confirming, setConfirming] = useState<{ stay: boolean } | null>(null);
+  const requestSave = (stay = false) => {
     if (filled < SHOTS_PER_END) return;
+    if (askShare) { setAsking(false); setConfirming({ stay }); return; }
+    void save(stay);
+  };
+
+  /** stay: 다른 탭으로 가면서 저장할 때는 기록 탭으로 데려가지 않는다. asPrivate: 나만 보기로 바꿔 저장 */
+  const save = async (stay = false, asPrivate = false) => {
+    if (filled < SHOTS_PER_END) return;
+    setConfirming(null);
+    const share = asPrivate ? null : d.share;
     if (editing) {
-      await store.updateEnd({ ...editing, shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim(), share: d.share });
+      await store.updateEnd({ ...editing, shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim(), share });
       toast(`${editing.date === today() ? '' : formatDate(editing.date) + ' '}${editIndex}순을 고쳤습니다 · ${hitCount}중`);
       setAsking(false);
       if (stay) return;
@@ -208,7 +220,7 @@ export function ShootScreen() {
       if (editing.date !== today()) { focusLogEnd(editing.date, editing.id); showLogView(); location.hash = 'log'; }
       return;
     }
-    const e = await store.saveEnd({ shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim(), share: d.share }, past ?? undefined);
+    const e = await store.saveEnd({ shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim(), share }, past ?? undefined);
     const h = hitsOf(e);
     if (past) {
       // 지난 순은 업적을 다시 계산해 목록에만 남긴다 (축하 창은 오늘 순에만 띄운다)
@@ -229,7 +241,8 @@ export function ShootScreen() {
   };
 
   // 고치는 중에 다른 탭으로 가려 할 때 App이 "저장하고 이동"을 할 수 있게 알려 둔다
-  store.editSaver.current = editing ? { canSave: filled === SHOTS_PER_END, save: () => save(true) } : null;
+  // 공개 확인이 필요하면 App의 "저장하고 이동" 창이 대신 공개 범위를 알리고 묻는다
+  store.editSaver.current = editing ? { canSave: filled === SHOTS_PER_END, share: askShare && d.share ? { scope: d.share, memo: d.memo, tags: d.tags } : null, save: () => save(true) } : null;
 
   const marks: Mark[] = d.shots.flatMap((s, i) => (s ? [{ x: s.x, y: s.y, hit: s.hit, n: i + 1 }] : []));
   const noGear = !gearOf('bow').length;
@@ -285,7 +298,7 @@ export function ShootScreen() {
             <button className="btn ghost small" onClick={() => applyShots(Array.from({ length: SHOTS_PER_END }, hitShot), d.active)}>몰기</button>
             <button className="btn ghost small" disabled={!filled} onClick={() => setD((p) => ({ ...p, shots: Array(SHOTS_PER_END).fill(null), active: 0 }))}>다시 입력</button>
           </span>
-          <button className="btn small" disabled={filled < SHOTS_PER_END} onClick={() => save()}>{filled === SHOTS_PER_END ? `${editing ? '고친 내용 저장' : '저장'} · ${hitCount}중` : `저장 (${filled}/5)`}</button>
+          <button className="btn small" disabled={filled < SHOTS_PER_END} onClick={() => requestSave()}>{filled === SHOTS_PER_END ? `${editing ? '고친 내용 저장' : '저장'} · ${hitCount}중` : `저장 (${filled}/5)`}</button>
         </div>
         <div className="target-wrap">
           <Target hand={settings.hand} grid={settings.grid} marks={marks} onTap={tap} label={`과녁을 눌러 ${d.active + 1}시 입력`} />
@@ -305,7 +318,7 @@ export function ShootScreen() {
           // 새 순에서 고른 범위는 다음 순에도 쓴다 (지난 순을 고칠 때는 기억하지 않는다)
           if (!editing) void store.updateSettings({ lastShare: share });
         }} />
-        <button className="btn" disabled={filled < SHOTS_PER_END} onClick={() => save()}>
+        <button className="btn" disabled={filled < SHOTS_PER_END} onClick={() => requestSave()}>
           {filled === SHOTS_PER_END ? `${editing ? `${editIndex}순 고친 내용 저장` : `${todays.length + 1}순 저장`} · ${hitCount}중` : `5시를 모두 입력하세요 (${filled}/5)`}
         </button>
         {editing && <button className="btn ghost" onClick={cancelEdit}>고치지 않고 돌아가기</button>}
@@ -368,12 +381,22 @@ export function ShootScreen() {
             <b>{hitCount}중{hitCount === 5 ? ' · 몰기' : ''}</b>
           </div>
           <div className="small muted">{d.shots.map((s, i) => `${i + 1}시 ${shotLabel(s, settings.grid)}`).join(', ')}</div>
-          <button className="btn" onClick={() => save()}>저장</button>
+          {askShare && d.share
+            ? <>
+              <ShareNotice scope={d.share} what="시수, 태그, 메모가" memo={d.memo} tags={d.tags} />
+              <button className="btn" onClick={() => save()}>{SHARE_LABEL[d.share]}하고 저장</button>
+              <button className="btn ghost" onClick={() => save(false, true)}>나만 보기로 저장</button>
+            </>
+            : <button className="btn" onClick={() => save()}>저장</button>}
           <div className="row between">
             <button className="btn ghost small" onClick={() => { setAsking(false); setTimeout(() => document.getElementById('memo')?.focus(), 50); }}>메모 쓰고 저장</button>
             <button className="btn ghost small" onClick={() => setAsking(false)}>고치기</button>
           </div>
         </Sheet>
+      )}
+      {confirming && d.share && (
+        <ShareConfirmSheet scope={d.share} what="시수, 태그, 메모가" memo={d.memo} tags={d.tags}
+          onConfirm={() => save(confirming.stay)} onPrivate={() => save(confirming.stay, true)} onClose={() => setConfirming(null)} />
       )}
       {resetting && <ResetTodaySheet count={todays.length} hits={todayHits} onClose={() => setResetting(false)} />}
       {weathering && <WeatherSheet onClose={() => setWeathering(false)} />}
