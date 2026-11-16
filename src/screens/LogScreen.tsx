@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Sheet } from '../components/ui';
 import { Target, type Mark } from '../components/Target';
-import { PENCIL, TRASH } from '../components/icons';
+import { NOTE, PENCIL, TRASH } from '../components/icons';
+import { DayMemoField } from '../components/DayMemoField';
 import { ConfirmButton, toast } from '../components/ui';
 import { hitsOf } from '../domain/stats';
 import { weatherLabel } from '../domain/weather';
@@ -58,7 +59,9 @@ const FOCUS_EVENT = 'log-focus';
 export function focusLogEnd(date: string, id: string) { window.dispatchEvent(new CustomEvent(FOCUS_EVENT, { detail: { date, id } })); }
 
 export function LogScreen() {
-  const { ends, gearName, deleteEnd, settings, setEditId, rangeName, setPastDate, online } = useStore();
+  const { ends, days, dayMemo, gearName, deleteEnd, settings, setEditId, rangeName, setPastDate, online } = useStore();
+  /** 하루 메모를 고치는 중인 날짜 */
+  const [memoEdit, setMemoEdit] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   /** 습사 탭을 그 날짜로 연다 */
   const addTo = (date: string) => { setEditId(null); setPastDate(date); setPicking(false); location.hash = ''; };
@@ -98,9 +101,16 @@ export function LogScreen() {
 
   const byDate = new Map<string, typeof ends>();
   for (const e of ends) byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]);
-  const dates = [...byDate.keys()].sort().reverse();
+  // 순 없이 하루 메모만 남긴 날도 보인다
+  const dates = [...new Set([...byDate.keys(), ...days.map((d) => d.date)])].sort().reverse();
 
-  if (view === 'memo') return <>{viewSwitch}<MemoView onJump={jump} /></>;
+  const jumpDay = (date: string) => {
+    setView('date');
+    setOpen((o) => ({ ...o, [date]: true }));
+    setSelEnd(null);
+    setTimeout(() => document.getElementById(`daymemo-${date}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60);
+  };
+  if (view === 'memo') return <>{viewSwitch}<MemoView onJump={jump} onJumpDay={jumpDay} /></>;
 
   if (!dates.length) {
     return <section className="card"><div className="empty">아직 기록이 없습니다. 습사 탭에서 첫 순을 저장해 보세요.</div><div className="row">{addButton}</div>{pickSheet}</section>;
@@ -113,7 +123,8 @@ export function LogScreen() {
     {pickSheet}
     <section className="card">
       {dates.map((date) => {
-        const list = byDate.get(date)!.sort((a, b) => a.recordedAt - b.recordedAt);
+        const list = (byDate.get(date) ?? []).sort((a, b) => a.recordedAt - b.recordedAt);
+        const memo = dayMemo(date);
         const h = list.reduce((a, e) => a + hitsOf(e), 0);
         const bows = [...new Set(list.map((e) => gearName(e.bowId)))].join(', ');
         const where = [...new Set(list.flatMap((e) => (e.rangeId ? [rangeName(e.rangeId)] : [])))].join(', ');
@@ -122,10 +133,21 @@ export function LogScreen() {
           <div className="session" key={date}>
             <button aria-expanded={isOpen} onClick={() => setOpen({ ...open, [date]: !isOpen })}>
               <span><span className="d">{formatDate(date)}</span> <span className="muted small">{where ? `${where} · ` : ''}{bows}</span></span>
-              <span className="s">{list.length}순 {h}중 · {Math.round((h / (list.length * 5)) * 100)}%</span>
+              <span className="s">{memo && <span className="day-memo-mark" aria-label="하루 메모 있음" title="하루 메모">{NOTE}</span>}{list.length ? `${list.length}순 ${h}중 · ${Math.round((h / (list.length * 5)) * 100)}%` : '메모만'}</span>
             </button>
             {isOpen && (
               <div className="detail">
+                {memoEdit === date
+                  ? <DayMemoField date={date} label="하루 메모" autoFocus onDone={() => setMemoEdit(null)} />
+                  : memo
+                    ? (
+                      <div className="day-memo-view" id={`daymemo-${date}`}>
+                        <div className="dm-head"><span>하루 메모</span><button className="act-btn" aria-label={`${formatDate(date)} 하루 메모 고치기`} title="고치기" onClick={() => setMemoEdit(date)}>{PENCIL}</button></div>
+                        <div className="dm-text">{memo}</div>
+                      </div>
+                    )
+                    : <div className="row"><button className="btn ghost small" onClick={() => setMemoEdit(date)}>+ 하루 메모 쓰기</button></div>}
+                {list.length > 0 && <>
                 {(() => {
                   const segs = daySegments(list);
                   if (segs.length === 1) return <div className="weather-line">습사 시간 {spanLabel(segs[0].span)}</div>;
@@ -162,6 +184,7 @@ export function LogScreen() {
                     </div>
                   );
                 })}
+                </>}
                 {date < dayOffset(0) && (
                   <div className="row"><button className="btn ghost small" onClick={() => addTo(date)}>+ 이 날에 순 추가</button></div>
                 )}

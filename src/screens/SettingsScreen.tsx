@@ -204,6 +204,7 @@ function DataWarnSheet({ action, onClose }: { action: DataAction; onClose: () =>
   const [busy, setBusy] = useState(false);
   const n = ends.length;
   const g = gear.length;
+  const dn = store.days.length;
   const ns = sampleEndIds(ends).size;
   const spec = {
     sample: {
@@ -215,20 +216,20 @@ function DataWarnSheet({ action, onClose }: { action: DataAction; onClose: () =>
     },
     ends: {
       title: '기록만 지우기',
-      gone: [`이 기기의 순 기록 ${n}순 (기록과 통계에서 사라집니다)`],
+      gone: [`이 기기의 순 기록 ${n}순 (기록과 통계에서 사라집니다)`, ...(dn ? [`하루 메모 ${dn}일`] : [])],
       kept: [`등록한 장비 ${g}개와 오늘 장비`, '닉네임과 랭킹 참여, 소속, 단, 활터, 화면 설정', '랭킹 서버에 이미 올린 기록'],
       button: `${n}순 지우기`,
       run: () => store.clearEnds().then((k) => toast(`이 기기의 기록 ${k}순을 지웠습니다. 장비는 그대로입니다`)),
     },
     all: {
       title: '모든 데이터 지우기',
-      gone: [`이 기기의 순 기록 ${n}순`, `등록한 장비 ${g}개와 오늘 장비 선택`],
+      gone: [`이 기기의 순 기록 ${n}순`, ...(dn ? [`하루 메모 ${dn}일`] : []), `등록한 장비 ${g}개와 오늘 장비 선택`],
       kept: ['닉네임과 랭킹 참여, 소속, 단, 활터, 화면 설정', '랭킹 서버에 이미 올린 기록'],
       button: '모두 지우기',
       run: () => store.clearAll().then(() => toast('이 기기의 모든 기록과 장비를 지웠습니다')),
     },
   }[action];
-  const empty = action === 'sample' ? ns === 0 : n === 0 && (action === 'ends' || g === 0);
+  const empty = action === 'sample' ? ns === 0 : n === 0 && dn === 0 && (action === 'ends' || g === 0);
   return (
     <Sheet title={spec.title} onClose={onClose} backCloses={!busy}>
       <div className="warn-box" role="alert">

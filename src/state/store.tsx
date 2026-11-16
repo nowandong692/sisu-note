@@ -1,6 +1,6 @@
 import { topDan, type Dans } from '../domain/dan';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Club, End, Gear, GearCategory, OnlineProfile, Range, Settings, Weather } from '../domain/types';
+import type { Club, DayNote, End, Gear, GearCategory, OnlineProfile, Range, Settings, Weather } from '../domain/types';
 import { shareArgs, shareTouched } from '../domain/sharedMemo';
 import { OnlineError, newRecoveryCode, normalizeRecoveryCode, onlineAvailable, rpc } from '../platform/online';
 import { RANGE_RADIUS_M, migrateRanges, nearestRange, pickOffer, type LatLon, type RangeOffer } from '../domain/range';
@@ -18,6 +18,8 @@ interface Data {
   error: string | null;
   gear: Gear[];
   ends: End[];
+  /** 하루 메모 (메모를 쓴 날만) */
+  days: DayNote[];
   settings: Settings;
 }
 
@@ -55,6 +57,10 @@ export interface Store extends Data {
   /** 이미 저장한 순 고치기 (시, 태그, 메모) */
   updateEnd(e: End): Promise<void>;
   deleteEnd(id: string): Promise<void>;
+  /** 그날 하루 메모 (없으면 빈 글) */
+  dayMemo(date: string): string;
+  /** 하루 메모 저장. 비우면 지운다 */
+  setDayMemo(date: string, memo: string): Promise<void>;
   /** 습사 화면에 불러와 고치는 중인 순 */
   editId: string | null;
   setEditId(id: string | null): void;
@@ -94,7 +100,7 @@ export interface Store extends Data {
   /** 예시 기록과 (직접 쓰지 않은) 예시 장비·활터만 뺀다. 직접 쓴 기록은 남긴다 */
   removeSample(): Promise<{ ends: number; gear: number; ranges: number }>;
   clearAll(): Promise<void>;
-  /** 이 기기의 순 기록만 모두 지운다. 장비와 설정은 남긴다. 지운 순 수를 돌려준다 */
+  /** 이 기기의 순 기록과 하루 메모를 모두 지운다. 장비와 설정은 남긴다. 지운 순 수를 돌려준다 */
   clearEnds(): Promise<number>;
   /** 오늘 저장한 순을 모두 지운다 (랭킹에 올린 오늘 순도 지운다). 지운 순 수를 돌려준다. */
   clearToday(): Promise<number>;
@@ -110,7 +116,7 @@ async function syncDan(key: string, dans: Dans | null | undefined) {
 const offerKey = (o: RangeOffer) => ('range' in o ? o.range.id : `${o.place.name}|${o.place.lat.toFixed(3)}|${o.place.lon.toFixed(3)}`);
 
 export function StoreProvider({ repo, children }: { repo: Repository; children: ReactNode }) {
-  const [data, setData] = useState<Data>({ loaded: false, error: null, gear: [], ends: [], settings: DEFAULT_SETTINGS });
+  const [data, setData] = useState<Data>({ loaded: false, error: null, gear: [], ends: [], days: [], settings: DEFAULT_SETTINGS });
 
   const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
   const [editId, setEditId] = useState<string | null>(null);
@@ -334,6 +340,14 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       void enqueue('put', next);
       if (shareTouched(prev, next)) void enqueueMemos([next.id]);
     },
+    dayMemo: (date) => data.days.find((d) => d.date === date)?.memo ?? '',
+    async setDayMemo(date, raw) {
+      const memo = raw.trim();
+      if (memo === (data.days.find((d) => d.date === date)?.memo ?? '')) return;
+      const d: DayNote = { date, memo, updatedAt: Date.now() };
+      await repo.putDay(d);
+      setData((p) => ({ ...p, days: [...p.days.filter((x) => x.date !== date), ...(memo ? [d] : [])] }));
+    },
     editId,
     setEditId,
     pastDate,
@@ -479,16 +493,16 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     },
     async clearEnds() {
       const n = data.ends.length;
-      await repo.replaceAll({ gear: data.gear, ends: [] });
-      setData((p) => ({ ...p, ends: [] }));
+      await repo.replaceAll({ gear: data.gear, ends: [], days: [] });
+      setData((p) => ({ ...p, ends: [], days: [] }));
       endsRef.current = [];
       setEditId(null);
       await enqueueMemos(data.ends.filter((e) => e.share).map((e) => e.id));
       return n;
     },
     async clearAll() {
-      await repo.replaceAll({ gear: [], ends: [] });
-      setData((p) => ({ ...p, gear: [], ends: [] }));
+      await repo.replaceAll({ gear: [], ends: [], days: [] });
+      setData((p) => ({ ...p, gear: [], ends: [], days: [] }));
       endsRef.current = [];
       await updateSettings({ current: { bow: null, ring: null, arrow: null } });
       await enqueueMemos(data.ends.filter((e) => e.share).map((e) => e.id));

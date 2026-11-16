@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { searchMemos, splitByTerms } from './memo';
+import { searchDayMemos, searchMemos, splitByTerms } from './memo';
 import type { End } from './types';
 
 const end = (id: string, date: string, at: number, memo: string, tags: string[] = []): End =>
@@ -27,5 +27,16 @@ describe('메모 모아보기', () => {
 
   it('맞은 부분을 나눈다', () => {
     expect(splitByTerms('줌손이 흔들림', '흔들')).toEqual(['줌손이 ', '흔들', '림']);
+  });
+
+  it('하루 메모도 같은 규칙으로 찾고 최근 날부터 돌려준다', () => {
+    const days = [
+      { date: '2026-11-10', memo: '사범님: 줌손 더 밀기', updatedAt: 1 },
+      { date: '2026-11-14', memo: '바람이 세서 줌손이 흔들림', updatedAt: 2 },
+      { date: '2026-11-12', memo: '  ', updatedAt: 3 },
+    ];
+    expect(searchDayMemos(days, '').map((d) => d.date)).toEqual(['2026-11-14', '2026-11-10']);
+    expect(searchDayMemos(days, '줌손 바람').map((d) => d.date)).toEqual(['2026-11-14']);
+    expect(searchDayMemos(days, '#사범님').map((d) => d.date)).toEqual(['2026-11-10']);
   });
 });
