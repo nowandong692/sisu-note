@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agoLabel, defaultShare, endNoOf, shareArgs, shareStateOf, shareTouched } from './sharedMemo';
+import { agoLabel, cleanComment, defaultShare, endNoOf, shareArgs, shareStateOf, shareTouched } from './sharedMemo';
 import type { End, Shot } from './types';
 
 const shot = (hit: boolean): Shot => ({ hit, x: null, y: null, zone: null, side: null, level: null, direction: null });
@@ -65,5 +65,14 @@ describe('공개 여부 기억과 표시', () => {
     expect(defaultShare({ lastShare: 'club' }, { rangeName: null })).toBeNull();
     expect(defaultShare({ lastShare: 'all' }, null)).toBeNull();
     expect(defaultShare({}, { rangeName: '황학정' })).toBeNull();
+  });
+});
+
+describe('댓글 다듬기', () => {
+  it('앞뒤 공백과 긴 빈 줄을 줄이고, 비었거나 300자를 넘으면 막는다', () => {
+    expect(cleanComment('  좋네요 \n\n\n\n다음에도 ')).toEqual({ body: '좋네요 \n\n다음에도', problem: null });
+    expect(cleanComment('   ').problem).toBe('댓글 내용을 적어 주세요.');
+    expect(cleanComment('가'.repeat(301)).problem).toBe('댓글은 300자까지 쓸 수 있습니다.');
+    expect(cleanComment('가'.repeat(300)).problem).toBeNull();
   });
 });
