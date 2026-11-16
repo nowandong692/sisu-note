@@ -9,12 +9,14 @@ import { useStore } from './state/store';
 import { useAutoWeather } from './state/weatherSync';
 import { applyAppearance } from './platform/theme';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { SharedMemosView } from './screens/SharedMemosView';
 
-type Tab = 'shoot' | 'log' | 'rank' | 'settings';
+type Tab = 'shoot' | 'log' | 'rank' | 'talk' | 'settings';
 const TABS: [Tab, string, string][] = [
   ['shoot', '습사', '오늘 습사'],
   ['log', '기록과 통계', '기록과 통계'],
   ['rank', '겨루기', '겨루기'],
+  ['talk', '활쏜얘기', '활쏜얘기'],
   ['settings', '설정', '설정'],
 ];
 
@@ -22,6 +24,7 @@ const ICONS: Record<Tab, React.ReactNode> = {
   shoot: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="5" y="3" width="14" height="18" rx="1" /><rect x="8" y="5.5" width="8" height="2.5" /><circle cx="12" cy="15" r="3" /></svg>,
   log: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M8 9h8M8 13h8M8 17h5" /></svg>,
   rank: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M8 4h8v5a4 4 0 0 1-8 0V4z" /><path d="M8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3M12 13v4M8 20h8M10 17h4" /></svg>,
+  talk: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M4 5h16v11H10l-4 4v-4H4z" /><path d="M8 9h8M8 12h5" /></svg>,
   settings: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" /><circle cx="16" cy="6" r="2" /><circle cx="10" cy="12" r="2" /><circle cx="18" cy="18" r="2" /></svg>,
 };
 
@@ -161,8 +164,9 @@ export default function App() {
             <div className="screen" hidden={tab !== 'shoot'}><ShootScreen /></div>
             <div className="screen" hidden={tab !== 'log'}><RecordsScreen /></div>
             <div className="screen" hidden={tab !== 'rank'}><RankingScreen active={tab === 'rank'} /></div>
+            <div className="screen" hidden={tab !== 'talk'}><SharedMemosView active={tab === 'talk'} /></div>
             <div className="screen" hidden={tab !== 'settings'}><SettingsScreen /></div>
-            {firstRun && tab !== 'rank' && tab !== 'settings' && (
+            {firstRun && tab !== 'rank' && tab !== 'talk' && tab !== 'settings' && (
               <section className="card setup">
                 <h2>처음 오셨나요?</h2>
                 <div className="small muted">습사 화면의 "오늘 장비"에서 활·깍지·화살·현을 별명으로 등록하면 장비별로 시수를 비교할 수 있습니다. 먼저 둘러보려면 두 달치 예시 기록을 넣어 보세요. 나중에 설정 탭의 "모든 데이터 지우기"로 지울 수 있습니다.</div>

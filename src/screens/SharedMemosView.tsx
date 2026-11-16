@@ -63,7 +63,7 @@ export function SharedMemosView({ active }: { active: boolean }) {
   }, [active, filter, o?.key, tick, store.memoPending === 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!onlineAvailable()) {
-    return <section className="card"><h2>공개 메모</h2><div className="empty">서버를 준비하고 있습니다. 곧 열립니다.</div></section>;
+    return <section className="card"><h2>활쏜얘기</h2><div className="empty">서버를 준비하고 있습니다. 곧 열립니다.</div></section>;
   }
 
   const filters: [Filter, string][] = o ? [['all', '전체'], ['club', '우리 활터'], ['mine', '내 메모']] : [['all', '전체']];
