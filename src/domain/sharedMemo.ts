@@ -139,7 +139,20 @@ export interface MemoComment {
   mine: boolean;
   /** 내가 지울 수 있는 댓글 (내가 썼거나 내 메모에 달린 것) */
   can_delete: boolean;
+  /** 이 메모에서 내가 볼 수 있는 댓글 전체 수 (서버에 011이 없으면 없음) */
+  total?: number;
 }
+
+/** 댓글은 한 번에 이만큼씩 (최근 것부터) */
+export const COMMENT_PAGE = 50;
+/** 활쏜얘기 목록에 한 번에 쌓아 두는 글 수. 넘으면 앞의 글을 비우고 다음 묶음만 보인다 */
+export const MEMO_LIST_MAX = 150;
+
+/** 더 보기를 눌렀을 때: 지금 목록에 이어 붙일지, 비우고 다음 묶음만 보일지 */
+export const shouldReplacePage = (shown: number, page: number) => shown + page > MEMO_LIST_MAX;
+
+/** 앞에 아직 안 불러온 댓글 수 */
+export const olderCommentCount = (loaded: number, total: number | undefined) => Math.max(0, (total ?? loaded) - loaded);
 
 /** 보낼 댓글 다듬기: 앞뒤 공백, 세 줄 넘게 빈 줄은 한 줄로. 비었거나 너무 길면 까닭을 돌려준다 */
 export function cleanComment(s: string): { body: string; problem: string | null } {
