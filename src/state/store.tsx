@@ -8,6 +8,7 @@ import { DEFAULT_SETTINGS } from '../domain/types';
 import { SAMPLE_PREFIX, sampleData, withoutSample } from '../domain/sample';
 import { hasWeather } from '../domain/weather';
 import { newId, today } from '../domain/util';
+import { pastBase } from '../domain/backfill';
 import { cleanNickname } from '../domain/nickname';
 import type { Repository } from '../storage/repository';
 
@@ -22,7 +23,11 @@ interface Data {
 export interface Store extends Data {
   gearOf(c: GearCategory, includeArchived?: boolean): Gear[];
   gearName(id: string | null): string;
-  saveEnd(e: Omit<End, 'id' | 'date' | 'recordedAt' | 'updatedAt' | 'bowId' | 'ringId' | 'arrowId' | 'stringId' | 'weather' | 'rangeId'>): Promise<End>;
+  /** 순 저장. date를 주면(오늘 이전) 그날 기록으로 넣는다 (backfill.ts의 pastBase) */
+  saveEnd(e: Omit<End, 'id' | 'date' | 'recordedAt' | 'updatedAt' | 'bowId' | 'ringId' | 'arrowId' | 'stringId' | 'weather' | 'rangeId'>, date?: string): Promise<End>;
+  /** 습사 화면이 지난 날짜에 순을 넣는 중이면 그 날짜 (오늘이면 null) */
+  pastDate: string | null;
+  setPastDate(date: string | null): void;
   /** 등록한 활터 */
   ranges: Range[];
   rangeName(id: string | null | undefined): string;
@@ -100,6 +105,8 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
 
   const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
   const [editId, setEditId] = useState<string | null>(null);
+  const [pastDate, setPastDateRaw] = useState<string | null>(null);
+  const setPastDate = useCallback((d: string | null) => setPastDateRaw(d && d < today() ? d : null), []);
   const editSaver = useRef<{ canSave: boolean; save(): Promise<void> } | null>(null);
   const [unknownSpot, setUnknownSpot] = useState<LatLon | null>(null);
   const [rangeOffer, setRangeOffer] = useState<RangeOffer | null>(null);
@@ -231,11 +238,14 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     },
     gearOf: (c, includeArchived = false) => data.gear.filter((g) => g.category === c && (includeArchived || !g.archived)),
     gearName: (id) => data.gear.find((g) => g.id === id)?.nickname ?? '미지정',
-    async saveEnd(input) {
+    async saveEnd(input, date) {
       const now = Date.now();
-      const e: End = { ...input, id: newId(), date: today(), recordedAt: now, updatedAt: now,
-        bowId: data.settings.current.bow, ringId: data.settings.current.ring, arrowId: data.settings.current.arrow, stringId: data.settings.current.string ?? null, weather: todayWeather,
+      const cur = { bowId: data.settings.current.bow, ringId: data.settings.current.ring, arrowId: data.settings.current.arrow, stringId: data.settings.current.string ?? null,
         rangeId: data.settings.currentRange ?? null };
+      const past = date && date < today() ? date : null;
+      const e: End = past
+        ? { ...input, id: newId(), date: past, updatedAt: now, ...pastBase(endsRef.current, past, cur) }
+        : { ...input, id: newId(), date: today(), recordedAt: now, updatedAt: now, ...cur, weather: todayWeather };
       await repo.putEnd(e);
       setData((p) => ({ ...p, ends: [...p.ends, e] }));
       endsRef.current = [...endsRef.current, e];
@@ -251,6 +261,8 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     },
     editId,
     setEditId,
+    pastDate,
+    setPastDate,
     editSaver,
     async deleteEnd(id) {
       if (id === editId) setEditId(null);
@@ -395,7 +407,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       setData((p) => ({ ...p, gear: [], ends: [] }));
       await updateSettings({ current: { bow: null, ring: null, arrow: null } });
     },
-  }), [data, repo, updateSettings, todayWeather, editId, ranges, unknownSpot, rangeOffer, noticePosition, enqueue]);
+  }), [data, repo, updateSettings, todayWeather, editId, pastDate, setPastDate, ranges, unknownSpot, rangeOffer, noticePosition, enqueue]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

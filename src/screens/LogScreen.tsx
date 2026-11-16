@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
+import { Sheet } from '../components/ui';
 import { Target, type Mark } from '../components/Target';
 import { PENCIL, TRASH } from '../components/icons';
 import { ConfirmButton, toast } from '../components/ui';
 import { hitsOf } from '../domain/stats';
 import { weatherLabel } from '../domain/weather';
 import { shotLabel } from '../domain/target';
-import { formatDate } from '../domain/util';
+import { dayOffset, formatDate } from '../domain/util';
 import type { End, Hand } from '../domain/types';
 import { useStore } from '../state/store';
 import { endMeta } from '../domain/endMeta';
@@ -55,7 +56,12 @@ const FOCUS_EVENT = 'log-focus';
 export function focusLogEnd(date: string, id: string) { window.dispatchEvent(new CustomEvent(FOCUS_EVENT, { detail: { date, id } })); }
 
 export function LogScreen() {
-  const { ends, gearName, deleteEnd, settings, setEditId, rangeName } = useStore();
+  const { ends, gearName, deleteEnd, settings, setEditId, rangeName, setPastDate } = useStore();
+  const [picking, setPicking] = useState(false);
+  /** 습사 탭을 그 날짜로 연다 */
+  const addTo = (date: string) => { setEditId(null); setPastDate(date); setPicking(false); location.hash = ''; };
+  const addButton = <button className="btn ghost small" onClick={() => setPicking(true)}>+ 지난 날짜 기록 넣기</button>;
+  const pickSheet = picking && <PastDateSheet onPick={addTo} onClose={() => setPicking(false)} />;
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [selEnd, setSelEnd] = useState<string | null>(null);
   const [view, setView] = useState<'date' | 'memo'>('date');
@@ -95,12 +101,14 @@ export function LogScreen() {
   if (view === 'memo') return <>{viewSwitch}<MemoView onJump={jump} /></>;
 
   if (!dates.length) {
-    return <section className="card"><div className="empty">아직 기록이 없습니다. 습사 탭에서 첫 순을 저장해 보세요.</div></section>;
+    return <section className="card"><div className="empty">아직 기록이 없습니다. 습사 탭에서 첫 순을 저장해 보세요.</div><div className="row">{addButton}</div>{pickSheet}</section>;
   }
 
   return (
     <>
     {viewSwitch}
+    <div className="row">{addButton}</div>
+    {pickSheet}
     <section className="card">
       {dates.map((date) => {
         const list = byDate.get(date)!.sort((a, b) => a.recordedAt - b.recordedAt);
@@ -151,6 +159,9 @@ export function LogScreen() {
                     </div>
                   );
                 })}
+                {date < dayOffset(0) && (
+                  <div className="row"><button className="btn ghost small" onClick={() => addTo(date)}>+ 이 날에 순 추가</button></div>
+                )}
               </div>
             )}
           </div>
@@ -158,5 +169,23 @@ export function LogScreen() {
       })}
     </section>
     </>
+  );
+}
+
+/** 넣을 지난 날짜 고르기 (어제까지) */
+function PastDateSheet({ onPick, onClose }: { onPick: (date: string) => void; onClose: () => void }) {
+  const yesterday = dayOffset(-1);
+  const [date, setDate] = useState(yesterday);
+  const ok = /^\d{4}-\d{2}-\d{2}$/.test(date) && date <= yesterday;
+  return (
+    <Sheet title="지난 날짜 기록 넣기" onClose={onClose}>
+      <div className="small muted">고른 날짜로 습사 화면이 열립니다. 그날 기록이 있으면 마지막 순 뒤에 붙습니다. 지난 순은 랭킹에 오르지 않고, 업적은 날짜에 맞춰 다시 계산됩니다.</div>
+      <div className="field">
+        <label htmlFor="pastDate">날짜</label>
+        <input id="pastDate" type="date" max={yesterday} value={date} onChange={(e) => setDate(e.target.value)} />
+      </div>
+      <button className="btn" disabled={!ok} onClick={() => onPick(date)}>{ok ? `${formatDate(date)} 기록 넣기` : '어제까지의 날짜를 고르세요'}</button>
+      <button className="btn ghost small" onClick={onClose}>취소</button>
+    </Sheet>
   );
 }
