@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ShotIcon } from '../components/ShotIcon';
-import { searchMemos, splitByTerms } from '../domain/memo';
+import { searchDayMemos, searchMemos, splitByTerms } from '../domain/memo';
 import { ShareBadge } from '../components/ShareBadge';
 import { shareStateOf } from '../domain/sharedMemo';
 import { hitsOf } from '../domain/stats';
@@ -13,9 +13,9 @@ function Marked({ text, query }: { text: string; query: string }) {
   return <>{splitByTerms(text, query).map((p, i) => (i % 2 ? <mark key={i}>{p}</mark> : p))}</>;
 }
 
-/** 메모와 태그를 남긴 순을 한곳에 모아 보고 찾는다. 누르면 그날 기록으로 간다. */
-export function MemoView({ onJump }: { onJump: (date: string, id: string) => void }) {
-  const { ends, gearName, rangeName, settings, online } = useStore();
+/** 메모와 태그를 남긴 순, 하루 메모를 한곳에 모아 보고 찾는다. 누르면 그날 기록으로 간다. */
+export function MemoView({ onJump, onJumpDay }: { onJump: (date: string, id: string) => void; onJumpDay: (date: string) => void }) {
+  const { ends, days, gearName, rangeName, settings, online } = useStore();
   const [q, setQ] = useState('');
   const [tag, setTag] = useState<string | null>(null);
   const [vis, setVis] = useState<'any' | 'shared' | 'private'>('any');
@@ -23,7 +23,18 @@ export function MemoView({ onJump }: { onJump: (date: string, id: string) => voi
   const visOk = (e: (typeof ends)[number]) => vis === 'any' || (vis === 'private' ? shareStateOf(e) === 'private' : !!e.share);
   const hits = searchMemos(ends, q, tag, gearName, rangeName).filter((h) => !online || visOk(h.end));
   const anyShared = ends.some((e) => e.share && shareStateOf(e));
-  const total = searchMemos(ends, '', null, gearName, rangeName).length;
+  // 하루 메모는 태그가 없고 늘 나만 보기다
+  const dayHits = tag || (online && vis === 'shared') ? [] : searchDayMemos(days, q);
+  const endTotal = searchMemos(ends, '', null, gearName, rangeName).length;
+  const dayTotal = searchDayMemos(days, '').length;
+  const total = endTotal + dayTotal;
+  const shown = hits.length + dayHits.length;
+  // 날짜 최근 것부터, 같은 날이면 하루 메모를 먼저
+  type Item = { kind: 'day'; date: string; memo: string } | { kind: 'end'; hit: (typeof hits)[number] };
+  const items: Item[] = [...dayHits.map((d): Item => ({ kind: 'day', date: d.date, memo: d.memo })), ...hits.map((h): Item => ({ kind: 'end', hit: h }))];
+  const dateOf = (it: Item) => (it.kind === 'day' ? it.date : it.hit.end.date);
+  const order = new Map(items.map((it, i) => [it, i]));
+  items.sort((a, b) => (dateOf(a) === dateOf(b) ? (a.kind === b.kind ? order.get(a)! - order.get(b)! : a.kind === 'day' ? -1 : 1) : dateOf(a) < dateOf(b) ? 1 : -1));
 
   return (
     <section className="card memo-view">
@@ -44,11 +55,18 @@ export function MemoView({ onJump }: { onJump: (date: string, id: string) => voi
           ))}
         </div>
       )}
-      <div className="small muted">{q || tag || vis !== 'any' ? `${total}개 중 ${hits.length}개` : `메모·태그를 남긴 순 ${total}개`}</div>
-      {total === 0 && <div className="empty">아직 메모가 없습니다. 습사 탭에서 순을 저장할 때 메모나 태그를 남겨 보세요.</div>}
-      {total > 0 && hits.length === 0 && <div className="empty">맞는 메모가 없습니다.</div>}
+      <div className="small muted">{q || tag || vis !== 'any' ? `${total}개 중 ${shown}개` : `메모·태그를 남긴 순 ${endTotal}개${dayTotal ? ` · 하루 메모 ${dayTotal}개` : ''}`}</div>
+      {total === 0 && <div className="empty">아직 메모가 없습니다. 습사 탭에서 순을 저장할 때 메모나 태그를 남기거나, 오늘 메모를 써 보세요.</div>}
+      {total > 0 && shown === 0 && <div className="empty">맞는 메모가 없습니다.</div>}
       <div className="memo-list">
-        {hits.map(({ end: e, index }) => {
+        {items.map((it) => {
+          if (it.kind === 'day') return (
+            <button key={`day-${it.date}`} className="memo-item day" onClick={() => onJumpDay(it.date)}>
+              <div className="mi-head"><b>{formatDate(it.date)}</b><span className="pill day">하루 메모</span></div>
+              <div className="mi-text"><Marked text={it.memo} query={q} /></div>
+            </button>
+          );
+          const { end: e, index } = it.hit;
           const h = hitsOf(e);
           const w = weatherLabel(e.weather);
           return (

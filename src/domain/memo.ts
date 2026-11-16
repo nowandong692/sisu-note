@@ -1,4 +1,4 @@
-import type { End } from './types';
+import type { DayNote, End } from './types';
 import { weatherLabel } from './weather';
 
 export interface MemoHit {
@@ -25,6 +25,15 @@ export function searchMemos(ends: End[], query: string, tag: string | null, gear
     })
     .sort((a, b) => (a.date === b.date ? b.recordedAt - a.recordedAt : a.date < b.date ? 1 : -1))
     .map((end) => ({ end, index: indexOf.get(end.id)! }));
+}
+
+/** 하루 메모에서 찾기 (최근 날부터). 검색어는 searchMemos와 같은 규칙 */
+export function searchDayMemos(days: DayNote[], query: string): DayNote[] {
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  return days
+    .filter((d) => d.memo.trim())
+    .filter((d) => terms.every((t) => d.memo.toLowerCase().includes(t.replace(/^#/, ''))))
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
 /** 검색어가 들어간 곳을 표시하기 위해 글을 조각낸다. 홀수 번째 조각이 맞은 부분. */

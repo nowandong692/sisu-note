@@ -15,6 +15,7 @@ import { formatDate, today } from '../domain/util';
 import { weatherLabel } from '../domain/weather';
 import { honorific, trendOf, welcomeFor, welcomeWho } from '../domain/welcome';
 import { danShort, topDan } from '../domain/dan';
+import { DayMemoField } from '../components/DayMemoField';
 import { defaultShare } from '../domain/sharedMemo';
 import { onlineAvailable } from '../platform/online';
 import { useStore } from '../state/store';
@@ -379,6 +380,8 @@ export function ShootScreen() {
               {!past && <button className="btn ghost small danger-text" onClick={() => setResetting(true)}>오늘 기록 초기화</button>}
             </div>
           </>}
+        {/* 순 메모와 따로, 그날 전체를 돌아보는 메모 (편집 중인 순과 상관없이 보이는 날짜의 메모) */}
+        <DayMemoField date={day} label={past ? '이 날 메모' : '오늘 메모'} />
       </section>
 
       {asking && (

@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { End, Gear, Settings } from '../domain/types';
+import type { DayNote, End, Gear, Settings } from '../domain/types';
 import { DEFAULT_SETTINGS } from '../domain/types';
 import type { Repository } from './repository';
 
@@ -7,6 +7,7 @@ class SisuDb extends Dexie {
   gear!: Table<Gear, string>;
   ends!: Table<End, string>;
   kv!: Table<{ key: string; value: unknown }, string>;
+  days!: Table<DayNote, string>;
 
   constructor(name: string) {
     super(name);
@@ -15,6 +16,8 @@ class SisuDb extends Dexie {
       ends: 'id, date, bowId, ringId, arrowId',
       kv: 'key',
     });
+    // 2: 하루 메모
+    this.version(2).stores({ days: 'date' });
   }
 }
 
@@ -26,13 +29,14 @@ export class IndexedDbRepository implements Repository {
   }
 
   async loadAll() {
-    const [gear, ends, s] = await Promise.all([
+    const [gear, ends, days, s] = await Promise.all([
       this.db.gear.toArray(),
       this.db.ends.orderBy('date').toArray(),
+      this.db.days.toArray(),
       this.db.kv.get('settings'),
     ]);
     const settings = { ...DEFAULT_SETTINGS, ...((s?.value as Partial<Settings>) ?? {}) };
-    return { gear, ends, settings };
+    return { gear, ends, days, settings };
   }
 
   async putGear(g: Gear) {
@@ -59,16 +63,25 @@ export class IndexedDbRepository implements Repository {
     await this.db.ends.delete(id);
   }
 
+  async putDay(d: DayNote) {
+    if (d.memo.trim()) await this.db.days.put(d);
+    else await this.db.days.delete(d.date);
+  }
+
   async saveSettings(s: Settings) {
     await this.db.kv.put({ key: 'settings', value: s });
   }
 
-  async replaceAll(data: { gear: Gear[]; ends: End[] }) {
-    await this.db.transaction('rw', this.db.gear, this.db.ends, async () => {
+  async replaceAll(data: { gear: Gear[]; ends: End[]; days?: DayNote[] }) {
+    await this.db.transaction('rw', this.db.gear, this.db.ends, this.db.days, async () => {
       await this.db.gear.clear();
       await this.db.ends.clear();
       await this.db.gear.bulkPut(data.gear);
       await this.db.ends.bulkPut(data.ends);
+      if (data.days) {
+        await this.db.days.clear();
+        await this.db.days.bulkPut(data.days);
+      }
     });
   }
 }

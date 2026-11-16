@@ -585,3 +585,14 @@ nav.tabs .tab-icon .dot { position: absolute; top: -1px; right: -5px; width: 9px
 .news-banner { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; text-align: left; cursor: pointer; font: inherit; }
 .news-banner b { color: var(--hong); white-space: nowrap; }
 .admin-quote { margin: 4px 0; padding: 6px 10px; border-left: 3px solid var(--line); background: var(--paper); font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* 하루 메모 */
+.day-memo label { display: flex; align-items: center; gap: 6px; }
+.day-memo .opt { font-size: 10px; border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; color: var(--muted); }
+.day-memo-mark { display: inline-flex; vertical-align: -2px; margin-right: 6px; color: var(--hong); }
+.day-memo-view { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin: 2px 0 8px; }
+.day-memo-view .dm-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.day-memo-view .dm-text { font-size: 14px; line-height: 1.55; white-space: pre-wrap; }
+.detail .day-memo { margin: 2px 0 8px; }
+.pill.day { background: var(--hong-soft); color: var(--hong); }
+.memo-item.day .mi-text { white-space: pre-wrap; }

@@ -87,6 +87,13 @@ export interface End {
   updatedAt: number;
 }
 
+/** 하루 메모: 순과 따로 그날 전체를 돌아보는 글 (이 기기에만, 나만 본다) */
+export interface DayNote {
+  date: string; // YYYY-MM-DD
+  memo: string;
+  updatedAt: number;
+}
+
 /** 메모 공개 범위: 전체, 같은 활터(소속이 같은 궁사)만 */
 export type MemoShare = 'all' | 'club';
 
