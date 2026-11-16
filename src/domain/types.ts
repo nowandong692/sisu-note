@@ -82,8 +82,13 @@ export interface End {
   rangeId?: string | null;
   /** 이 순을 쏠 때의 날씨 (입력하지 않았으면 없음) */
   weather?: Weather | null;
+  /** 메모를 다른 궁사에게 공개 (없으면 나만 본다) */
+  share?: MemoShare | null;
   updatedAt: number;
 }
+
+/** 메모 공개 범위: 전체, 같은 활터(소속이 같은 궁사)만 */
+export type MemoShare = 'all' | 'club';
 
 export interface Place {
   name: string;
@@ -111,6 +116,8 @@ export interface OnlineProfile {
   joinedAt: number;
   /** 아직 서버에 올리지 못한 일 (인터넷이 없을 때 모아 둔다) */
   queue: { op: 'put' | 'del'; id: string }[];
+  /** 공개 상태를 서버에 아직 알리지 못한 순 id (공개, 고침, 내림) */
+  memoQueue?: string[];
 }
 
 export type ThemeMode = 'system' | 'light' | 'dark';

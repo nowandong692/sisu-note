@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ShotIcon } from '../components/ShotIcon';
 import { searchMemos, splitByTerms } from '../domain/memo';
+import { SHARE_LABEL } from '../domain/sharedMemo';
 import { hitsOf } from '../domain/stats';
 import { myTags } from '../domain/tags';
 import { formatDate } from '../domain/util';
@@ -13,7 +14,7 @@ function Marked({ text, query }: { text: string; query: string }) {
 
 /** 메모와 태그를 남긴 순을 한곳에 모아 보고 찾는다. 누르면 그날 기록으로 간다. */
 export function MemoView({ onJump }: { onJump: (date: string, id: string) => void }) {
-  const { ends, gearName, rangeName, settings } = useStore();
+  const { ends, gearName, rangeName, settings, online } = useStore();
   const [q, setQ] = useState('');
   const [tag, setTag] = useState<string | null>(null);
   const tags = [...new Set([...myTags(settings), ...ends.flatMap((e) => e.tags)])].filter((t) => ends.some((e) => e.tags.includes(t)));
@@ -48,6 +49,7 @@ export function MemoView({ onJump }: { onJump: (date: string, id: string) => voi
               </div>
               {e.memo && <div className="mi-text"><Marked text={e.memo} query={q} /></div>}
               <div className="mi-meta">
+                {online && e.share && <span className="pill scope">{SHARE_LABEL[e.share]}</span>}
                 {e.tags.map((t) => <span key={t} className="pill">#{t}</span>)}
                 <span>{e.rangeId ? `${rangeName(e.rangeId)} · ` : ''}{gearName(e.bowId)} · {gearName(e.ringId)}{w && ` · ${w}`}</span>
               </div>

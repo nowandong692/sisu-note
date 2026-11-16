@@ -8,7 +8,8 @@ const KEY = import.meta.env.VITE_SUPABASE_KEY;
 
 export const onlineAvailable = () => !!(URL && KEY);
 
-export type OnlineErrorCode = 'network' | 'nickname-taken' | 'unknown-key' | 'daily-limit' | 'server';
+/** missing: 서버에 그 함수가 아직 없음 (SQL을 실행하기 전) */
+export type OnlineErrorCode = 'network' | 'nickname-taken' | 'unknown-key' | 'daily-limit' | 'missing' | 'server';
 export class OnlineError extends Error {
   readonly code: OnlineErrorCode;
   constructor(message: string, code: OnlineErrorCode) { super(message); this.code = code; }
@@ -20,6 +21,9 @@ const MESSAGES: [RegExp, OnlineErrorCode, string][] = [
   [/daily limit/, 'daily-limit', '하루에 올릴 수 있는 순(40순)을 넘었습니다.'],
   [/not admin/, 'server', '관리자 코드가 맞지 않습니다.'],
   [/no such archer/, 'server', '그런 닉네임의 궁사가 없습니다.'],
+  [/no club/, 'server', '같은 활터 공개는 소속 활터를 정한 뒤에 쓸 수 있습니다.'],
+  [/share limit/, 'server', '하루에 공개할 수 있는 메모(40개)를 넘었습니다.'],
+  [/Could not find the function public\.(share_memo|unshare_memo|shared_memo_list)/, 'missing', '서버에 메모 공개 기능이 아직 없습니다. supabase/migrations/007_shared_memos.sql을 실행해 주세요.'],
   [/Could not find the function public\.admin_(find_archers|archer_days|archer_day_ends|delete_ends)/, 'server', '서버에 기록 관리 기능이 아직 없습니다. supabase/migrations/005_admin_records.sql을 실행해 주세요.'],
   [/Could not find the function public\.admin_/, 'server', '서버에 관리자 기능이 아직 없습니다. supabase/migrations/003_admin.sql을 실행해 주세요.'],
 ];

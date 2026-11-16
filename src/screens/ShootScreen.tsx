@@ -7,13 +7,14 @@ import { Target, type Mark } from '../components/Target';
 import { AutoTextarea, Sheet, toast } from '../components/ui';
 import { classifyTap, directionFor, hitShot, shotLabel } from '../domain/target';
 import { hitsOf } from '../domain/stats';
-import type { End, Shot, TrackedCategory } from '../domain/types';
+import type { End, MemoShare, Shot, TrackedCategory } from '../domain/types';
 import { SHOTS_PER_END } from '../domain/types';
 import { addTag, myTags, tagChoices, tagProblem, TAG_MAX } from '../domain/tags';
 import { formatDate, today } from '../domain/util';
 import { weatherLabel } from '../domain/weather';
 import { honorific, trendOf, welcomeFor, welcomeWho } from '../domain/welcome';
 import { danShort, topDan } from '../domain/dan';
+import { onlineAvailable } from '../platform/online';
 import { useStore } from '../state/store';
 import { focusLogEnd } from './LogScreen';
 import { showLogView } from './RecordsScreen';
@@ -27,9 +28,11 @@ interface Draft {
   active: number;
   tags: string[];
   memo: string;
+  /** 메모 공개 범위 (null = 나만 보기) */
+  share: MemoShare | null;
 }
-const emptyDraft = (): Draft => ({ editId: null, shots: Array(SHOTS_PER_END).fill(null), active: 0, tags: [], memo: '' });
-const draftOf = (e: End): Draft => ({ editId: e.id, shots: [...e.shots], active: 0, tags: [...e.tags], memo: e.memo });
+const emptyDraft = (): Draft => ({ editId: null, shots: Array(SHOTS_PER_END).fill(null), active: 0, tags: [], memo: '', share: null });
+const draftOf = (e: End): Draft => ({ editId: e.id, shots: [...e.shots], active: 0, tags: [...e.tags], memo: e.memo, share: e.share ?? null });
 
 export function EndLine({ end, index, showMeta = true, selected, onSelect }: { end: End; index: number; showMeta?: boolean; selected?: boolean; onSelect?: () => void }) {
   const { gearName } = useStore();
@@ -115,6 +118,29 @@ function TagPicker({ picked, onChange }: { picked: string[]; onChange: (tags: st
   );
 }
 
+/** 메모 공개 범위 고르기. 랭킹(겨루기)에 참여해 닉네임이 있어야 공개할 수 있다. */
+function SharePicker({ value, hasContent, onChange }: { value: MemoShare | null; hasContent: boolean; onChange: (v: MemoShare | null) => void }) {
+  const { online } = useStore();
+  if (!onlineAvailable()) return null;
+  if (!online) {
+    return hasContent ? <div className="small muted share-hint">겨루기 탭에서 닉네임을 정하면 메모를 다른 궁사에게 공개하고 조언을 받을 수 있습니다.</div> : null;
+  }
+  const noClub = !online.rangeName;
+  const opts: [MemoShare | null, string][] = [[null, '나만 보기'], ['club', '같은 활터'], ['all', '전체 공개']];
+  return (
+    <div className="field share-field">
+      <label id="shareLabel">메모 공개</label>
+      <div className="seg" role="group" aria-labelledby="shareLabel">
+        {opts.map(([v, l]) => (
+          <button key={l} className={value === v ? 'on' : ''} aria-pressed={value === v} disabled={v === 'club' && noClub && value !== 'club'} onClick={() => onChange(v)}>{l}</button>
+        ))}
+      </div>
+      {value && <div className="small muted">{online.nickname} 이름으로 {value === 'club' ? `${online.rangeName ?? '내 소속 활터'} 궁사에게` : '모든 궁사에게'} 시수, 태그, 메모가 보입니다.{!hasContent && ' 메모나 태그를 남겨야 올라갑니다.'}</div>}
+      {!value && noClub && <div className="small muted">같은 활터 공개는 설정에서 소속 활터를 정하면 쓸 수 있습니다.</div>}
+    </div>
+  );
+}
+
 const OPEN_GEAR = 'gukgungrok:open-gear';
 /** 다른 화면에서 장비 관리를 열 때 (습사 탭으로 옮긴 뒤 부른다) */
 // eslint-disable-next-line react-refresh/only-export-components
@@ -180,7 +206,7 @@ export function ShootScreen() {
   const save = async (stay = false) => {
     if (filled < SHOTS_PER_END) return;
     if (editing) {
-      await store.updateEnd({ ...editing, shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim() });
+      await store.updateEnd({ ...editing, shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim(), share: d.share });
       toast(`${editing.date === today() ? '' : formatDate(editing.date) + ' '}${editIndex}순을 고쳤습니다 · ${hitCount}중`);
       setAsking(false);
       if (stay) return;
@@ -188,7 +214,7 @@ export function ShootScreen() {
       if (editing.date !== today()) { focusLogEnd(editing.date, editing.id); showLogView(); location.hash = 'log'; }
       return;
     }
-    const e = await store.saveEnd({ shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim() }, past ?? undefined);
+    const e = await store.saveEnd({ shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim(), share: d.share }, past ?? undefined);
     const h = hitsOf(e);
     if (past) {
       // 지난 순은 업적을 다시 계산해 목록에만 남긴다 (축하 창은 오늘 순에만 띄운다)
@@ -280,6 +306,7 @@ export function ShootScreen() {
           <label htmlFor="memo">순 메모</label>
           <AutoTextarea id="memo" rows={2} placeholder="예: 만작을 길게 가져가니 좋았음" value={d.memo} onChange={(e) => setD({ ...d, memo: e.target.value })} />
         </div>
+        <SharePicker value={d.share} hasContent={!!(d.memo.trim() || d.tags.length)} onChange={(share) => setD((p) => ({ ...p, share }))} />
         <button className="btn" disabled={filled < SHOTS_PER_END} onClick={() => save()}>
           {filled === SHOTS_PER_END ? `${editing ? `${editIndex}순 고친 내용 저장` : `${todays.length + 1}순 저장`} · ${hitCount}중` : `5시를 모두 입력하세요 (${filled}/5)`}
         </button>
