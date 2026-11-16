@@ -534,3 +534,11 @@ button.link { background: none; border: none; padding: 0; color: var(--hong); fo
 .ach-row.sp { border-left: 3px solid var(--hong); padding-left: 8px; margin-left: -11px; }
 .ach-row.sp.on { background: var(--hong-soft); border-radius: 0 8px 8px 0; }
 .ach-row.sp b { font-family: var(--font-display); font-size: 16px; }
+
+/* 메모 태그 고치기 */
+.chip.add-chip { border-style: dashed; }
+.tag-add input { flex: 1; min-width: 0; }
+.tag-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.tag-list li { display: flex; align-items: center; gap: 6px; }
+.tag-list .tag-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.tag-list .btn.small { min-width: 36px; }

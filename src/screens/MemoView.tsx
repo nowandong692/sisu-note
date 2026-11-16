@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ShotIcon } from '../components/ShotIcon';
 import { searchMemos, splitByTerms } from '../domain/memo';
 import { hitsOf } from '../domain/stats';
-import { MEMO_TAGS } from '../domain/types';
+import { myTags } from '../domain/tags';
 import { formatDate } from '../domain/util';
 import { weatherLabel } from '../domain/weather';
 import { useStore } from '../state/store';
@@ -13,10 +13,10 @@ function Marked({ text, query }: { text: string; query: string }) {
 
 /** 메모와 태그를 남긴 순을 한곳에 모아 보고 찾는다. 누르면 그날 기록으로 간다. */
 export function MemoView({ onJump }: { onJump: (date: string, id: string) => void }) {
-  const { ends, gearName, rangeName } = useStore();
+  const { ends, gearName, rangeName, settings } = useStore();
   const [q, setQ] = useState('');
   const [tag, setTag] = useState<string | null>(null);
-  const tags = [...new Set([...MEMO_TAGS, ...ends.flatMap((e) => e.tags)])].filter((t) => ends.some((e) => e.tags.includes(t)));
+  const tags = [...new Set([...myTags(settings), ...ends.flatMap((e) => e.tags)])].filter((t) => ends.some((e) => e.tags.includes(t)));
   const hits = searchMemos(ends, q, tag, gearName, rangeName);
   const total = searchMemos(ends, '', null, gearName, rangeName).length;
 
