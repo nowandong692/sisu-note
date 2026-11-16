@@ -67,6 +67,33 @@ export interface SharedMemo {
   created_at: string;
   updated_at: string;
   mine: boolean;
+  /** 댓글 수 (서버에 008이 없으면 없음) */
+  comments?: number;
+}
+
+/** 댓글 글자 수 한도 (서버도 같은 한도) */
+export const COMMENT_MAX = 300;
+
+/** 서버가 돌려준 댓글 한 줄 */
+export interface MemoComment {
+  id: number;
+  nickname: string;
+  range_name: string | null;
+  dan: number | null;
+  body: string;
+  created_at: string;
+  /** 내가 쓴 댓글 */
+  mine: boolean;
+  /** 내가 지울 수 있는 댓글 (내가 썼거나 내 메모에 달린 것) */
+  can_delete: boolean;
+}
+
+/** 보낼 댓글 다듬기: 앞뒤 공백, 세 줄 넘게 빈 줄은 한 줄로. 비었거나 너무 길면 까닭을 돌려준다 */
+export function cleanComment(s: string): { body: string; problem: string | null } {
+  const body = s.trim().replace(/\n{3,}/g, '\n\n');
+  if (!body) return { body, problem: '댓글 내용을 적어 주세요.' };
+  if ([...body].length > COMMENT_MAX) return { body, problem: `댓글은 ${COMMENT_MAX}자까지 쓸 수 있습니다.` };
+  return { body, problem: null };
 }
 
 /** "방금", "5분 전", "3시간 전", "어제", "4일 전", 그보다 오래면 날짜 */
