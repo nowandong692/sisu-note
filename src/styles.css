@@ -329,6 +329,8 @@ input[type=search] { width: 100%; border: 1px solid var(--line); border-radius: 
 .act-btn.danger.confirm { color: #fff; background: var(--hong); border-color: var(--hong); font-weight: 600; }
 .fetch-weather { display: flex; flex-direction: column; gap: 6px; }
 .err-text { color: var(--hong); }
+.ok-text { color: var(--good); }
+.nick-hint { min-height: 1.4em; }
 
 /* 장비 삭제 */
 .btn.danger { background: var(--hong); border-color: var(--hong); color: #fff; }

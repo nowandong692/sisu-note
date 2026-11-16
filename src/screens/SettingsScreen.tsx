@@ -1,5 +1,9 @@
 import { useMemo, useState } from 'react';
 import { ClubSheet } from '../components/ClubSheet';
+import { NicknameField, type NickStatus } from '../components/NicknameField';
+import { cleanNickname, nicknameProblem } from '../domain/nickname';
+import { onlineAvailable } from '../platform/online';
+import { CodeSheet } from './RankingScreen';
 import { ConfirmButton, Sheet, toast } from '../components/ui';
 import { endsToCsv } from '../domain/csv';
 import { sampleEndIds } from '../domain/sample';
@@ -32,6 +36,54 @@ function AppearanceSection() {
         ))}
       </div>
       <div className="small muted">과녁 그림과 관중 위치를 나타내는 파란 점은 테마와 상관없이 그대로입니다.</div>
+    </section>
+  );
+}
+
+/** 내 닉네임: 인사와 랭킹에 쓰인다. 다른 궁사와 겹치지 않게 서버에서 확인한다 */
+function NicknameSection() {
+  const store = useStore();
+  const o = store.online;
+  const [nickname, setNickname] = useState(o?.nickname ?? '');
+  const [nick, setNick] = useState<NickStatus>('idle');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [code, setCode] = useState<string | null>(null);
+  // 다른 곳(랭킹 탭)에서 닉네임이 바뀌면 칸도 맞춘다
+  const [seen, setSeen] = useState(o?.nickname);
+  if (o?.nickname !== seen) { setSeen(o?.nickname); setNickname(o?.nickname ?? ''); }
+
+  const unchanged = !!o && cleanNickname(nickname) === o.nickname;
+  const save = async () => {
+    const bad = nicknameProblem(nickname);
+    if (bad) { setErr(bad); return; }
+    if (nick === 'taken') { setErr('이미 쓰는 닉네임입니다. 다른 닉네임을 정해 주세요.'); return; }
+    setBusy(true); setErr('');
+    try {
+      if (o) { await store.setOnlineProfile(nickname, store.settings.club?.name ?? null); toast('닉네임을 바꿨습니다'); }
+      else { await store.joinOnline(nickname, store.settings.club?.name ?? null); setCode('new'); }
+    } catch (e) { setErr(e instanceof Error ? e.message : '알 수 없는 오류가 났습니다.'); } finally { setBusy(false); }
+  };
+
+  return (
+    <section className="card">
+      <h2>내 닉네임</h2>
+      {!onlineAvailable() && !o ? (
+        <div className="small muted">닉네임은 랭킹 서버에서 겹치지 않게 확인한 뒤 정합니다. 랭킹 서버를 준비하고 있어 곧 정할 수 있습니다.</div>
+      ) : (
+        <>
+          <NicknameField id="set-nick" label={o ? '습사 인사와 랭킹에 이 이름으로 보입니다' : '습사 인사와 랭킹에 쓸 이름 (실명이 아니어도 됩니다)'}
+            value={nickname} mine={o?.nickname} myKey={o?.key} onStatus={setNick} onChange={(v) => { setNickname(v); setErr(''); }} />
+          {!o && <div className="small muted">닉네임을 정하면 랭킹에 함께 참여합니다. 순마다 관중 여부와 저장 시각, 닉네임과 소속만 서버에 올라가고, 이 기기에 복구 코드가 저장됩니다.</div>}
+          {err && <div className="small err-text" role="alert">{err}</div>}
+          <div className="row">
+            <button className="btn small" disabled={busy || unchanged || nick === 'taken' || nick === 'checking'} onClick={save}>
+              {busy ? '저장하는 중…' : o ? '닉네임 바꾸기' : '닉네임 정하고 랭킹 참여'}
+            </button>
+          </div>
+        </>
+      )}
+      {code && store.online && <CodeSheet code={store.online.key} first onClose={() => setCode(null)} />}
     </section>
   );
 }
@@ -141,7 +193,7 @@ function DataWarnSheet({ action, onClose }: { action: DataAction; onClose: () =>
   );
 }
 
-/** 설정 탭: 내 소속, 내 단, 화면 밝기·테마, 데이터 */
+/** 설정 탭: 내 닉네임, 내 소속, 내 단, 화면 밝기·테마, 데이터 */
 export function SettingsScreen() {
   const store = useStore();
   const { ends, gear } = store;
@@ -149,6 +201,7 @@ export function SettingsScreen() {
   const hasSample = useMemo(() => sampleEndIds(ends).size > 0, [ends]);
   return (
     <>
+      <NicknameSection />
       <ClubSection />
       <DanSection />
       <AppearanceSection />
