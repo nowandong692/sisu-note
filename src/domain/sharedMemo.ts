@@ -1,4 +1,4 @@
-import type { End, MemoShare } from './types';
+import type { End, MemoShare, OnlineProfile, Settings } from './types';
 
 /** 공개 메모 글자 수 한도 (서버도 같은 한도로 자른다) */
 export const SHARED_MEMO_MAX = 500;
@@ -6,6 +6,22 @@ export const SHARED_MEMO_MAX = 500;
 export const SHARED_TAGS_MAX = 10;
 
 export const SHARE_LABEL: Record<MemoShare, string> = { all: '전체 공개', club: '같은 활터 공개' };
+
+/** 메모 공개 상태. 메모와 태그가 없으면 보일 것이 없으니 null */
+export type ShareState = MemoShare | 'private';
+export function shareStateOf(e: End): ShareState | null {
+  if (!e.memo.trim() && !e.tags.length) return null;
+  return e.share ?? 'private';
+}
+export const SHARE_STATE_LABEL: Record<ShareState, string> = { ...SHARE_LABEL, private: '나만 보기' };
+
+/** 새 순의 공개 범위: 마지막으로 고른 것. 참여하지 않았거나, 같은 활터인데 소속이 없으면 나만 보기 */
+export function defaultShare(settings: Pick<Settings, 'lastShare'>, online: Pick<OnlineProfile, 'rangeName'> | null | undefined): MemoShare | null {
+  const s = settings.lastShare ?? null;
+  if (!online || !s) return null;
+  if (s === 'club' && !online.rangeName) return null;
+  return s;
+}
 
 /** 그날 몇 번째 순인지 (저장한 차례, 1부터) */
 export function endNoOf(ends: End[], e: End): number {

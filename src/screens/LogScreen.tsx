@@ -13,6 +13,8 @@ import { endMeta } from '../domain/endMeta';
 import { EndLine } from './ShootScreen';
 import { MemoView } from './MemoView';
 import { dayMinutes, daySegments, formatDuration, spanLabel } from '../domain/session';
+import { ShareBadge } from '../components/ShareBadge';
+import { shareStateOf } from '../domain/sharedMemo';
 
 /**
  * 그날 쏜 화살을 과녁 하나에 모두 찍는다.
@@ -56,7 +58,7 @@ const FOCUS_EVENT = 'log-focus';
 export function focusLogEnd(date: string, id: string) { window.dispatchEvent(new CustomEvent(FOCUS_EVENT, { detail: { date, id } })); }
 
 export function LogScreen() {
-  const { ends, gearName, deleteEnd, settings, setEditId, rangeName, setPastDate } = useStore();
+  const { ends, gearName, deleteEnd, settings, setEditId, rangeName, setPastDate, online } = useStore();
   const [picking, setPicking] = useState(false);
   /** 습사 탭을 그 날짜로 연다 */
   const addTo = (date: string) => { setEditId(null); setPastDate(date); setPicking(false); location.hash = ''; };
@@ -156,6 +158,7 @@ export function LogScreen() {
                       </div>
                       {misses.length > 0 && <div className="memo">{misses.join(', ')}</div>}
                       {e.memo && <div className="memo">{e.memo}</div>}
+                      {online && shareStateOf(e) && <div className="memo share-line"><ShareBadge end={e} /></div>}
                     </div>
                   );
                 })}

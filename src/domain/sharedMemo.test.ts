@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agoLabel, endNoOf, shareArgs, shareTouched } from './sharedMemo';
+import { agoLabel, defaultShare, endNoOf, shareArgs, shareStateOf, shareTouched } from './sharedMemo';
 import type { End, Shot } from './types';
 
 const shot = (hit: boolean): Shot => ({ hit, x: null, y: null, zone: null, side: null, level: null, direction: null });
@@ -48,5 +48,22 @@ describe('메모 공개', () => {
     expect(agoLabel('2026-11-15T09:00:00+09:00', now)).toBe('어제');
     expect(agoLabel('2026-11-12T09:00:00+09:00', now)).toBe('4일 전');
     expect(agoLabel('2026-10-01T09:00:00+09:00', now)).toBe('10월 1일');
+  });
+});
+
+describe('공개 여부 기억과 표시', () => {
+  const e = (extra: Partial<End>) => end('x', '2026-11-16', 1, extra);
+  it('메모나 태그가 있는 순만 공개·나만 보기를 가른다', () => {
+    expect(shareStateOf(e({}))).toBeNull();
+    expect(shareStateOf(e({ memo: '만작' }))).toBe('private');
+    expect(shareStateOf(e({ tags: ['줌손'], share: 'club' }))).toBe('club');
+    expect(shareStateOf(e({ memo: '만작', share: 'all' }))).toBe('all');
+  });
+  it('새 순은 마지막으로 고른 공개 범위로 시작한다', () => {
+    expect(defaultShare({ lastShare: 'all' }, { rangeName: null })).toBe('all');
+    expect(defaultShare({ lastShare: 'club' }, { rangeName: '황학정' })).toBe('club');
+    expect(defaultShare({ lastShare: 'club' }, { rangeName: null })).toBeNull();
+    expect(defaultShare({ lastShare: 'all' }, null)).toBeNull();
+    expect(defaultShare({}, { rangeName: '황학정' })).toBeNull();
   });
 });

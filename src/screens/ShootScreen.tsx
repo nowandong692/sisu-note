@@ -14,6 +14,7 @@ import { formatDate, today } from '../domain/util';
 import { weatherLabel } from '../domain/weather';
 import { honorific, trendOf, welcomeFor, welcomeWho } from '../domain/welcome';
 import { danShort, topDan } from '../domain/dan';
+import { defaultShare } from '../domain/sharedMemo';
 import { onlineAvailable } from '../platform/online';
 import { useStore } from '../state/store';
 import { focusLogEnd } from './LogScreen';
@@ -31,7 +32,7 @@ interface Draft {
   /** 메모 공개 범위 (null = 나만 보기) */
   share: MemoShare | null;
 }
-const emptyDraft = (): Draft => ({ editId: null, shots: Array(SHOTS_PER_END).fill(null), active: 0, tags: [], memo: '', share: null });
+const emptyDraft = (share: MemoShare | null = null): Draft => ({ editId: null, shots: Array(SHOTS_PER_END).fill(null), active: 0, tags: [], memo: '', share });
 const draftOf = (e: End): Draft => ({ editId: e.id, shots: [...e.shots], active: 0, tags: [...e.tags], memo: e.memo, share: e.share ?? null });
 
 export function EndLine({ end, index, showMeta = true, selected, onSelect }: { end: End; index: number; showMeta?: boolean; selected?: boolean; onSelect?: () => void }) {
@@ -149,7 +150,8 @@ export function openGearManager() { window.dispatchEvent(new Event(OPEN_GEAR)); 
 export function ShootScreen() {
   const store = useStore();
   const { settings, ends, gearName, gearOf } = store;
-  const [d, setD] = useState<Draft>(emptyDraft);
+  const fresh = () => emptyDraft(defaultShare(store.settings, store.online));
+  const [d, setD] = useState<Draft>(fresh);
   const [picking, setPicking] = useState(false);
   const [managing, setManaging] = useState(false);
   useEffect(() => {
@@ -160,7 +162,7 @@ export function ShootScreen() {
 
   /** 다른 곳(오늘 기록, 기록 탭)에서 고칠 순을 고르면 입력 칸에 그 순을 불러온다 */
   const editing = store.editId ? ends.find((e) => e.id === store.editId) ?? null : null;
-  if ((editing?.id ?? null) !== d.editId) setD(editing ? draftOf(editing) : emptyDraft());
+  if ((editing?.id ?? null) !== d.editId) setD(editing ? draftOf(editing) : fresh());
   const editIndex = editing ? ends.filter((e) => e.date === editing.date && e.recordedAt <= editing.recordedAt).length : 0;
   const cancelEdit = () => store.setEditId(null);
   const [weathering, setWeathering] = useState(false);
@@ -220,7 +222,7 @@ export function ShootScreen() {
       // 지난 순은 업적을 다시 계산해 목록에만 남긴다 (축하 창은 오늘 순에만 띄운다)
       const line = earnedLine(newlyEarned(achievements(ends, {}, today(), store.gear), achievements([...ends, e], {}, today(), store.gear)));
       toast(`${formatDate(past)} ${todays.length + 1}순 저장 · ${h}중${h === 5 ? ' 몰기!' : ''}${line ? ` · ${line}` : ''}`);
-      setD(emptyDraft());
+      setD(fresh());
       setAsking(false);
       return;
     }
@@ -230,7 +232,7 @@ export function ShootScreen() {
     // 초몰기·3연몰은 축하 창이 대신 알린다 (알림이 창을 가리지 않게)
     if (special.length) setCheer(special);
     else toast(`${todays.length + 1}순 저장 · ${h}중${h === 5 ? ' 몰기!' : ''}${line ? ` · ${line}` : ''}`);
-    setD(emptyDraft());
+    setD(fresh());
     setAsking(false);
   };
 
@@ -306,7 +308,11 @@ export function ShootScreen() {
           <label htmlFor="memo">순 메모</label>
           <AutoTextarea id="memo" rows={2} placeholder="예: 만작을 길게 가져가니 좋았음" value={d.memo} onChange={(e) => setD({ ...d, memo: e.target.value })} />
         </div>
-        <SharePicker value={d.share} hasContent={!!(d.memo.trim() || d.tags.length)} onChange={(share) => setD((p) => ({ ...p, share }))} />
+        <SharePicker value={d.share} hasContent={!!(d.memo.trim() || d.tags.length)} onChange={(share) => {
+          setD((p) => ({ ...p, share }));
+          // 새 순에서 고른 범위는 다음 순에도 쓴다 (지난 순을 고칠 때는 기억하지 않는다)
+          if (!editing) void store.updateSettings({ lastShare: share });
+        }} />
         <button className="btn" disabled={filled < SHOTS_PER_END} onClick={() => save()}>
           {filled === SHOTS_PER_END ? `${editing ? `${editIndex}순 고친 내용 저장` : `${todays.length + 1}순 저장`} · ${hitCount}중` : `5시를 모두 입력하세요 (${filled}/5)`}
         </button>

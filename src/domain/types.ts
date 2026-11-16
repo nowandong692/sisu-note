@@ -139,6 +139,8 @@ export interface Settings {
   dans?: Dans;
   /** 끝난 랭킹 기간마다 내 결과 (업적에 쓴다). 키는 `week:2026-11-02` 꼴 */
   rankHistory?: Record<string, { place: 0 | 1 | 2 | 3 | null; volume: number | null }>;
+  /** 마지막으로 고른 메모 공개 범위. 새 순에 그대로 쓴다 (없으면 나만 보기) */
+  lastShare?: MemoShare | null;
   /** 내 메모 태그 목록 (없으면 기본 태그 MEMO_TAGS) */
   memoTags?: string[];
   /** 화면 밝기와 색 테마 (없으면 기기 설정 따라, 홍심) */

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { ShotIcon } from '../components/ShotIcon';
 import { searchMemos, splitByTerms } from '../domain/memo';
-import { SHARE_LABEL } from '../domain/sharedMemo';
+import { ShareBadge } from '../components/ShareBadge';
+import { shareStateOf } from '../domain/sharedMemo';
 import { hitsOf } from '../domain/stats';
 import { myTags } from '../domain/tags';
 import { formatDate } from '../domain/util';
@@ -17,8 +18,11 @@ export function MemoView({ onJump }: { onJump: (date: string, id: string) => voi
   const { ends, gearName, rangeName, settings, online } = useStore();
   const [q, setQ] = useState('');
   const [tag, setTag] = useState<string | null>(null);
+  const [vis, setVis] = useState<'any' | 'shared' | 'private'>('any');
   const tags = [...new Set([...myTags(settings), ...ends.flatMap((e) => e.tags)])].filter((t) => ends.some((e) => e.tags.includes(t)));
-  const hits = searchMemos(ends, q, tag, gearName, rangeName);
+  const visOk = (e: (typeof ends)[number]) => vis === 'any' || (vis === 'private' ? shareStateOf(e) === 'private' : !!e.share);
+  const hits = searchMemos(ends, q, tag, gearName, rangeName).filter((h) => !online || visOk(h.end));
+  const anyShared = ends.some((e) => e.share && shareStateOf(e));
   const total = searchMemos(ends, '', null, gearName, rangeName).length;
 
   return (
@@ -33,7 +37,14 @@ export function MemoView({ onJump }: { onJump: (date: string, id: string) => voi
           {tags.map((t) => <button key={t} className={`chip ${tag === t ? 'on' : ''}`} aria-pressed={tag === t} onClick={() => setTag(tag === t ? null : t)}>#{t}</button>)}
         </div>
       )}
-      <div className="small muted">{q || tag ? `${total}개 중 ${hits.length}개` : `메모·태그를 남긴 순 ${total}개`}</div>
+      {online && (anyShared || vis !== 'any') && (
+        <div className="seg" role="group" aria-label="공개 여부로 거르기">
+          {([['any', '모두'], ['shared', '공개'], ['private', '나만 보기']] as const).map(([v, l]) => (
+            <button key={v} className={vis === v ? 'on' : ''} aria-pressed={vis === v} onClick={() => setVis(v)}>{l}</button>
+          ))}
+        </div>
+      )}
+      <div className="small muted">{q || tag || vis !== 'any' ? `${total}개 중 ${hits.length}개` : `메모·태그를 남긴 순 ${total}개`}</div>
       {total === 0 && <div className="empty">아직 메모가 없습니다. 습사 탭에서 순을 저장할 때 메모나 태그를 남겨 보세요.</div>}
       {total > 0 && hits.length === 0 && <div className="empty">맞는 메모가 없습니다.</div>}
       <div className="memo-list">
@@ -49,7 +60,7 @@ export function MemoView({ onJump }: { onJump: (date: string, id: string) => voi
               </div>
               {e.memo && <div className="mi-text"><Marked text={e.memo} query={q} /></div>}
               <div className="mi-meta">
-                {online && e.share && <span className="pill scope">{SHARE_LABEL[e.share]}</span>}
+                <ShareBadge end={e} />
                 {e.tags.map((t) => <span key={t} className="pill">#{t}</span>)}
                 <span>{e.rangeId ? `${rangeName(e.rangeId)} · ` : ''}{gearName(e.bowId)} · {gearName(e.ringId)}{w && ` · ${w}`}</span>
               </div>
