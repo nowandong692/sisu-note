@@ -542,6 +542,7 @@ button.link { background: none; border: none; padding: 0; color: var(--hong); fo
 .tag-list li { display: flex; align-items: center; gap: 6px; }
 .tag-list .tag-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .tag-list .btn.small { min-width: 36px; }
+.tag-chip { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
 
 /* 공개 메모 */
 .share-field .seg { align-self: flex-start; }

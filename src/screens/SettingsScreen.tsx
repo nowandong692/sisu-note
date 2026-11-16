@@ -10,7 +10,8 @@ import { sampleEndIds } from '../domain/sample';
 import { DAN_LEVELS, DAN_ORGS, danLabel, validDan, type DanOrg } from '../domain/dan';
 import { PALETTES, type Palette, type ThemeMode } from '../domain/types';
 import { today } from '../domain/util';
-import { addTag, moveTag, myTags, removeTag, restoreDefaults, tagProblem, tagUseCount, TAG_MAX } from '../domain/tags';
+import { addTag, moveTag, myTags, restoreDefaults, tagProblem, tagUseCount, TAG_MAX } from '../domain/tags';
+import { TagDeleteSheet } from '../components/TagDeleteSheet';
 import { MEMO_TAGS } from '../domain/types';
 import { saveTextFile } from '../platform/files';
 import { useStore } from '../state/store';
@@ -160,10 +161,7 @@ function MemoTagSection() {
     void save(addTag(list, name)).then(() => toast('태그를 더했습니다'));
     setName(''); setErr('');
   };
-  const remove = (t: string) => {
-    const n = tagUseCount(ends, t);
-    void save(removeTag(list, t)).then(() => toast(n ? `#${t} 태그를 목록에서 뺐습니다. 이미 붙인 ${n}순은 그대로 두어 메모 모아보기에서 찾을 수 있습니다` : `#${t} 태그를 뺐습니다`));
-  };
+  const [deleting, setDeleting] = useState<string | null>(null);
   const missing = MEMO_TAGS.filter((t) => !list.includes(t)).length;
   return (
     <section className="card">
@@ -178,7 +176,7 @@ function MemoTagSection() {
                 <span className="small muted">{n ? `${n}순` : ''}</span>
                 <button className="btn ghost small" aria-label={`${t} 앞으로`} disabled={i === 0} onClick={() => void save(moveTag(list, t, -1))}>↑</button>
                 <button className="btn ghost small" aria-label={`${t} 뒤로`} disabled={i === list.length - 1} onClick={() => void save(moveTag(list, t, 1))}>↓</button>
-                <ConfirmButton className="btn ghost small" label="빼기" confirmLabel={n ? `${n}순에 붙어 있음 · 빼기` : '빼기'} ariaLabel={`${t} 빼기`} onConfirm={() => remove(t)} />
+                <button className="btn ghost small" aria-label={`${t} 빼기`} onClick={() => setDeleting(t)}>빼기</button>
               </li>
             );
           })}
@@ -191,6 +189,7 @@ function MemoTagSection() {
       </div>
       {err && <div className="small err-text" role="alert">{err}</div>}
       {missing > 0 && <button className="btn ghost small" onClick={() => void save(restoreDefaults(list)).then(() => toast('기본 태그를 되살렸습니다'))}>기본 태그 되살리기 ({missing}개)</button>}
+      {deleting && <TagDeleteSheet tag={deleting} onClose={() => setDeleting(null)} />}
       <div className="small muted">태그를 빼도 이미 붙인 순의 태그는 지우지 않습니다. 메모 모아보기에서 그대로 찾을 수 있고, 그 순을 고칠 때도 보입니다. 태그는 이 기기에만 저장되고 서버에 올리지 않습니다.</div>
     </section>
   );
