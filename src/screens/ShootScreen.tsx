@@ -10,6 +10,7 @@ import { hitsOf } from '../domain/stats';
 import type { End, Shot, TrackedCategory } from '../domain/types';
 import { SHOTS_PER_END } from '../domain/types';
 import { addTag, myTags, tagChoices, tagProblem, TAG_MAX } from '../domain/tags';
+import { TagDeleteSheet, useLongPress } from '../components/TagDeleteSheet';
 import { formatDate, today } from '../domain/util';
 import { weatherLabel } from '../domain/weather';
 import { honorific, trendOf, welcomeFor, welcomeWho } from '../domain/welcome';
@@ -81,6 +82,7 @@ function TagPicker({ picked, onChange }: { picked: string[]; onChange: (tags: st
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [err, setErr] = useState('');
+  const [deleting, setDeleting] = useState<string | null>(null);
   const toggle = (t: string) => onChange(picked.includes(t) ? picked.filter((x) => x !== t) : [...picked, t]);
   const add = async () => {
     const bad = tagProblem(name, list);
@@ -97,7 +99,7 @@ function TagPicker({ picked, onChange }: { picked: string[]; onChange: (tags: st
       <label>메모 태그</label>
       <div className="chips">
         {tagChoices(list, picked).map((t) => (
-          <button key={t} className={`chip ${picked.includes(t) ? 'on' : ''}`} aria-pressed={picked.includes(t)} onClick={() => toggle(t)}>{t}</button>
+          <TagChip key={t} tag={t} on={picked.includes(t)} onToggle={() => toggle(t)} onLong={list.includes(t) ? () => setDeleting(t) : undefined} />
         ))}
         {!adding && <button className="chip add-chip" onClick={() => setAdding(true)}>+ 태그</button>}
       </div>
@@ -111,7 +113,19 @@ function TagPicker({ picked, onChange }: { picked: string[]; onChange: (tags: st
         </div>
       )}
       {err && <div className="small err-text" role="alert">{err}</div>}
+      <div className="small muted">태그를 길게 누르면 목록에서 뺄 수 있습니다.</div>
+      {deleting && <TagDeleteSheet tag={deleting} inDraft={picked.includes(deleting)} onClose={() => setDeleting(null)} />}
     </div>
+  );
+}
+
+/** 누르면 붙이고 떼고, 길게 누르면 빼기 창 */
+function TagChip({ tag, on, onToggle, onLong }: { tag: string; on: boolean; onToggle: () => void; onLong?: () => void }) {
+  const lp = useLongPress(() => onLong?.());
+  const { take, ...handlers } = lp;
+  return (
+    <button className={`chip tag-chip ${on ? 'on' : ''}`} aria-pressed={on} {...(onLong ? handlers : {})}
+      onClick={() => { if (take()) onToggle(); }}>{tag}</button>
   );
 }
 
