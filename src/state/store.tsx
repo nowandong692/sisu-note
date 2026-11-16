@@ -59,15 +59,19 @@ export interface Store extends Data {
   deleteEnd(id: string): Promise<void>;
   /** 그날 하루 메모 (없으면 빈 글) */
   dayMemo(date: string): string;
+  /** 공개 중인 하루 메모를 고쳤지만 공개를 아직 확인하지 않은 글 (없으면 null) */
+  dayDraft(date: string): string | null;
+  /** 공개 확인 전 초안을 기기에만 남긴다 (null이면 지운다). 서버에는 올리지 않는다 */
+  setDayDraft(date: string, draft: string | null): Promise<void>;
   /** 그날 하루 메모의 공개 범위 (없으면 나만 보기) */
   dayShare(date: string): MemoShare | null;
-  /** 하루 메모 저장. 비우면 지운다. share를 주면 공개 범위도 바꾼다 */
+  /** 하루 메모 저장 (초안은 지운다). 비우면 지운다. share를 주면 공개 범위도 바꾼다 */
   setDayMemo(date: string, memo: string, share?: MemoShare | null): Promise<void>;
   /** 습사 화면에 불러와 고치는 중인 순 */
   editId: string | null;
   setEditId(id: string | null): void;
   /** 습사 화면이 고치는 중인 순을 저장하는 방법 (다른 탭으로 갈 때 "저장하고 이동"에 쓴다) */
-  editSaver: { current: { canSave: boolean; save(): Promise<void> } | null };
+  editSaver: { current: { canSave: boolean; share?: { scope: MemoShare; memo: string; tags: string[] } | null; save(): Promise<void> } | null };
   addGear(g: Pick<Gear, 'category' | 'nickname' | 'bowType' | 'stringType' | 'thickness' | 'detail'>): Promise<Gear>;
   setArchived(id: string, archived: boolean): Promise<void>;
   /** 별명, 구분, 상세 고치기 */
@@ -124,7 +128,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
   const [editId, setEditId] = useState<string | null>(null);
   const [pastDate, setPastDateRaw] = useState<string | null>(null);
   const setPastDate = useCallback((d: string | null) => setPastDateRaw(d && d < today() ? d : null), []);
-  const editSaver = useRef<{ canSave: boolean; save(): Promise<void> } | null>(null);
+  const editSaver = useRef<{ canSave: boolean; share?: { scope: MemoShare; memo: string; tags: string[] } | null; save(): Promise<void> } | null>(null);
   const [unknownSpot, setUnknownSpot] = useState<LatLon | null>(null);
   const [rangeOffer, setRangeOffer] = useState<RangeOffer | null>(null);
   const declined = useRef(new Set<string>());
@@ -356,12 +360,25 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       void enqueueMemos([...(shareTouched(prev, next) ? [next.id] : []), ...sharedDayIds([next.date])]);
     },
     dayMemo: (date) => data.days.find((d) => d.date === date)?.memo ?? '',
+    dayDraft: (date) => data.days.find((d) => d.date === date)?.draft ?? null,
+    async setDayDraft(date, draft) {
+      const prev = daysRef.current.find((d) => d.date === date);
+      if ((prev?.draft ?? null) === draft) return;
+      const { draft: _old, ...rest } = prev ?? { date, memo: '', updatedAt: 0 };
+      void _old;
+      const d: DayNote = { ...rest, ...(draft != null ? { draft } : {}), updatedAt: Date.now() };
+      await repo.putDay(d);
+      const keep = !!(d.memo.trim() || d.draft?.trim());
+      const next = [...daysRef.current.filter((x) => x.date !== date), ...(keep ? [d] : [])];
+      daysRef.current = next;
+      setData((p) => ({ ...p, days: next }));
+    },
     dayShare: (date) => data.days.find((d) => d.date === date)?.share ?? null,
     async setDayMemo(date, raw, shareArg) {
       const memo = raw.trim();
       const prev = daysRef.current.find((d) => d.date === date);
       const share = shareArg === undefined ? prev?.share ?? null : shareArg;
-      if (memo === (prev?.memo ?? '') && (share ?? null) === (prev?.share ?? null)) return;
+      if (memo === (prev?.memo ?? '') && (share ?? null) === (prev?.share ?? null) && prev?.draft == null) return;
       const d: DayNote = { date, memo, ...(share ? { share } : {}), updatedAt: Date.now() };
       await repo.putDay(d);
       const next = [...daysRef.current.filter((x) => x.date !== date), ...(memo ? [d] : [])];

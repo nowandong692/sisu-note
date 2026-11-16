@@ -60,6 +60,14 @@ describe('IndexedDB 저장소', () => {
     expect((await repo.loadAll()).days).toEqual([]);
   });
 
+  it('메모가 비어도 공개 확인 전 초안이 있으면 남긴다', async () => {
+    const repo = new IndexedDbRepository('t-draft');
+    await repo.putDay({ date: '2026-11-16', memo: '', share: 'all', draft: '아직 확인 전', updatedAt: 1 });
+    expect((await repo.loadAll()).days).toEqual([{ date: '2026-11-16', memo: '', share: 'all', draft: '아직 확인 전', updatedAt: 1 }]);
+    await repo.putDay({ date: '2026-11-16', memo: '', share: 'all', updatedAt: 2 });
+    expect((await repo.loadAll()).days).toEqual([]);
+  });
+
   it('하루 메모가 없던 예전 저장소도 그대로 열린다', async () => {
     const old = new Dexie('t-upgrade');
     old.version(1).stores({ gear: 'id, category, archived', ends: 'id, date, bowId, ringId, arrowId', kv: 'key' });

@@ -10,6 +10,8 @@ import { useAutoWeather } from './state/weatherSync';
 import { applyAppearance } from './platform/theme';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { SharedMemosView } from './screens/SharedMemosView';
+import { ShareNotice } from './components/SharePicker';
+import { SHARE_LABEL } from './domain/sharedMemo';
 
 type Tab = 'shoot' | 'log' | 'rank' | 'talk' | 'settings';
 const TABS: [Tab, string, string][] = [
@@ -128,6 +130,8 @@ export default function App() {
   const editingEnd = store.editId ? store.ends.find((e) => e.id === store.editId) ?? null : null;
   const editingNo = editingEnd ? store.ends.filter((e) => e.date === editingEnd.date && e.recordedAt <= editingEnd.recordedAt).length : 0;
   const canSave = !!store.editSaver.current?.canSave;
+  /** 저장하면 같은 활터·전체에 새로 공개되는 경우 (한 번 확인받는다) */
+  const leaveShare = store.editSaver.current?.share ?? null;
 
   const firstRun = store.loaded && !store.ends.length && !store.gear.length;
   const sampleCount = useMemo(() => sampleEndIds(store.ends).size, [store.ends]);
@@ -191,7 +195,8 @@ export default function App() {
       {leaving && editingEnd && (
         <Sheet title="고치는 중입니다" onClose={() => setLeaving(null)} backCloses={false}>
           <div className="small"><b>{formatDate(editingEnd.date)} {editingNo}순</b>을 고치고 있습니다. 고친 내용을 저장하고 이동할까요?</div>
-          <button className="btn" disabled={!canSave} onClick={() => leave(true)}>저장하고 이동</button>
+          {canSave && leaveShare && <ShareNotice scope={leaveShare.scope} what="시수, 태그, 메모가" memo={leaveShare.memo} tags={leaveShare.tags} />}
+          <button className="btn" disabled={!canSave} onClick={() => leave(true)}>{canSave && leaveShare ? `${SHARE_LABEL[leaveShare.scope]}하고 저장 후 이동` : '저장하고 이동'}</button>
           {!canSave && <div className="small muted">5시를 모두 입력해야 저장할 수 있습니다.</div>}
           <button className="btn ghost" onClick={() => leave(false)}>저장하지 않고 이동</button>
           <button className="btn ghost small" onClick={() => setLeaving(null)}>계속 고치기</button>

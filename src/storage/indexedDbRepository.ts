@@ -64,7 +64,7 @@ export class IndexedDbRepository implements Repository {
   }
 
   async putDay(d: DayNote) {
-    if (d.memo.trim()) await this.db.days.put(d);
+    if (d.memo.trim() || d.draft?.trim()) await this.db.days.put(d);
     else await this.db.days.delete(d.date);
   }
 
