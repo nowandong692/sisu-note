@@ -3,7 +3,7 @@ import { ClubSheet } from '../components/ClubSheet';
 import { NicknameField, type NickStatus } from '../components/NicknameField';
 import { cleanNickname, nicknameProblem } from '../domain/nickname';
 import { onlineAvailable } from '../platform/online';
-import { CodeSheet } from './RankingScreen';
+import { CodeSheet, RestoreForm } from './RankingScreen';
 import { ConfirmButton, Sheet, toast } from '../components/ui';
 import { endsToCsv } from '../domain/csv';
 import { sampleEndIds } from '../domain/sample';
@@ -49,6 +49,7 @@ function NicknameSection() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [code, setCode] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
   // 다른 곳(랭킹 탭)에서 닉네임이 바뀌면 칸도 맞춘다
   const [seen, setSeen] = useState(o?.nickname);
   if (o?.nickname !== seen) { setSeen(o?.nickname); setNickname(o?.nickname ?? ''); }
@@ -70,16 +71,20 @@ function NicknameSection() {
       <h2>내 닉네임</h2>
       {!onlineAvailable() && !o ? (
         <div className="small muted">닉네임은 랭킹 서버에서 겹치지 않게 확인한 뒤 정합니다. 랭킹 서버를 준비하고 있어 곧 정할 수 있습니다.</div>
+      ) : !o && restoring ? (
+        <RestoreForm onBack={() => setRestoring(false)} onDone={() => setRestoring(false)} />
       ) : (
         <>
           <NicknameField id="set-nick" label={o ? '습사 인사와 랭킹에 이 이름으로 보입니다' : '습사 인사와 랭킹에 쓸 이름 (실명이 아니어도 됩니다)'}
-            value={nickname} mine={o?.nickname} myKey={o?.key} onStatus={setNick} onChange={(v) => { setNickname(v); setErr(''); }} />
+            value={nickname} mine={o?.nickname} myKey={o?.key} onStatus={setNick} onChange={(v) => { setNickname(v); setErr(''); }}
+            takenHint={!o && <>예전에 내가 쓰던 닉네임이면 <button type="button" className="link-btn" onClick={() => { setRestoring(true); setErr(''); }}>복구 코드로 이어 쓰기</button></>} />
           {!o && <div className="small muted">닉네임을 정하면 랭킹에 함께 참여합니다. 순마다 관중 여부와 저장 시각, 닉네임과 소속만 서버에 올라가고, 이 기기에 복구 코드가 저장됩니다.</div>}
           {err && <div className="small err-text" role="alert">{err}</div>}
           <div className="row">
             <button className="btn small" disabled={busy || unchanged || nick === 'taken' || nick === 'checking'} onClick={save}>
               {busy ? '저장하는 중…' : o ? '닉네임 바꾸기' : '닉네임 정하고 랭킹 참여'}
             </button>
+            {!o && <button className="btn ghost small" onClick={() => { setRestoring(true); setErr(''); }}>예전 닉네임이 있어요</button>}
           </div>
         </>
       )}

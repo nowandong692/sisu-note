@@ -56,13 +56,40 @@ function ClubField() {
   );
 }
 
+/** 복구 코드로 예전 닉네임과 랭킹 기록을 이 기기에서 이어 쓰기 */
+export function RestoreForm({ onBack, onDone }: { onBack: () => void; onDone?: () => void }) {
+  const store = useStore();
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const restore = async () => {
+    setBusy(true); setErr('');
+    try {
+      await store.restoreOnline(code);
+      toast('예전 닉네임과 랭킹 기록을 이어 씁니다');
+      onDone?.();
+    } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
+  };
+  return (
+    <>
+      <div className="small muted">처음 참여할 때 받은 복구 코드를 넣으면 그때 쓰던 닉네임과 랭킹 기록을 이 기기에서 그대로 이어 씁니다. 이 기기의 순 기록은 바뀌지 않습니다.</div>
+      <div className="field">
+        <label htmlFor="code">복구 코드</label>
+        <input id="code" type="text" autoCapitalize="characters" autoComplete="off" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" value={code} onChange={(e) => { setCode(e.target.value); setErr(''); }} />
+      </div>
+      {err && <div className="small err-text" role="alert">{err}</div>}
+      <button className="btn" disabled={busy || code.replace(/[^0-9a-z]/gi, '').length < 20} onClick={restore}>{busy ? '확인하는 중…' : '이어 쓰기'}</button>
+      <button className="btn ghost small" onClick={onBack}>새 닉네임 정하기로 돌아가기</button>
+    </>
+  );
+}
+
 /** 참여 전: 닉네임 정하기, 또는 복구 코드로 이어 하기 */
 function JoinCard({ onJoined }: { onJoined: () => void }) {
   const store = useStore();
   const [nickname, setNickname] = useState('');
   const [nick, setNick] = useState<NickStatus>('idle');
   const [restoring, setRestoring] = useState(false);
-  const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
@@ -72,10 +99,6 @@ function JoinCard({ onJoined }: { onJoined: () => void }) {
     if (nick === 'taken') { setErr('이미 쓰는 닉네임입니다. 다른 닉네임을 정해 주세요.'); return; }
     setBusy(true); setErr('');
     try { await store.joinOnline(nickname, store.settings.club?.name ?? null); onJoined(); } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
-  };
-  const restore = async () => {
-    setBusy(true); setErr('');
-    try { await store.restoreOnline(code); toast('이어 하기를 마쳤습니다'); } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
   };
 
   return (
@@ -87,22 +110,15 @@ function JoinCard({ onJoined }: { onJoined: () => void }) {
       </div>
       {!restoring ? (
         <>
-          <NicknameField id="nick" label="닉네임 (실명이 아니어도 됩니다)" value={nickname} onStatus={setNick} onChange={(v) => { setNickname(v); setErr(''); }} />
+          <NicknameField id="nick" label="닉네임 (실명이 아니어도 됩니다)" value={nickname} onStatus={setNick} onChange={(v) => { setNickname(v); setErr(''); }}
+            takenHint={<>예전에 내가 쓰던 닉네임이면 <button type="button" className="link-btn" onClick={() => { setRestoring(true); setErr(''); }}>복구 코드로 이어 쓰기</button></>} />
           <ClubField />
           {err && <div className="small err-text" role="alert">{err}</div>}
           <button className="btn" disabled={busy || nick === 'taken'} onClick={join}>{busy ? '참여하는 중…' : '참여하기'}</button>
-          <button className="btn ghost small" onClick={() => { setRestoring(true); setErr(''); }}>다른 기기에서 쓰던 복구 코드가 있어요</button>
+          <button className="btn ghost small" onClick={() => { setRestoring(true); setErr(''); }}>예전 닉네임이 있어요 (복구 코드로 이어 쓰기)</button>
         </>
       ) : (
-        <>
-          <div className="field">
-            <label htmlFor="code">복구 코드</label>
-            <input id="code" type="text" autoCapitalize="characters" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" value={code} onChange={(e) => { setCode(e.target.value); setErr(''); }} />
-          </div>
-          {err && <div className="small err-text" role="alert">{err}</div>}
-          <button className="btn" disabled={busy || code.replace(/[^0-9a-z]/gi, '').length < 20} onClick={restore}>{busy ? '확인하는 중…' : '이어 하기'}</button>
-          <button className="btn ghost small" onClick={() => setRestoring(false)}>처음 참여하기로 돌아가기</button>
-        </>
+        <RestoreForm onBack={() => setRestoring(false)} />
       )}
     </section>
   );

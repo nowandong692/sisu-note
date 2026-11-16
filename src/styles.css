@@ -331,6 +331,7 @@ input[type=search] { width: 100%; border: 1px solid var(--line); border-radius: 
 .err-text { color: var(--hong); }
 .ok-text { color: var(--good); }
 .nick-hint { min-height: 1.4em; }
+.link-btn { background: none; border: 0; padding: 0; font: inherit; color: var(--ink); text-decoration: underline; cursor: pointer; }
 
 /* 장비 삭제 */
 .btn.danger { background: var(--hong); border-color: var(--hong); color: #fff; }
