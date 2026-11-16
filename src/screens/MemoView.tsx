@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ShotIcon } from '../components/ShotIcon';
 import { searchDayMemos, searchMemos, splitByTerms } from '../domain/memo';
-import { ShareBadge } from '../components/ShareBadge';
+import { DayShareBadge, ShareBadge } from '../components/ShareBadge';
 import { shareStateOf } from '../domain/sharedMemo';
 import { hitsOf } from '../domain/stats';
 import { myTags } from '../domain/tags';
@@ -22,9 +22,9 @@ export function MemoView({ onJump, onJumpDay }: { onJump: (date: string, id: str
   const tags = [...new Set([...myTags(settings), ...ends.flatMap((e) => e.tags)])].filter((t) => ends.some((e) => e.tags.includes(t)));
   const visOk = (e: (typeof ends)[number]) => vis === 'any' || (vis === 'private' ? shareStateOf(e) === 'private' : !!e.share);
   const hits = searchMemos(ends, q, tag, gearName, rangeName).filter((h) => !online || visOk(h.end));
-  const anyShared = ends.some((e) => e.share && shareStateOf(e));
-  // 하루 메모는 태그가 없고 늘 나만 보기다
-  const dayHits = tag || (online && vis === 'shared') ? [] : searchDayMemos(days, q);
+  const anyShared = ends.some((e) => e.share && shareStateOf(e)) || days.some((d) => d.share);
+  // 하루 메모는 태그가 없다
+  const dayHits = tag ? [] : searchDayMemos(days, q).filter((d) => !online || vis === 'any' || (vis === 'shared') === !!d.share);
   const endTotal = searchMemos(ends, '', null, gearName, rangeName).length;
   const dayTotal = searchDayMemos(days, '').length;
   const total = endTotal + dayTotal;
@@ -64,6 +64,7 @@ export function MemoView({ onJump, onJumpDay }: { onJump: (date: string, id: str
             <button key={`day-${it.date}`} className="memo-item day" onClick={() => onJumpDay(it.date)}>
               <div className="mi-head"><b>{formatDate(it.date)}</b><span className="pill day">하루 메모</span></div>
               <div className="mi-text"><Marked text={it.memo} query={q} /></div>
+              {online && <div className="mi-meta"><DayShareBadge date={it.date} /></div>}
             </button>
           );
           const { end: e, index } = it.hit;

@@ -135,11 +135,17 @@ function MemoCard({ m, seen }: { m: SharedMemo; seen: number }) {
         <span className="sm-ago small muted">{agoLabel(m.created_at)}</span>
       </div>
       <div className="sm-end">
+        {m.kind === 'day' ? <>
+          <span className="small">{formatDate(m.day)}</span>
+          <span className="pill day">하루 메모</span>
+          {!!m.ends && <span className="small">{m.ends}순 {m.hit_count ?? 0}중</span>}
+        </> : <>
         <span className="small">{formatDate(m.day)}{m.end_no ? ` · ${m.end_no}순` : ''}</span>
         <span className="mini-dots" aria-label={m.hits.map((x, k) => `${k + 1}시 ${x ? '관중' : '불'}`).join(', ')}>
           {m.hits.map((x, k) => <i key={k} className={x ? 'hit' : ''} />)}
         </span>
         <span className="small">{n}중{n === 5 && <span className="pill best">몰기</span>}</span>
+        </>}
         {m.scope === 'club' && <span className="pill scope">같은 활터만</span>}
         {hasNewComment(m, seen) && <span className="pill best">새 댓글</span>}
       </div>
@@ -156,7 +162,7 @@ function MemoCard({ m, seen }: { m: SharedMemo; seen: number }) {
   );
 }
 
-/** 궁사들이 공개한 순 메모. 최근에 공개한 것부터 보고, 더 보기로 이어서 불러온다. */
+/** 궁사들이 공개한 순 메모와 하루 메모. 최근에 공개한 것부터 보고, 더 보기로 이어서 불러온다. */
 export function SharedMemosView({ active }: { active: boolean }) {
   const store = useStore();
   const o = store.online;
@@ -209,7 +215,7 @@ export function SharedMemosView({ active }: { active: boolean }) {
 
   return (
     <section className="card shared-memos">
-      <div className="small muted">궁사들이 공개한 순 메모입니다. 시수와 함께 보고 서로의 습사를 참고하세요.</div>
+      <div className="small muted">궁사들이 공개한 순 메모와 하루 메모입니다. 시수와 함께 보고 서로의 습사를 참고하세요.</div>
       <div className="row between">
         <div className="seg" role="group" aria-label="공개 메모 거르기">
           {filters.map(([f, l]) => <button key={f} className={filter === f ? 'on' : ''} aria-pressed={filter === f} onClick={() => setFilter(f)}>{l}</button>)}

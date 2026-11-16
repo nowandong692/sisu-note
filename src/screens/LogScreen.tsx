@@ -14,7 +14,7 @@ import { endMeta } from '../domain/endMeta';
 import { EndLine } from './ShootScreen';
 import { MemoView } from './MemoView';
 import { dayMinutes, daySegments, formatDuration, spanLabel } from '../domain/session';
-import { ShareBadge } from '../components/ShareBadge';
+import { DayShareBadge, ShareBadge } from '../components/ShareBadge';
 import { shareStateOf } from '../domain/sharedMemo';
 
 /**
@@ -142,7 +142,7 @@ export function LogScreen() {
                   : memo
                     ? (
                       <div className="day-memo-view" id={`daymemo-${date}`}>
-                        <div className="dm-head"><span>하루 메모</span><button className="act-btn" aria-label={`${formatDate(date)} 하루 메모 고치기`} title="고치기" onClick={() => setMemoEdit(date)}>{PENCIL}</button></div>
+                        <div className="dm-head"><span>하루 메모 <DayShareBadge date={date} /></span><button className="act-btn" aria-label={`${formatDate(date)} 하루 메모 고치기`} title="고치기" onClick={() => setMemoEdit(date)}>{PENCIL}</button></div>
                         <div className="dm-text">{memo}</div>
                       </div>
                     )
