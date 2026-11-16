@@ -183,7 +183,7 @@ export default function App() {
         <div className="in">
           {TABS.map(([t, label]) => (
             <button key={t} className={tab === t ? 'on' : ''} aria-current={tab === t ? 'page' : undefined} onClick={() => go(t)}>
-              {ICONS[t]}{label}
+              <span className="tab-icon">{ICONS[t]}{t === 'talk' && store.commentNews.unread > 0 && <i className="dot" aria-label={`새 댓글 ${store.commentNews.unread}개`} />}</span>{label}
             </button>
           ))}
         </div>

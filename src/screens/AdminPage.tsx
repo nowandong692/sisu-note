@@ -16,6 +16,7 @@ const errText = (e: unknown) => (e instanceof Error ? e.message : '알 수 없�
 
 interface Overview { archers: number; hidden: number; ends_today: number; ends_week: number; active_week: number; reports: number }
 interface Report { id: number; nickname: string; range_name: string | null; hidden: boolean; reason: string; created_at: string; total: number }
+interface ContentReport { id: number; kind: 'memo' | 'comment'; memo_id: number; comment_id: number | null; nickname: string; range_name: string | null; hidden: boolean; body: string; reason: string; created_at: string; total: number }
 interface Suspect { nickname: string; range_name: string | null; hidden: boolean; day: string; ends: number; hits: number; minutes: number }
 
 const when = (iso: string) => { const d = new Date(iso); return `${d.getMonth() + 1}.${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
@@ -37,6 +38,47 @@ function Login({ onOk }: { onOk: (code: string) => void }) {
       <button className="btn" type="submit" disabled={busy || !code.trim()}>{busy ? '확인하는 중…' : '들어가기'}</button>
       <div className="small muted">관리자 코드는 Supabase에 해시로만 등록되어 있습니다. 코드는 이 브라우저 탭을 닫을 때까지만 기억합니다.</div>
     </form>
+  );
+}
+
+/** 활쏜얘기(공개 메모·댓글) 신고: 내용을 보고 지우거나, 문제없으면 처리 완료로 닫는다 */
+function ContentReports({ code, hideBtn }: { code: string; hideBtn: (nickname: string, hidden: boolean) => React.ReactNode }) {
+  const [list, setList] = useState<ContentReport[] | null>(null);
+  const [err, setErr] = useState('');
+  const load = useCallback(async () => {
+    try { setList(await rpc<ContentReport[]>('admin_content_reports', { p_admin: code })); setErr(''); } catch (e) { setErr(errText(e)); }
+  }, [code]);
+  useEffect(() => { void load(); }, [load]);
+  const act = async (fn: string, args: Record<string, unknown>, msg: string) => {
+    try { await rpc(fn, { p_admin: code, ...args }); toast(msg); await load(); } catch (e) { toast(errText(e)); }
+  };
+  // 같은 대상에 들어온 신고는 한 줄로 (가장 최근 신고 기준)
+  const shown = (list ?? []).filter((r, i, all) => all.findIndex((x) => x.kind === r.kind && (r.kind === 'memo' ? x.memo_id === r.memo_id : x.comment_id === r.comment_id)) === i);
+  return (
+    <section className="admin-sec">
+      <h4>활쏜얘기 신고 {list ? `${shown.length}건` : ''}</h4>
+      {err && <div className="small err-text" role="alert">{err}</div>}
+      {list && shown.length === 0 && <div className="small muted">들어온 신고가 없습니다.</div>}
+      <ul className="admin-list">
+        {shown.map((r) => (
+          <li key={r.id}>
+            <div>
+              <span className="pill">{r.kind === 'memo' ? '메모' : '댓글'}</span> <b>{r.nickname}</b>{r.hidden && <span className="pill">숨김</span>}{r.total > 1 && <span className="pill">신고 {r.total}건</span>}
+              {' '}<span className="small muted">{r.range_name ?? ''} · {when(r.created_at)}</span>
+            </div>
+            <blockquote className="admin-quote">{r.body}</blockquote>
+            <div className="small muted">사유: {r.reason || '(없음)'}</div>
+            <div className="row">
+              {r.kind === 'memo'
+                ? <ConfirmButton className="btn ghost small" label="메모 지우기" confirmLabel="메모와 댓글 지우기 확인" onConfirm={() => act('admin_delete_memo', { p_memo_id: r.memo_id }, '메모를 지웠습니다')} />
+                : <ConfirmButton className="btn ghost small" label="댓글 지우기" confirmLabel="댓글 지우기 확인" onConfirm={() => act('admin_delete_comment', { p_comment_id: r.comment_id }, '댓글을 지웠습니다')} />}
+              {hideBtn(r.nickname, r.hidden)}
+              <button className="btn ghost small" onClick={() => act('admin_dismiss_content_report', { p_id: r.id }, '신고를 처리했습니다')}>처리 완료</button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -77,6 +119,7 @@ function Panel({ code, onOut }: { code: string; onOut: () => void }) {
   const [reports, setReports] = useState<Report[] | null>(null);
   const [suspects, setSuspects] = useState<Suspect[] | null>(null);
   const [err, setErr] = useState('');
+  const [tick, setTick] = useState(0);
   const [focus, setFocus] = useState<{ nickname: string; day?: string } | null>(null);
   const manage = (nickname: string, day?: string) => {
     setFocus({ nickname, day });
@@ -90,7 +133,7 @@ function Panel({ code, onOut }: { code: string; onOut: () => void }) {
         rpc<Report[]>('admin_reports', { p_admin: code }),
         rpc<Suspect[]>('admin_suspects', { p_admin: code, p_days: 14 }),
       ]);
-      setOv(o[0] ?? null); setReports(r); setSuspects(s);
+      setOv(o[0] ?? null); setReports(r); setSuspects(s); setTick((t) => t + 1);
     } catch (e) { setErr(errText(e)); }
   }, [code]);
   useEffect(() => { void load(); }, [load]);
@@ -119,7 +162,7 @@ function Panel({ code, onOut }: { code: string; onOut: () => void }) {
       </section>
 
       <section className="admin-sec">
-        <h4>신고 {reports ? `${reports.length}건` : ''}</h4>
+        <h4>랭킹 신고 {reports ? `${reports.length}건` : ''}</h4>
         {reports?.length === 0 && <div className="small muted">들어온 신고가 없습니다.</div>}
         <ul className="admin-list">
           {reports?.map((r) => (
@@ -136,6 +179,8 @@ function Panel({ code, onOut }: { code: string; onOut: () => void }) {
           ))}
         </ul>
       </section>
+
+      <ContentReports key={tick} code={code} hideBtn={hideBtn} />
 
       <section className="admin-sec">
         <h4>의심 기록 (최근 14일)</h4>

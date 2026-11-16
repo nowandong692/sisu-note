@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agoLabel, cleanComment, defaultShare, endNoOf, shareArgs, shareStateOf, shareTouched } from './sharedMemo';
+import { agoLabel, cleanComment, defaultShare, hasNewComment, endNoOf, shareArgs, shareStateOf, shareTouched } from './sharedMemo';
 import type { End, Shot } from './types';
 
 const shot = (hit: boolean): Shot => ({ hit, x: null, y: null, zone: null, side: null, level: null, direction: null });
@@ -74,5 +74,14 @@ describe('댓글 다듬기', () => {
     expect(cleanComment('   ').problem).toBe('댓글 내용을 적어 주세요.');
     expect(cleanComment('가'.repeat(301)).problem).toBe('댓글은 300자까지 쓸 수 있습니다.');
     expect(cleanComment('가'.repeat(300)).problem).toBeNull();
+  });
+});
+
+describe('새 댓글 표시', () => {
+  it('내 메모에 남이 단 댓글이 본 것보다 뒤면 새 댓글', () => {
+    expect(hasNewComment({ mine: true, last_comment: 12 }, 10)).toBe(true);
+    expect(hasNewComment({ mine: true, last_comment: 10 }, 10)).toBe(false);
+    expect(hasNewComment({ mine: true, last_comment: null }, 0)).toBe(false);
+    expect(hasNewComment({ mine: false, last_comment: 99 }, 0)).toBe(false);
   });
 });
