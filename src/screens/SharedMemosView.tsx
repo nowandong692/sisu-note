@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { danShort } from '../domain/dan';
 import { AutoTextarea, ConfirmButton, toast } from '../components/ui';
-import { agoLabel, cleanComment, COMMENT_MAX, hasNewComment, REPORT_REASONS, type MemoComment, type SharedMemo } from '../domain/sharedMemo';
+import { agoLabel, cleanComment, COMMENT_MAX, COMMENT_PAGE, hasNewComment, olderCommentCount, shouldReplacePage, REPORT_REASONS, type MemoComment, type SharedMemo } from '../domain/sharedMemo';
 import { formatDate } from '../domain/util';
 import { onlineAvailable, rpc } from '../platform/online';
 import { useStore } from '../state/store';
@@ -45,16 +45,28 @@ function Comments({ m, onCount }: { m: SharedMemo; onCount: (n: number) => void 
   const [err, setErr] = useState('');
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const load = async () => {
+  const [total, setTotal] = useState<number | undefined>(undefined);
+  const [older, setOlder] = useState(false);
+  /** before가 없으면 최근 댓글부터 새로, 있으면 그 앞의 댓글을 위에 이어 붙인다 */
+  const load = async (before?: number) => {
     try {
-      const rows = await rpc<MemoComment[]>('memo_comment_list', { p_key: online?.key ?? null, p_memo_id: m.id });
-      setList(rows);
+      const rows = await rpc<MemoComment[]>('memo_comment_list', { p_key: online?.key ?? null, p_memo_id: m.id, ...(before ? { p_before: before } : {}) });
+      setList((p) => (before && p ? [...rows, ...p] : rows));
       setErr('');
-      onCount(rows.length);
+      const t = rows[0]?.total;
+      setTotal(t);
+      if (!before) onCount(t ?? rows.length);
     } catch (e) {
       setErr(errText(e));
     }
   };
+  const loadOlder = async () => {
+    if (!list?.length) return;
+    setOlder(true);
+    await load(list[0].id);
+    setOlder(false);
+  };
+  const hidden = list ? olderCommentCount(list.length, total) : 0;
   useEffect(() => { void load(); }, [m.id, online?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const send = async () => {
@@ -88,6 +100,11 @@ function Comments({ m, onCount }: { m: SharedMemo; onCount: (n: number) => void 
     <div className="sm-comments">
       {!list && !err && <div className="small muted">댓글을 불러오는 중…</div>}
       {list && list.length === 0 && <div className="small muted">아직 댓글이 없습니다.{online && !m.mine ? ' 첫 댓글을 남겨 보세요.' : ''}</div>}
+      {hidden > 0 && (
+        <button className="comment-older" disabled={older} onClick={() => void loadOlder()}>
+          {older ? '불러오는 중…' : `이전 댓글 ${Math.min(hidden, COMMENT_PAGE)}개 더 보기${hidden > COMMENT_PAGE ? ` (남은 ${hidden}개)` : ''}`}
+        </button>
+      )}
       {list && list.length > 0 && (
         <ol className="comment-list">
           {list.map((c) => (
@@ -174,15 +191,21 @@ export function SharedMemosView({ active }: { active: boolean }) {
   const [tick, setTick] = useState(0);
   /** 목록을 불러올 때 본 곳 (이번에 보는 동안 "새 댓글" 표시를 그대로 둔다) */
   const [seen, setSeen] = useState(store.settings.commentSeen ?? 0);
+  /** 글이 너무 많이 쌓여 앞의 글을 비우고 다음 묶음만 보이는 중 */
+  const [paged, setPaged] = useState(false);
+  const topRef = useRef<HTMLElement>(null);
 
   const load = async (before: number | null) => {
     setLoading(true);
     setErr('');
     try {
       const rows = await rpc<SharedMemo[]>('shared_memo_list', { p_key: o?.key ?? null, p_filter: filter, p_before: before, p_limit: PAGE });
-      setList((p) => (before && p ? [...p, ...rows] : rows));
+      // 더 보기로 MEMO_LIST_MAX개를 넘기면 앞의 글은 비우고 다음 묶음만 보인다 (오래된 폰이 느려지지 않게)
+      const replace = !!before && shouldReplacePage(list?.length ?? 0, PAGE);
+      setList((p) => (before && p && !replace ? [...p, ...rows] : rows));
       setMore(rows.length === PAGE);
-      if (!before) setSeen(store.settings.commentSeen ?? 0);
+      if (!before) { setSeen(store.settings.commentSeen ?? 0); setPaged(false); }
+      if (replace) { setPaged(true); topRef.current?.scrollIntoView({ block: 'start' }); }
       // 내 메모 목록을 보면 새 댓글을 본 것으로 친다 (빨간 점이 사라진다)
       if (filter === 'mine') {
         const top = Math.max(0, ...rows.map((r) => r.last_comment ?? 0));
@@ -214,7 +237,7 @@ export function SharedMemosView({ active }: { active: boolean }) {
       : '아직 공개된 메모가 없습니다.';
 
   return (
-    <section className="card shared-memos">
+    <section className="card shared-memos" ref={topRef}>
       <div className="small muted">궁사들이 공개한 순 메모와 하루 메모입니다. 시수와 함께 보고 서로의 습사를 참고하세요.</div>
       <div className="row between">
         <div className="seg" role="group" aria-label="공개 메모 거르기">
@@ -232,6 +255,12 @@ export function SharedMemosView({ active }: { active: boolean }) {
       {err && <div className="small err-text" role="alert">{err}</div>}
       {loading && !list && <div className="empty small">불러오는 중…</div>}
       {list && list.length === 0 && <div className="empty small">{emptyText}</div>}
+      {paged && (
+        <div className="paged-note">
+          <span className="small muted">앞의 글은 정리하고 이어지는 글을 보여 드립니다.</span>
+          <button className="btn ghost small" onClick={() => void load(null)}>최근 글로 돌아가기</button>
+        </div>
+      )}
       {list && list.length > 0 && <ol className="shared-list">{list.map((m) => <MemoCard key={m.id} m={m} seen={seen} />)}</ol>}
       {list && more && <button className="btn ghost small" disabled={loading} onClick={() => void load(list[list.length - 1].id)}>{loading ? '불러오는 중…' : '더 보기'}</button>}
     </section>

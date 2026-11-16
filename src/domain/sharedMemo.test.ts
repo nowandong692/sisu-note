@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agoLabel, cleanComment, dayClientId, dayShareArgs, dayShareStateOf, defaultShare, hasNewComment, endNoOf, isDayClientId, needsShareConfirm, shareAudience, shareArgs, shareStateOf, shareTouched } from './sharedMemo';
+import { agoLabel, cleanComment, dayClientId, dayShareArgs, dayShareStateOf, defaultShare, hasNewComment, endNoOf, olderCommentCount, shouldReplacePage, isDayClientId, needsShareConfirm, shareAudience, shareArgs, shareStateOf, shareTouched } from './sharedMemo';
 import type { End, Shot } from './types';
 
 const shot = (hit: boolean): Shot => ({ hit, x: null, y: null, zone: null, side: null, level: null, direction: null });
@@ -135,5 +135,19 @@ describe('공개 저장 확인', () => {
     expect(shareAudience('club', '동네 활터')).toBe('동네 활터 궁사에게');
     expect(shareAudience('club', null)).toBe('내 소속 활터 궁사에게');
     expect(shareAudience('all', '동네 활터')).toBe('모든 궁사에게');
+  });
+});
+
+describe('글이 많아질 때', () => {
+  it('목록이 150개를 넘게 되면 이어 붙이지 않고 다음 묶음만 보인다', () => {
+    expect(shouldReplacePage(90, 30)).toBe(false);
+    expect(shouldReplacePage(120, 30)).toBe(false);
+    expect(shouldReplacePage(121, 30)).toBe(true);
+    expect(shouldReplacePage(150, 30)).toBe(true);
+  });
+  it('앞에 남은 댓글 수 (서버가 전체 수를 주지 않으면 0)', () => {
+    expect(olderCommentCount(50, 120)).toBe(70);
+    expect(olderCommentCount(120, 120)).toBe(0);
+    expect(olderCommentCount(30, undefined)).toBe(0);
   });
 });
