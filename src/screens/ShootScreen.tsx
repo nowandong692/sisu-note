@@ -292,7 +292,7 @@ export function ShootScreen() {
             <div className="today-list">{todays.map((e, i) => (
               <EndLine key={e.id} end={e} index={i} selected={e.id === store.editId}
                 onSelect={() => { store.setEditId(e.id === store.editId ? null : e.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
-            )).reverse()}</div>
+            ))}</div>
             <div className="row between">
               <span className="small muted">저장한 순을 누르면 위 입력 칸에 불러와 고칠 수 있습니다.</span>
               {!past && <button className="btn ghost small danger-text" onClick={() => setResetting(true)}>오늘 기록 초기화</button>}
