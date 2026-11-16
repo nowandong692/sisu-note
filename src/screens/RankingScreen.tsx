@@ -10,6 +10,8 @@ import { OnlineError, onlineAvailable, rpc } from '../platform/online';
 import { useStore } from '../state/store';
 import { INFO } from '../components/icons';
 import { ClubSheet } from '../components/ClubSheet';
+import { NicknameField, type NickStatus } from '../components/NicknameField';
+import { nicknameProblem } from '../domain/nickname';
 import { HwalterView } from './HwalterView';
 import { TournamentsView } from './TournamentsView';
 import { formatDuration, spanLabel, spanOf, totalMinutes } from '../domain/session';
@@ -58,13 +60,16 @@ function ClubField() {
 function JoinCard({ onJoined }: { onJoined: () => void }) {
   const store = useStore();
   const [nickname, setNickname] = useState('');
+  const [nick, setNick] = useState<NickStatus>('idle');
   const [restoring, setRestoring] = useState(false);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
   const join = async () => {
-    if (!nickname.trim()) { setErr('닉네임을 정해 주세요.'); return; }
+    const bad = nicknameProblem(nickname);
+    if (bad) { setErr(bad); return; }
+    if (nick === 'taken') { setErr('이미 쓰는 닉네임입니다. 다른 닉네임을 정해 주세요.'); return; }
     setBusy(true); setErr('');
     try { await store.joinOnline(nickname, store.settings.club?.name ?? null); onJoined(); } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
   };
@@ -82,13 +87,10 @@ function JoinCard({ onJoined }: { onJoined: () => void }) {
       </div>
       {!restoring ? (
         <>
-          <div className="field">
-            <label htmlFor="nick">닉네임 (실명이 아니어도 됩니다)</label>
-            <input id="nick" type="text" maxLength={12} placeholder="예: 바람타는활" value={nickname} onChange={(e) => { setNickname(e.target.value); setErr(''); }} />
-          </div>
+          <NicknameField id="nick" label="닉네임 (실명이 아니어도 됩니다)" value={nickname} onStatus={setNick} onChange={(v) => { setNickname(v); setErr(''); }} />
           <ClubField />
           {err && <div className="small err-text" role="alert">{err}</div>}
-          <button className="btn" disabled={busy} onClick={join}>{busy ? '참여하는 중…' : '참여하기'}</button>
+          <button className="btn" disabled={busy || nick === 'taken'} onClick={join}>{busy ? '참여하는 중…' : '참여하기'}</button>
           <button className="btn ghost small" onClick={() => { setRestoring(true); setErr(''); }}>다른 기기에서 쓰던 복구 코드가 있어요</button>
         </>
       ) : (
@@ -106,7 +108,7 @@ function JoinCard({ onJoined }: { onJoined: () => void }) {
   );
 }
 
-function CodeSheet({ code, first, onClose }: { code: string; first?: boolean; onClose: () => void }) {
+export function CodeSheet({ code, first, onClose }: { code: string; first?: boolean; onClose: () => void }) {
   const copy = () => navigator.clipboard?.writeText(code).then(() => toast('복구 코드를 복사했습니다'), () => toast('복사하지 못했습니다. 직접 적어 두세요'));
   return (
     <Sheet title={first ? '참여했습니다. 복구 코드를 적어 두세요' : '복구 코드'} onClose={onClose}>
@@ -122,20 +124,20 @@ function ProfileSheet({ onClose }: { onClose: () => void }) {
   const store = useStore();
   const o = store.online!;
   const [nickname, setNickname] = useState(o.nickname);
+  const [nick, setNick] = useState<NickStatus>('idle');
   const [err, setErr] = useState('');
   const save = async () => {
-    if (!nickname.trim()) { setErr('닉네임을 정해 주세요.'); return; }
+    const bad = nicknameProblem(nickname);
+    if (bad) { setErr(bad); return; }
+    if (nick === 'taken') { setErr('이미 쓰는 닉네임입니다. 다른 닉네임을 정해 주세요.'); return; }
     try { await store.setOnlineProfile(nickname, store.settings.club?.name ?? null); toast('고쳤습니다'); onClose(); } catch (e) { setErr(errText(e)); }
   };
   return (
     <Sheet title="랭킹 프로필" onClose={onClose}>
-      <div className="field">
-        <label htmlFor="nick2">닉네임</label>
-        <input id="nick2" type="text" maxLength={12} value={nickname} onChange={(e) => { setNickname(e.target.value); setErr(''); }} />
-      </div>
+      <NicknameField id="nick2" label="닉네임" value={nickname} mine={o.nickname} myKey={o.key} onStatus={setNick} onChange={(v) => { setNickname(v); setErr(''); }} />
       <ClubField />
       {err && <div className="small err-text" role="alert">{err}</div>}
-      <button className="btn" onClick={save}>저장</button>
+      <button className="btn" disabled={nick === 'taken'} onClick={save}>저장</button>
       <ConfirmButton className="btn ghost danger-text" label="랭킹 참여 그만두기" confirmLabel="서버의 내 랭킹 기록을 모두 지우고 그만두기"
         onConfirm={() => store.leaveOnline().then(() => { toast('참여를 그만두었습니다. 서버의 기록을 지웠습니다'); onClose(); }, (e) => setErr(errText(e)))} />
       <div className="small muted">그만두어도 이 기기의 내 기록은 그대로 남습니다.</div>

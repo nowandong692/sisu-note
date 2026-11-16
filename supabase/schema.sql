@@ -71,12 +71,28 @@ begin
   return a;
 end $$;
 
+-- 닉네임 다듬기: 앞뒤 공백 지우기, 겹친 공백 한 칸으로, 한글 자모 조합 맞추기 (앱의 cleanNickname과 같은 규칙)
+create or replace function public._clean_nick(p text) returns text
+language sql immutable set search_path = public as $$
+  select regexp_replace(btrim(normalize(coalesce(p, ''), NFC)), '\s+', ' ', 'g')
+$$;
+
+-- 이 닉네임을 쓸 수 있는가 (입력하는 동안 앱이 물어본다). p_key를 주면 내 닉네임은 쓸 수 있는 것으로 본다
+create or replace function public.nickname_available(p_nickname text, p_key text default null) returns boolean
+language sql stable security definer set search_path = public, extensions as $$
+  select char_length(_clean_nick(p_nickname)) between 1 and 12
+     and not exists (
+       select 1 from archers
+       where lower(nickname) = lower(_clean_nick(p_nickname))
+         and (p_key is null or key_hash <> digest(p_key, 'sha256')))
+$$;
+
 -- 처음 참여: 열쇠와 닉네임 등록
 create or replace function public.register(p_key text, p_nickname text) returns void
 language plpgsql security definer set search_path = public, extensions as $$
 begin
   if p_key is null or char_length(p_key) < 20 then raise exception 'bad key'; end if;
-  insert into archers (key_hash, nickname) values (digest(p_key, 'sha256'), btrim(p_nickname));
+  insert into archers (key_hash, nickname) values (digest(p_key, 'sha256'), _clean_nick(p_nickname));
 exception when unique_violation then
   raise exception 'nickname taken';
 end $$;
@@ -98,7 +114,7 @@ $$;
 create or replace function public.set_profile(p_key text, p_nickname text, p_range_name text) returns void
 language plpgsql security definer set search_path = public, extensions as $$
 begin
-  update archers set nickname = btrim(p_nickname), range_name = nullif(btrim(p_range_name), '')
+  update archers set nickname = _clean_nick(p_nickname), range_name = nullif(btrim(p_range_name), '')
   where id = _archer(p_key);
 exception when unique_violation then
   raise exception 'nickname taken';
@@ -187,8 +203,8 @@ language sql security definer set search_path = public, extensions as $$
   insert into reports (target, reason) select id, left(p_reason, 200) from archers where lower(nickname) = lower(p_nickname)
 $$;
 
-revoke all on function public._archer(text), public._today(), public._max_ends_per_day() from public, anon, authenticated;
-grant execute on function public.register(text, text), public.whoami(text), public.set_profile(text, text, text), public.set_dan(text, int),
+revoke all on function public._archer(text), public._today(), public._max_ends_per_day(), public._clean_nick(text) from public, anon, authenticated;
+grant execute on function public.nickname_available(text, text), public.register(text, text), public.whoami(text), public.set_profile(text, text, text), public.set_dan(text, int),
   public.submit_end(text, text, boolean[], timestamptz), public.delete_end(text, text), public.delete_me(text),
   public.period_totals(text, date, text), public.archer_ends(text, text, date), public.report(text, text) to anon;
 

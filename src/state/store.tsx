@@ -9,6 +9,7 @@ import { SAMPLE_PREFIX, sampleData, withoutSample } from '../domain/sample';
 import { hasWeather } from '../domain/weather';
 import { newId, today } from '../domain/util';
 import { pastBase } from '../domain/backfill';
+import { cleanNickname } from '../domain/nickname';
 import type { Repository } from '../storage/repository';
 
 interface Data {
@@ -340,7 +341,8 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     },
     online: data.settings.online ?? null,
     onlinePending: data.settings.online?.queue.length ?? 0,
-    async joinOnline(nickname, rangeName) {
+    async joinOnline(raw, rangeName) {
+      const nickname = cleanNickname(raw);
       const key = newRecoveryCode();
       await rpc('register', { p_key: key, p_nickname: nickname.trim() });
       if (rangeName) await rpc('set_profile', { p_key: key, p_nickname: nickname.trim(), p_range_name: rangeName });
@@ -358,7 +360,8 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       });
       await syncDan(key, data.settings.dans);
     },
-    async setOnlineProfile(nickname, rangeName) {
+    async setOnlineProfile(raw, rangeName) {
+      const nickname = cleanNickname(raw);
       const o = data.settings.online;
       if (!o) return;
       await rpc('set_profile', { p_key: o.key, p_nickname: nickname.trim(), p_range_name: rangeName ?? '' });
