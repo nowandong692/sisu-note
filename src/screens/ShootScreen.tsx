@@ -214,6 +214,15 @@ export function ShootScreen() {
     setD({ ...d, shots });
     toast(`${n}시를 ${shotLabel(next, settings.grid)}(으)로 옮겼습니다`);
   };
+  /** 과녁 밖으로 끌어내 지우려는 시 (0부터) */
+  const [removing, setRemoving] = useState<number | null>(null);
+  const removeShot = (i: number) => {
+    // 한 순은 5시라서 지운 시는 비워 두고 그 칸을 골라 다시 입력하게 한다
+    setD((p) => ({ ...p, shots: p.shots.map((s, k) => (k === i ? null : s)), active: i }));
+    setRemoving(null);
+    setMoved(null);
+    toast(`${i + 1}시를 지웠습니다. 과녁을 눌러 다시 입력하세요`);
+  };
   const undoMove = () => {
     if (!moved) return;
     setD((p) => ({ ...p, shots: p.shots.map((s, k) => (k === moved.i ? moved.prev : s)) }));
@@ -361,10 +370,10 @@ export function ShootScreen() {
           <button className="btn small" disabled={filled < SHOTS_PER_END} onClick={() => requestSave()}>{filled === SHOTS_PER_END ? `${editing ? '고친 내용 저장' : '저장'} · ${hitCount}중` : `저장 (${filled}/5)`}</button>
         </div>
         <div className="target-wrap">
-          <Target hand={settings.hand} grid={settings.grid} marks={marks} onTap={tap} onMove={moveShot} dragLabel={dragLabel} label={`과녁을 눌러 ${d.active + 1}시 입력`} />
+          <Target hand={settings.hand} grid={settings.grid} marks={marks} onTap={tap} onMove={moveShot} onRemove={(n) => { if (d.shots[n - 1]) setRemoving(n - 1); }} dragLabel={dragLabel} label={`과녁을 눌러 ${d.active + 1}시 입력`} />
           <div className="hint">
             {filled === SHOTS_PER_END
-              ? '5시 입력 완료. 과녁의 번호 표시를 끌어서 옮기면 그 시를 고칠 수 있습니다.'
+              ? '5시 입력 완료. 과녁의 번호를 끌어서 옮기면 그 시를 고치고, 그림 밖으로 끌어내면 지울 수 있습니다.'
               : `${d.active + 1}시: 과녁을 누르면 관중${settings.grid ? '(칸 위치 기록)' : ''}, 바깥 띠를 누르면 불입니다. 안쪽 띠는 조금, 바깥 띠는 많이 빠진 것입니다.`}
           </div>
         </div>
@@ -474,6 +483,18 @@ export function ShootScreen() {
           </Sheet>
         );
       })()}
+      {removing != null && d.shots[removing] && (
+        <Sheet title={`${removing + 1}시를 지울까요?`} onClose={() => setRemoving(null)}>
+          <div className="move-change">
+            <span><ShotIcon shot={d.shots[removing]!} index={removing} /> {removing + 1}시 {shotLabel(d.shots[removing], settings.grid)}</span>
+          </div>
+          <div className="small muted">{editing
+            ? `한 순은 5시라서 지운 칸은 비워 둡니다. 과녁을 눌러 ${removing + 1}시를 다시 입력하면 ${editIndex}순에 저장할지 묻습니다. 다시 입력하기 전까지 저장된 기록은 그대로입니다.`
+            : `한 순은 5시라서 지운 칸은 비워 둡니다. 과녁을 눌러 ${removing + 1}시를 다시 입력하세요.`}</div>
+          <button className="btn danger" onClick={() => removeShot(removing)}>{removing + 1}시 지우기</button>
+          <button className="btn ghost" onClick={() => setRemoving(null)}>지우지 않기</button>
+        </Sheet>
+      )}
       {confirming && d.share && (
         <ShareConfirmSheet scope={d.share} what="시수, 태그, 메모가" memo={d.memo} tags={d.tags}
           onConfirm={() => save(confirming.stay)} onPrivate={() => save(confirming.stay, true)} onClose={() => setConfirming(null)} />
