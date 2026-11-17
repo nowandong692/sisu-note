@@ -214,6 +214,12 @@ export function ShootScreen() {
     setD({ ...d, shots });
     toast(`${n}시를 ${shotLabel(next, settings.grid)}(으)로 옮겼습니다`);
   };
+  /** 입력한 5시를 모두 지울지 묻는 중 */
+  const [clearing, setClearing] = useState(false);
+  const clearShots = () => {
+    setD((p) => ({ ...p, shots: Array(SHOTS_PER_END).fill(null), active: 0 }));
+    setClearing(false);
+  };
   /** 과녁 밖으로 끌어내 지우려는 시 (0부터) */
   const [removing, setRemoving] = useState<number | null>(null);
   const removeShot = (i: number) => {
@@ -365,7 +371,7 @@ export function ShootScreen() {
         <div className="row between">
           <span className="row">
             <button className="btn ghost small" onClick={() => applyShots(Array.from({ length: SHOTS_PER_END }, hitShot), d.active)}>몰기</button>
-            <button className="btn ghost small" disabled={!filled} onClick={() => setD((p) => ({ ...p, shots: Array(SHOTS_PER_END).fill(null), active: 0 }))}>다시 입력</button>
+            <button className="btn ghost small" disabled={!filled} onClick={() => setClearing(true)}>초기화</button>
           </span>
           <button className="btn small" disabled={filled < SHOTS_PER_END} onClick={() => requestSave()}>{filled === SHOTS_PER_END ? `${editing ? '고친 내용 저장' : '저장'} · ${hitCount}중` : `저장 (${filled}/5)`}</button>
         </div>
@@ -483,6 +489,19 @@ export function ShootScreen() {
           </Sheet>
         );
       })()}
+      {clearing && (
+        <Sheet title={`입력한 ${filled}시를 모두 지울까요?`} onClose={() => setClearing(false)}>
+          <div className="confirm-end">
+            <span className="dots">{d.shots.map((s, i) => s ? <ShotIcon key={i} shot={s} index={i} /> : null)}</span>
+            <b>{hitCount}중</b>
+          </div>
+          <div className="small muted">{editing
+            ? `과녁을 눌러 1시부터 다시 입력합니다. 5시를 다 넣고 저장하기 전까지 ${editIndex}순의 저장된 기록은 그대로입니다. 태그와 메모는 지우지 않습니다.`
+            : '과녁을 눌러 1시부터 다시 입력합니다. 태그와 메모는 지우지 않습니다.'}</div>
+          <button className="btn danger" onClick={clearShots}>초기화</button>
+          <button className="btn ghost" onClick={() => setClearing(false)}>그대로 두기</button>
+        </Sheet>
+      )}
       {removing != null && d.shots[removing] && (
         <Sheet title={`${removing + 1}시를 지울까요?`} onClose={() => setRemoving(null)}>
           <div className="move-change">
