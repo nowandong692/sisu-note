@@ -194,6 +194,32 @@ export function ShootScreen() {
     applyShots(shots, active);
   };
 
+  /** 과녁의 표시를 끌어 옮긴 시. 저장한 순을 고칠 때만 저장할지 묻는다 (prev: 되돌릴 때 쓸 원래 시) */
+  const [moved, setMoved] = useState<{ i: number; prev: Shot } | null>(null);
+  const dragLabel = (n: number, x: number, y: number) => `${n}시 · ${shotLabel(classifyTap(x, y, settings.hand, settings.grid), settings.grid)}`;
+  const moveShot = (n: number, x: number, y: number) => {
+    const i = n - 1;
+    const prev = d.shots[i];
+    if (!prev) return;
+    const next = classifyTap(x, y, settings.hand, settings.grid);
+    const shots = [...d.shots];
+    shots[i] = next;
+    if (editing && shots.every(Boolean)) {
+      // 저장한 순: 옮긴 모습을 보여 주고 저장할지 묻는다
+      setD({ ...d, shots, active: i });
+      setMoved({ i, prev });
+      return;
+    }
+    // 아직 저장하지 않은 순: 그냥 옮긴다 (저장할 때 다시 묻는다)
+    setD({ ...d, shots });
+    toast(`${n}시를 ${shotLabel(next, settings.grid)}(으)로 옮겼습니다`);
+  };
+  const undoMove = () => {
+    if (!moved) return;
+    setD((p) => ({ ...p, shots: p.shots.map((s, k) => (k === moved.i ? moved.prev : s)) }));
+    setMoved(null);
+  };
+
   const setHand = (hand: 'right' | 'left') => {
     store.updateSettings({ hand });
     setD((p) => ({ ...p, shots: p.shots.map((s) => (s && !s.hit && s.side ? { ...s, direction: directionFor(s.side, hand) } : s)) }));
@@ -335,10 +361,10 @@ export function ShootScreen() {
           <button className="btn small" disabled={filled < SHOTS_PER_END} onClick={() => requestSave()}>{filled === SHOTS_PER_END ? `${editing ? '고친 내용 저장' : '저장'} · ${hitCount}중` : `저장 (${filled}/5)`}</button>
         </div>
         <div className="target-wrap">
-          <Target hand={settings.hand} grid={settings.grid} marks={marks} onTap={tap} label={`과녁을 눌러 ${d.active + 1}시 입력`} />
+          <Target hand={settings.hand} grid={settings.grid} marks={marks} onTap={tap} onMove={moveShot} dragLabel={dragLabel} label={`과녁을 눌러 ${d.active + 1}시 입력`} />
           <div className="hint">
             {filled === SHOTS_PER_END
-              ? '5시 입력 완료. 고칠 시를 위에서 고르고 다시 누르세요.'
+              ? '5시 입력 완료. 과녁의 번호 표시를 끌어서 옮기면 그 시를 고칠 수 있습니다.'
               : `${d.active + 1}시: 과녁을 누르면 관중${settings.grid ? '(칸 위치 기록)' : ''}, 바깥 띠를 누르면 불입니다. 안쪽 띠는 조금, 바깥 띠는 많이 빠진 것입니다.`}
           </div>
         </div>
@@ -428,6 +454,26 @@ export function ShootScreen() {
           </div>
         </Sheet>
       )}
+      {moved && editing && (() => {
+        const now = d.shots[moved.i];
+        return (
+          <Sheet title={`${moved.i + 1}시를 옮겨 저장할까요?`} onClose={undoMove}>
+            <div className="move-change">
+              <span><ShotIcon shot={moved.prev} index={moved.i} /> {shotLabel(moved.prev, settings.grid)}</span>
+              <span aria-hidden>→</span>
+              <span><ShotIcon shot={now!} index={moved.i} /> <b>{shotLabel(now, settings.grid)}</b></span>
+            </div>
+            <div className="confirm-end">
+              <span className="dots">{(d.shots as Shot[]).map((s, i) => <ShotIcon key={i} shot={s} index={i} />)}</span>
+              <b>{hitCount}중{hitCount === 5 ? ' · 몰기' : ''}</b>
+            </div>
+            <div className="small muted">{formatDate(editing.date)} {editIndex}순에 바로 저장합니다.</div>
+            <button className="btn" onClick={() => { setMoved(null); requestSave(true); }}>저장</button>
+            <button className="btn ghost" onClick={undoMove}>되돌리기</button>
+            <button className="btn ghost small" onClick={() => setMoved(null)}>저장하지 않고 더 고치기</button>
+          </Sheet>
+        );
+      })()}
       {confirming && d.share && (
         <ShareConfirmSheet scope={d.share} what="시수, 태그, 메모가" memo={d.memo} tags={d.tags}
           onConfirm={() => save(confirming.stay)} onPrivate={() => save(confirming.stay, true)} onClose={() => setConfirming(null)} />
