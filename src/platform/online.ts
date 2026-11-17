@@ -28,6 +28,8 @@ const MESSAGES: [RegExp, OnlineErrorCode, string][] = [
   [/comment limit/, 'server', '하루에 달 수 있는 댓글(100개)을 넘었습니다.'],
   [/report limit/, 'server', '하루에 할 수 있는 신고(30건)를 넘었습니다.'],
   [/Could not find the function public\.(report_content|comment_news|admin_content_reports|admin_delete_memo|admin_delete_comment|admin_dismiss_content_report)/, 'missing', '서버에 신고 기능이 아직 없습니다. supabase/migrations/009_memo_reports.sql을 실행해 주세요.'],
+  [/Could not find the function public\.(save_backup|load_backup)/, 'missing', '서버에 장비·설정 백업 기능이 아직 없습니다. supabase/migrations/012_backup.sql을 실행해 주세요.'],
+  [/backup too large/, 'server', '장비·설정 백업이 너무 큽니다.'],
   [/no such memo/, 'server', '이 메모는 내려갔거나 볼 수 없습니다.'],
   [/Could not find the function public\.(add_comment|delete_comment|memo_comment_list)/, 'missing', '서버에 댓글 기능이 아직 없습니다. supabase/migrations/008_memo_comments.sql을 실행해 주세요.'],
   [/Could not find the function public\.(share_memo|unshare_memo|shared_memo_list)/, 'missing', '서버에 메모 공개 기능이 아직 없습니다. supabase/migrations/007_shared_memos.sql을 실행해 주세요.'],
