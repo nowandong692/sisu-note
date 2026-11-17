@@ -22,6 +22,7 @@ import { useStore } from '../state/store';
 import { focusLogEnd } from './LogScreen';
 import { showLogView } from './RecordsScreen';
 import { GearScreen } from './GearScreen';
+import { GEAR_KEY, gearOfEnd, gearOfSettings, lastGearOf, sameGear, type EndGear } from '../domain/endGear';
 import { achievements, earnedLine, newlyEarned, type Achievement } from '../domain/achievements';
 
 interface Draft {
@@ -33,9 +34,11 @@ interface Draft {
   memo: string;
   /** 메모 공개 범위 (null = 나만 보기) */
   share: MemoShare | null;
+  /** 고치는 순의 장비 (새 순은 오늘 장비를 쓰므로 null) */
+  gear: EndGear | null;
 }
-const emptyDraft = (share: MemoShare | null = null): Draft => ({ editId: null, shots: Array(SHOTS_PER_END).fill(null), active: 0, tags: [], memo: '', share });
-const draftOf = (e: End): Draft => ({ editId: e.id, shots: [...e.shots], active: 0, tags: [...e.tags], memo: e.memo, share: e.share ?? null });
+const emptyDraft = (share: MemoShare | null = null): Draft => ({ editId: null, shots: Array(SHOTS_PER_END).fill(null), active: 0, tags: [], memo: '', share, gear: null });
+const draftOf = (e: End): Draft => ({ editId: e.id, shots: [...e.shots], active: 0, tags: [...e.tags], memo: e.memo, share: e.share ?? null, gear: gearOfEnd(e) });
 
 export function EndLine({ end, index, showMeta = true, selected, onSelect }: { end: End; index: number; showMeta?: boolean; selected?: boolean; onSelect?: () => void }) {
   const { gearName } = useStore();
@@ -212,7 +215,7 @@ export function ShootScreen() {
     setConfirming(null);
     const share = asPrivate ? null : d.share;
     if (editing) {
-      await store.updateEnd({ ...editing, shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim(), share });
+      await store.updateEnd({ ...editing, shots: d.shots as Shot[], tags: d.tags, memo: d.memo.trim(), share, ...(d.gear ?? {}) });
       toast(`${editing.date === today() ? '' : formatDate(editing.date) + ' '}${editIndex}순을 고쳤습니다 · ${hitCount}중`);
       setAsking(false);
       if (stay) return;
@@ -243,6 +246,37 @@ export function ShootScreen() {
   // 고치는 중에 다른 탭으로 가려 할 때 App이 "저장하고 이동"을 할 수 있게 알려 둔다
   // 공개 확인이 필요하면 App의 "저장하고 이동" 창이 대신 공개 범위를 알리고 묻는다
   store.editSaver.current = editing ? { canSave: filled === SHOTS_PER_END, share: askShare && d.share ? { scope: d.share, memo: d.memo, tags: d.tags } : null, save: () => save(true) } : null;
+
+  /**
+   * 장비 칸이 다루는 것
+   * end: 고치는 중인 순의 장비 (저장할 때 그 순에만)
+   * day: 기록이 있는 지난 날짜 (그날 저장한 순 모두를 바꾼다. 새로 넣는 순도 그날 마지막 순을 따른다)
+   * today: 오늘 장비 (다음 순부터. 이미 저장한 오늘 순에도 한 번에 적용할 수 있다)
+   */
+  const gearMode: 'end' | 'day' | 'today' = editing ? 'end' : past && todays.length > 0 ? 'day' : 'today';
+  const [dayGear, setDayGear] = useState<EndGear | null>(null);
+  const shownGear: EndGear = gearMode === 'end' && d.gear ? d.gear
+    : gearMode === 'day' ? dayGear ?? lastGearOf(ends, day)! : gearOfSettings(settings.current);
+  const gearTitle = gearMode === 'end' ? `${editIndex}순 장비` : past ? '이 날 장비' : '오늘 장비';
+  const gearLine = (g: EndGear) => `${gearName(g.bowId)} · ${gearName(g.ringId)} · ${gearName(g.arrowId)}${g.stringId ? ` · ${gearName(g.stringId)}` : ''}`;
+  const dayDiffers = gearMode === 'day' && todays.some((e) => !sameGear(e, shownGear));
+  const todaysDiffer = gearMode === 'today' ? todays.filter((e) => !sameGear(e, shownGear)).length : 0;
+  const openPicker = () => {
+    if (noGear) { setManaging(true); return; }
+    setDayGear(gearMode === 'day' ? lastGearOf(ends, day) : null);
+    setPicking(true);
+  };
+  const pickGear = (c: TrackedCategory, id: string) => {
+    const k = GEAR_KEY[c];
+    if (gearMode === 'end') setD((p) => ({ ...p, gear: { ...(p.gear ?? shownGear), [k]: id } }));
+    else if (gearMode === 'day') setDayGear((p) => ({ ...(p ?? shownGear), [k]: id }));
+    else void store.updateSettings({ current: { ...settings.current, [c]: id } });
+  };
+  const applyDayGear = async (g: EndGear) => {
+    const n = await store.setDayGear(day, g);
+    setPicking(false);
+    toast(n ? `${past ? formatDate(day) : '오늘'} ${n}순의 장비를 바꿨습니다` : '바꿀 순이 없습니다');
+  };
 
   const marks: Mark[] = d.shots.flatMap((s, i) => (s ? [{ x: s.x, y: s.y, hit: s.hit, n: i + 1 }] : []));
   const noGear = !gearOf('bow').length;
@@ -324,17 +358,17 @@ export function ShootScreen() {
         {editing && <button className="btn ghost" onClick={cancelEdit}>고치지 않고 돌아가기</button>}
       </section>
 
-      {/* 지난 날짜에 그날 기록이 있으면 장비·활터는 그날 마지막 순을 따르므로 고르는 칸을 숨긴다 */}
-      {!(past && todays.length > 0) && <>
-      <button className="gear" onClick={() => (noGear ? setManaging(true) : setPicking(true))}>
+      <button className="gear" onClick={openPicker}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="label">{past ? '이 날 장비' : '오늘 장비'}</div>
+          <div className="label">{gearTitle}</div>
           <div className="names">
-            {noGear ? '눌러서 활을 추가하면 장비별 분석을 볼 수 있습니다' : `${gearName(settings.current.bow)} · ${gearName(settings.current.ring)} · ${gearName(settings.current.arrow)}${settings.current.string ? ` · ${gearName(settings.current.string)}` : ''}`}
+            {noGear ? '눌러서 활을 추가하면 장비별 분석을 볼 수 있습니다' : gearLine(shownGear)}
           </div>
         </div>
         <span className="change">바꾸기</span>
       </button>
+      {/* 지난 날짜에 그날 기록이 있으면 활터는 그날 마지막 순을 따르므로 고르는 칸을 숨긴다 */}
+      {!(past && todays.length > 0) && <>
       <button className="gear" onClick={() => setRangeOpen(true)}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="label">활터 <span className="opt">선택</span>{store.currentRange && !settings.currentRangeManual && <span className="opt">위치로 고름</span>}</div>
@@ -402,16 +436,20 @@ export function ShootScreen() {
       {weathering && <WeatherSheet onClose={() => setWeathering(false)} />}
       {rangeOpen && <RangeSheet onClose={() => setRangeOpen(false)} />}
       {picking && (
-        <Sheet title="오늘 장비" onClose={() => setPicking(false)}>
-          <div className="small muted">고른 장비는 다음 순부터 적용됩니다.</div>
+        <Sheet title={gearTitle} onClose={() => setPicking(false)}>
+          <div className="small muted">{gearMode === 'end'
+            ? `고른 장비는 "고친 내용 저장"을 누르면 ${editIndex}순에만 적용됩니다.`
+            : gearMode === 'day'
+              ? `아래 "바꾸기"를 누르면 ${formatDate(day)}에 저장한 ${todays.length}순 모두의 장비가 바뀝니다.`
+              : '고른 장비는 다음 순부터 적용됩니다.'}</div>
           {([['bow', '활'], ['ring', '깍지'], ['arrow', '화살'], ['string', '현']] as [TrackedCategory, string][]).map(([c, name]) => (
             <div className="field" key={c}>
               <label>{name}</label>
               <div className="chips">
                 {gearOf(c).length === 0 && <span className="small muted">등록된 {name}이(가) 없습니다.</span>}
                 {gearOf(c).map((g) => (
-                  <button key={g.id} className={`chip ${settings.current[c] === g.id ? 'on' : ''}`}
-                    onClick={() => store.updateSettings({ current: { ...settings.current, [c]: g.id } })}>{g.nickname}</button>
+                  <button key={g.id} className={`chip ${shownGear[GEAR_KEY[c]] === g.id ? 'on' : ''}`}
+                    onClick={() => pickGear(c, g.id)}>{g.nickname}</button>
                 ))}
               </div>
             </div>
@@ -419,7 +457,17 @@ export function ShootScreen() {
           <div className="row">
             <button className="btn ghost small" onClick={() => { setPicking(false); setManaging(true); }}>장비 추가·고치기</button>
           </div>
-          <button className="btn" onClick={() => setPicking(false)}>완료</button>
+          {gearMode === 'day'
+            ? <>
+              <button className="btn" disabled={!dayDiffers} onClick={() => void applyDayGear(dayGear!)}>{formatDate(day)} {todays.length}순 장비 바꾸기</button>
+              <button className="btn ghost" onClick={() => setPicking(false)}>바꾸지 않고 닫기</button>
+            </>
+            : <>
+              {gearMode === 'today' && todaysDiffer > 0 && (
+                <button className="btn ghost" onClick={() => void applyDayGear(shownGear)}>이미 저장한 {todaysDiffer}순도 이 장비로 바꾸기</button>
+              )}
+              <button className="btn" onClick={() => setPicking(false)}>완료</button>
+            </>}
         </Sheet>
       )}
       {cheer.length > 0 && (
