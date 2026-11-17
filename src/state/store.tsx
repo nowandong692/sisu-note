@@ -11,6 +11,7 @@ import { hasWeather } from '../domain/weather';
 import { newId, today } from '../domain/util';
 import { pastBase } from '../domain/backfill';
 import { cleanNickname } from '../domain/nickname';
+import { asBackup, makeBackup, mergeBackup } from '../domain/backup';
 import type { Repository } from '../storage/repository';
 
 interface Data {
@@ -93,8 +94,8 @@ export interface Store extends Data {
   markCommentsSeen(latest: number): Promise<void>;
   /** 새로 참여: 복구 코드를 만들고 닉네임을 등록한다 */
   joinOnline(nickname: string, rangeName: string | null): Promise<void>;
-  /** 다른 기기에서 쓰던 복구 코드로 이어 하기 */
-  restoreOnline(code: string): Promise<void>;
+  /** 다른 기기에서 쓰던 복구 코드로 이어 하기. 서버에 장비·설정 백업이 있으면 함께 되살리고, 되살린 장비 수를 돌려준다 (백업이 없으면 null) */
+  restoreOnline(code: string): Promise<{ gear: number } | null>;
   setOnlineProfile(nickname: string, rangeName: string | null): Promise<void>;
   /** 내 소속을 바꾼다. 랭킹에 참여 중이면 서버 프로필의 활터도 소속으로 바꾼다 */
   setClub(club: Club | null): Promise<void>;
@@ -284,6 +285,20 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     const t = setInterval(() => void refreshCommentNews(), 5 * 60 * 1000);
     return () => { document.removeEventListener('visibilitychange', vis); clearInterval(t); };
   }, [data.loaded, onlineKey, refreshCommentNews]);
+
+  // 장비·설정 백업: 랭킹에 참여 중이면 바뀐 뒤 잠시 기다렸다가 서버에 올린다 (같은 내용이면 다시 올리지 않는다)
+  const lastBackup = useRef<string | null>(null);
+  useEffect(() => {
+    if (!data.loaded || !onlineKey || !onlineAvailable()) return;
+    const body = JSON.stringify(makeBackup(data.gear, data.settings));
+    if (body === lastBackup.current) return;
+    const t = setTimeout(() => {
+      rpc('save_backup', { p_key: onlineKey, p_data: JSON.parse(body) })
+        .then(() => { lastBackup.current = body; })
+        .catch(() => { /* 다음에 바뀔 때나 앱을 다시 열 때 올린다 */ });
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [data.loaded, data.gear, data.settings, onlineKey]);
 
   const w = data.settings.weather;
   const todayWeather = useMemo<Weather | null>(
@@ -486,12 +501,24 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       const key = normalizeRecoveryCode(code);
       const rows = await rpc<{ nickname: string; range_name: string | null }[]>('whoami', { p_key: key });
       if (!rows?.length) throw new OnlineError('복구 코드가 맞지 않습니다.', 'unknown-key');
+      // 장비·설정 백업을 먼저 되살린다. 참여 정보를 먼저 저장하면 빈 장비가 백업을 덮어쓸 수 있다
+      const backup = asBackup(await rpc<unknown>('load_backup', { p_key: key }).catch(() => null));
+      const merged = backup ? mergeBackup({ gear: data.gear, ends: endsRef.current, settings: settingsRef.current }, backup) : null;
+      if (merged) {
+        for (const g of merged.added) await repo.putGear(g);
+        setData((p) => ({ ...p, gear: merged.gear }));
+      }
+      const patch = merged?.patch ?? {};
+      const club = patch.club !== undefined ? patch.club : settingsRef.current.club;
       await updateSettings({
-        online: { key, nickname: rows[0].nickname, rangeName: rows[0].range_name, joinedAt: Date.now(), queue: [] }, rankHistory: {},
+        ...patch,
+        online: { key, nickname: rows[0].nickname, rangeName: rows[0].range_name, joinedAt: Date.now(), queue: [] },
+        rankHistory: patch.rankHistory ?? {},
         // 다른 기기에서 쓰던 소속을 이어받는다 (이 기기에 소속이 없을 때만)
-        ...(!data.settings.club && rows[0].range_name ? { club: { name: rows[0].range_name } } : {}),
+        ...(!club && rows[0].range_name ? { club: { name: rows[0].range_name } } : {}),
       });
-      await syncDan(key, data.settings.dans);
+      await syncDan(key, settingsRef.current.dans);
+      return merged ? { gear: merged.added.length } : null;
     },
     async setOnlineProfile(raw, rangeName) {
       const nickname = cleanNickname(raw);

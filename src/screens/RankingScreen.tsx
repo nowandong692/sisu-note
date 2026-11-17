@@ -65,14 +65,14 @@ export function RestoreForm({ onBack, onDone }: { onBack: () => void; onDone?: (
   const restore = async () => {
     setBusy(true); setErr('');
     try {
-      await store.restoreOnline(code);
-      toast('예전 닉네임과 랭킹 기록을 이어 씁니다');
+      const r = await store.restoreOnline(code);
+      toast(r ? `예전 닉네임과 설정을 되살렸습니다${r.gear ? ` (장비 ${r.gear}개)` : ''}` : '예전 닉네임과 랭킹 기록을 이어 씁니다');
       onDone?.();
     } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
   };
   return (
     <>
-      <div className="small muted">처음 참여할 때 받은 복구 코드를 넣으면 그때 쓰던 닉네임과 랭킹 기록을 이 기기에서 그대로 이어 씁니다. 이 기기의 순 기록은 바뀌지 않습니다.</div>
+      <div className="small muted">처음 참여할 때 받은 복구 코드를 넣으면 그때 쓰던 닉네임과 랭킹 기록, 서버에 백업해 둔 장비와 설정을 이 기기에서 그대로 이어 씁니다. 이 기기의 순 기록은 바뀌지 않습니다.</div>
       <div className="field">
         <label htmlFor="code">복구 코드</label>
         <input id="code" type="text" autoCapitalize="characters" autoComplete="off" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" value={code} onChange={(e) => { setCode(e.target.value); setErr(''); }} />
@@ -105,7 +105,7 @@ function JoinCard({ onJoined }: { onJoined: () => void }) {
     <section className="card join-card">
       <h2>랭킹에 참여하기</h2>
       <div className="small muted">
-        닉네임과 소속, 순마다 관중 여부, 저장 시각만 서버에 올라가고, 랭킹에서 닉네임을 누르면 다른 궁사도 볼 수 있습니다. 메모, 장비, 위치, 날씨는 올리지 않습니다.
+        닉네임과 소속, 순마다 관중 여부, 저장 시각이 서버에 올라가고, 랭킹에서 닉네임을 누르면 다른 궁사도 볼 수 있습니다. 장비와 설정은 기기를 바꾸거나 저장소가 지워졌을 때 되찾도록 백업만 해 두고, 복구 코드를 가진 본인만 불러옵니다. 메모(공개로 고른 것 말고)와 날씨는 올리지 않습니다.
         로그인 없이 이 기기에 저장되는 <b>복구 코드</b>로만 구분하고, 참여한 뒤 오늘 저장한 순부터 올라갑니다.
       </div>
       {!restoring ? (

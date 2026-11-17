@@ -3,7 +3,8 @@
 -- 개인정보 최소화 원칙
 --  * 로그인 없음. 앱이 만든 무작위 열쇠(= 복구 코드)의 SHA-256 해시만 저장한다. 열쇠 원문은 서버에 없다.
 --  * 저장하는 것: 닉네임, (원하면) 활터 이름, 순마다 서버 기준 날짜, 저장 시각과 다섯 시의 관중 여부.
---  * 메모와 태그는 궁사가 "공개"로 고른 순만 올린다 (shared_memos). 장비, 위치, 날씨는 올리지 않는다.
+--  * 메모와 태그는 궁사가 "공개"로 고른 순만 올린다 (shared_memos). 위치, 날씨는 올리지 않는다.
+--  * 장비와 설정(등록한 활터 위치 포함)은 복구용 백업(backups)으로만 올린다. 열쇠를 아는 본인만 읽는다 (012).
 --
 -- 보안 원칙
 --  * 모든 테이블에 RLS를 켜고 정책을 하나도 두지 않는다 → anon 키로는 테이블을 직접 읽지도 쓰지도 못한다.
@@ -942,3 +943,34 @@ $$;
 
 grant execute on function public.memo_comment_list(text, bigint, bigint, int), public.shared_memo_list(text, text, bigint, int) to anon;
 
+-- 012: 장비·설정 백업
+-- * 휴대폰 브라우저가 저장소를 비우면 장비와 설정이 사라졌다. 랭킹에 참여한 궁사는 장비 목록과 설정(소속, 단, 활터,
+--   태그, 고른 장비, 화면 테마 등)을 서버에 한 덩어리(JSON)로 올려 두고, 복구 코드를 넣으면 다시 불러온다.
+-- * 궁사마다 한 줄. 열쇠(복구 코드)를 아는 사람만 읽고 쓴다. 남에게는 보이지 않는다. 탈퇴하면 함께 지워진다.
+-- * 너무 큰 백업은 받지 않는다 (200KB).
+-- 여러 번 실행해도 괜찮다.
+
+create table if not exists public.backups (
+  archer_id uuid primary key references public.archers (id) on delete cascade,
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+alter table public.backups enable row level security;
+revoke all on public.backups from anon, authenticated;
+
+create or replace function public.save_backup(p_key text, p_data jsonb) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+declare a uuid := _archer(p_key);
+begin
+  if p_data is null or jsonb_typeof(p_data) <> 'object' then raise exception 'bad backup'; end if;
+  if octet_length(p_data::text) > 200000 then raise exception 'backup too large'; end if;
+  insert into backups (archer_id, data, updated_at) values (a, p_data, now())
+  on conflict (archer_id) do update set data = excluded.data, updated_at = now();
+end $$;
+
+create or replace function public.load_backup(p_key text) returns jsonb
+language sql stable security definer set search_path = public, extensions as $$
+  select b.data from backups b where b.archer_id = _archer(p_key)
+$$;
+
+grant execute on function public.save_backup(text, jsonb), public.load_backup(text) to anon;

@@ -81,7 +81,7 @@ function NicknameSection() {
           <NicknameField id="set-nick" label={o ? '습사 인사와 랭킹에 이 이름으로 보입니다' : '습사 인사와 랭킹에 쓸 이름 (실명이 아니어도 됩니다)'}
             value={nickname} mine={o?.nickname} myKey={o?.key} onStatus={setNick} onChange={(v) => { setNickname(v); setErr(''); }}
             takenHint={!o && <>예전에 내가 쓰던 닉네임이면 <button type="button" className="link-btn" onClick={() => { setRestoring(true); setErr(''); }}>복구 코드로 이어 쓰기</button></>} />
-          {!o && <div className="small muted">닉네임을 정하면 랭킹에 함께 참여합니다. 순마다 관중 여부와 저장 시각, 닉네임과 소속만 서버에 올라가고, 이 기기에 복구 코드가 저장됩니다.</div>}
+          {!o && <div className="small muted">닉네임을 정하면 랭킹에 함께 참여합니다. 순마다 관중 여부와 저장 시각, 닉네임과 소속이 서버에 올라가고, 장비와 설정은 복구용으로 백업됩니다. 이 기기에 복구 코드가 저장되니 따로 적어 두세요.</div>}
           {err && <div className="small err-text" role="alert">{err}</div>}
           <div className="row">
             <button className="btn small" disabled={busy || unchanged || nick === 'taken' || nick === 'checking'} onClick={save}>
@@ -264,7 +264,7 @@ export function SettingsScreen() {
       <AppearanceSection />
       <section className="card">
         <h2>데이터</h2>
-        <div className="small muted">기록은 이 기기에만 저장됩니다. 가끔 CSV로 내보내 백업해 두세요. "기록만 지우기"는 순 기록만, "모든 데이터 지우기"는 장비까지 지웁니다. 누르면 무엇이 지워지는지 먼저 보여 줍니다.</div>
+        <div className="small muted">순 기록은 이 기기에만 저장됩니다. 가끔 CSV로 내보내 백업해 두세요. 장비와 설정은 랭킹에 참여 중이면 서버에 백업되어, 브라우저 저장소가 지워져도 복구 코드로 되찾을 수 있습니다. "기록만 지우기"는 순 기록만, "모든 데이터 지우기"는 장비까지 지웁니다. 누르면 무엇이 지워지는지 먼저 보여 줍니다.</div>
         <div className="row">
           <button className="btn ghost small" disabled={!ends.length} onClick={() => saveTextFile(`국궁록-${today()}.csv`, endsToCsv(ends, gear, store.ranges))}>CSV 내보내기</button>
           {hasSample && <button className="btn ghost small" onClick={() => setWarn('sample')}>예시 기록 빼기</button>}
