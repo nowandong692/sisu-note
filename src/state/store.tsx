@@ -10,6 +10,7 @@ import { SAMPLE_PREFIX, sampleData, withoutSample } from '../domain/sample';
 import { hasWeather } from '../domain/weather';
 import { newId, today } from '../domain/util';
 import { pastBase } from '../domain/backfill';
+import { sameGear, type EndGear } from '../domain/endGear';
 import { cleanNickname } from '../domain/nickname';
 import { asBackup, makeBackup, mergeBackup } from '../domain/backup';
 import type { Repository } from '../storage/repository';
@@ -57,6 +58,8 @@ export interface Store extends Data {
   todayWeather: Weather | null;
   /** 이미 저장한 순 고치기 (시, 태그, 메모) */
   updateEnd(e: End): Promise<void>;
+  /** 그날 저장한 순 모두의 장비를 바꾼다 (습사 뒤에 장비를 잘못 고른 걸 알았을 때). 바꾼 순 수를 돌려준다 */
+  setDayGear(date: string, gear: EndGear): Promise<number>;
   deleteEnd(id: string): Promise<void>;
   /** 그날 하루 메모 (없으면 빈 글) */
   dayMemo(date: string): string;
@@ -373,6 +376,19 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       endsRef.current = endsRef.current.map((x) => (x.id === e.id ? next : x));
       void enqueue('put', next);
       void enqueueMemos([...(shareTouched(prev, next) ? [next.id] : []), ...sharedDayIds([next.date])]);
+    },
+    async setDayGear(date, gear) {
+      const now = Date.now();
+      const changed = endsRef.current
+        .filter((x) => x.date === date && !sameGear(x, gear))
+        .map((x) => ({ ...x, ...gear, updatedAt: now }));
+      if (!changed.length) return 0;
+      for (const x of changed) await repo.putEnd(x);
+      const byId = new Map(changed.map((x) => [x.id, x]));
+      endsRef.current = endsRef.current.map((x) => byId.get(x.id) ?? x);
+      setData((p) => ({ ...p, ends: p.ends.map((x) => byId.get(x.id) ?? x) }));
+      // 장비는 랭킹·공개 메모로 올라가지 않으므로 서버에 다시 보낼 것이 없다
+      return changed.length;
     },
     dayMemo: (date) => data.days.find((d) => d.date === date)?.memo ?? '',
     dayDraft: (date) => data.days.find((d) => d.date === date)?.draft ?? null,
