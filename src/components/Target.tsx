@@ -11,6 +11,8 @@ export interface Mark {
   dim?: boolean;
   /** 선택된 화살: 번호가 든 큰 원으로 */
   big?: boolean;
+  /** 원 안에 쓸 글자 (없으면 n) */
+  text?: string;
 }
 
 interface Props {
@@ -31,6 +33,12 @@ interface Props {
   onRemove?: (n: number) => void;
   /** 끄는 동안 표시 위에 보여 줄 판정 (예: "3시 · 앞남 조금") */
   dragLabel?: (n: number, x: number, y: number) => string;
+  /** 바깥으로 끌어냈을 때 보여 줄 말 (기본: "놓으면 n시 지우기") */
+  removeLabel?: (n: number) => string;
+  /** 번호가 있는 표시를 끌지 않고 누르기만 하면 (없으면 그 자리를 누른 것으로 친다) */
+  onPick?: (n: number) => void;
+  /** 번호 표시 원의 반지름 (과녁 좌표) */
+  markRadius?: number;
 }
 
 /** 이만큼(화면 px) 움직여야 끄는 것으로 본다. 덜 움직이면 그 자리를 누른 것 */
@@ -60,7 +68,7 @@ const sx = TW / BOARD.w;
 const sy = TH / BOARD.h;
 
 /** 국궁 과녁 그림. 과녁 판 = 관중, 바깥 두 겹 띠 = 불 (안쪽 조금, 바깥 많이). */
-export function Target({ hand, grid, marks = [], small, zoneCounts, onTap, label, dotRadius = 3.2, onMove, onRemove, dragLabel }: Props) {
+export function Target({ hand, grid, marks = [], small, zoneCounts, onTap, label, dotRadius = 3.2, onMove, onRemove, dragLabel, removeLabel, onPick, markRadius = 10 }: Props) {
   const left = directionFor('left', hand);
   const right = directionFor('right', hand);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -142,6 +150,7 @@ export function Target({ hand, grid, marks = [], small, zoneCounts, onTap, label
     setTimeout(() => { skipClick.current = false; }, 400);
     if (d.moved && d.out) onRemove?.(d.n);
     else if (d.moved) onMove?.(d.n, d.x, d.y);
+    else if (onPick) onPick(d.n);
     else if (onTap) {
       // 거의 움직이지 않았으면 원래처럼 그 자리를 누른 것으로 친다
       const p = toView(ev.clientX, ev.clientY);
@@ -203,23 +212,24 @@ export function Target({ hand, grid, marks = [], small, zoneCounts, onTap, label
           return <circle key={i} cx={m.x} cy={m.y} r={dotRadius} fill={m.hit ? '#1E66D0' : 'var(--muted)'} fillOpacity={m.hit ? 0.85 : 0.6} stroke={m.hit ? '#FFFFFF' : 'none'} strokeWidth={0.8} />;
         }
         const canDrag = draggable && m.n != null;
+        const r = m.big ? markRadius + 2 : markRadius;
         const lifted = drag?.moved && drag.n === m.n;
         if (lifted) {
           // 끄는 중: 원래 자리는 점선으로만 남긴다
-          return <circle key={i} cx={m.x} cy={m.y} r={10} fill="none" style={{ stroke: 'var(--muted)' }} strokeWidth={1.5} strokeDasharray="3 3" />;
+          return <circle key={i} cx={m.x} cy={m.y} r={r} fill="none" style={{ stroke: 'var(--muted)' }} strokeWidth={1.5} strokeDasharray="3 3" />;
         }
         return (
-          <g key={i} {...(canDrag ? { 'data-drag': 'true', className: 'mark-drag', onPointerDown: grab(m), 'aria-label': `${m.n}시 표시 (끌어서 옮기기)` } : {})}>
+          <g key={i} opacity={m.dim ? 0.3 : undefined} {...(canDrag ? { 'data-drag': 'true', className: 'mark-drag', onPointerDown: grab(m), 'aria-label': `${m.text ?? `${m.n}시`} 표시 (끌어서 옮기기)` } : {})}>
             {/* 손가락으로 잡기 쉽게 보이지 않는 넓은 자리 */}
             {canDrag && <circle cx={m.x} cy={m.y} r={18} fill="transparent" />}
-            <circle cx={m.x} cy={m.y} r={10} style={{ fill: m.hit ? '#FFFFFF' : 'var(--ink)', stroke: m.hit ? 'var(--hong)' : 'var(--paper)' }} strokeWidth={2} />
-            <text x={m.x} y={m.y + 4} textAnchor="middle" fontSize={11} fontWeight={700} style={{ fill: m.hit ? '#C4302A' : 'var(--paper)' }}>{m.n}</text>
+            <circle cx={m.x} cy={m.y} r={r} style={{ fill: m.hit ? '#FFFFFF' : 'var(--ink)', stroke: m.hit ? 'var(--hong)' : 'var(--paper)' }} strokeWidth={2} />
+            <text x={m.x} y={m.y + r * 0.4} textAnchor="middle" fontSize={r * 1.1} fontWeight={700} style={{ fill: m.hit ? '#C4302A' : 'var(--paper)' }}>{m.text ?? m.n}</text>
           </g>
         );
       })}
       {drag?.moved && (() => {
         const m = marks.find((k) => k.n === drag.n);
-        const text = drag.out ? `놓으면 ${drag.n}시 지우기` : dragLabel?.(drag.n, drag.x, drag.y) ?? `${drag.n}시`;
+        const text = drag.out ? removeLabel?.(drag.n) ?? `놓으면 ${drag.n}시 지우기` : dragLabel?.(drag.n, drag.x, drag.y) ?? `${drag.n}시`;
         const w = text.length * 11 + 16;
         // 위에 자리가 없으면 아래에 띄운다
         const above = drag.y - 40 > VIEW_Y;
@@ -235,7 +245,7 @@ export function Target({ hand, grid, marks = [], small, zoneCounts, onTap, label
             <line x1={drag.x - 16} x2={drag.x + 16} y1={drag.y} y2={drag.y} style={{ stroke: 'var(--ink)' }} strokeOpacity={0.5} />
             <line x1={drag.x} x2={drag.x} y1={drag.y - 16} y2={drag.y + 16} style={{ stroke: 'var(--ink)' }} strokeOpacity={0.5} />
             <circle cx={drag.x} cy={drag.y} r={12} fillOpacity={0.9} style={{ fill: m?.hit ? '#FFFFFF' : 'var(--ink)', stroke: 'var(--hong)' }} strokeWidth={2.5} />
-            <text x={drag.x} y={drag.y + 4} textAnchor="middle" fontSize={12} fontWeight={700} style={{ fill: m?.hit ? '#C4302A' : 'var(--paper)' }}>{drag.n}</text>
+            <text x={drag.x} y={drag.y + 4} textAnchor="middle" fontSize={12} fontWeight={700} style={{ fill: m?.hit ? '#C4302A' : 'var(--paper)' }}>{m?.text ?? drag.n}</text>
             </>}
             {drag.out && <>
               <circle cx={drag.x} cy={drag.y} r={12} fill="#C4302A" fillOpacity={0.9} />
