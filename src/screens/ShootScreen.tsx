@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ShotIcon } from '../components/ShotIcon';
 import { endMeta } from '../domain/endMeta';
 import { WeatherSheet } from '../components/WeatherSheet';
@@ -66,7 +66,7 @@ const unkey = (n: number) => ({ ei: Math.floor((n - 1) / SHOTS_PER_END), si: (n 
  * 오늘(또는 넣는 중인 지난 날짜) 쏜 화살을 과녁 하나에 모두 찍고 고친다.
  * 표시를 끌어 옮기면 그 순에 저장할지 묻고, 그림 밖으로 끌어내면 그 순을 위 입력 칸에 불러와 그 시를 비운다.
  */
-function TodayTarget({ ends, onRemoveShot }: { ends: End[]; onRemoveShot: (e: End, si: number) => void }) {
+function TodayTarget({ ends, onRemoveShot, topHeight }: { ends: End[]; onRemoveShot: (e: End, si: number) => void; topHeight: number | null }) {
   const store = useStore();
   const { settings } = store;
   /** 고른 순 (null = 모든 순) */
@@ -87,6 +87,7 @@ function TodayTarget({ ends, onRemoveShot }: { ends: End[]; onRemoveShot: (e: En
       text: on ? String(si + 1) : '',
       ring: chosen == null ? endColor(ei) : undefined, dim: chosen != null && !on, big: chosen != null && on };
   }));
+  const totalHits = ends.reduce((a, e) => a + hitsOf(e), 0);
   const unplaced = ends.reduce((a, e) => a + (chosen == null || e.id === chosen ? e.shots.filter((s) => s.hit && s.x == null).length : 0), 0);
   const name = (n: number) => { const { ei, si } = unkey(n); return `${ei + 1}순 ${si + 1}시`; };
 
@@ -116,12 +117,25 @@ function TodayTarget({ ends, onRemoveShot }: { ends: End[]; onRemoveShot: (e: En
 
   return (
     <div className="today-target">
-      <div className="chips" role="group" aria-label="순별로 보기">
-        <button className={`chip ${chosen == null ? 'on' : ''}`} aria-pressed={chosen == null} onClick={() => setSel(null)}>모든 순</button>
-        {ends.map((e, i) => (
-          <button key={e.id} className={`chip ${chosen === e.id ? 'on' : ''}`} aria-pressed={chosen === e.id}
-            onClick={() => setSel(chosen === e.id ? null : e.id)}><span className="end-dot" style={{ background: endColor(i) }} aria-hidden />{i + 1}순 · {hitsOf(e)}중</button>
-        ))}
+      {/* 입력 과녁의 시 칸·버튼 줄과 같은 높이로 두어 전환해도 과녁이 제자리에 있게 한다. 순이 많아도 옆으로 밀리지 않는다 */}
+      <div className="target-top" style={topHeight ? { height: topHeight } : undefined}>
+        <div className="end-step">
+          <button className="btn ghost small" aria-label="앞 순" onClick={() => setSel(selIdx <= 0 ? (selIdx === 0 ? null : ends[ends.length - 1].id) : ends[selIdx - 1].id)}>‹</button>
+          <button className="end-step-now" onClick={() => setSel(null)} aria-label="모든 순 보기">
+            {chosen == null
+              ? <><b>모든 순</b><span>{ends.length}순 {totalHits}중</span></>
+              : <><b><span className="end-dot" style={{ background: endColor(selIdx) }} aria-hidden />{selIdx + 1}순 · {hitsOf(ends[selIdx])}중</b>
+                <span className="dots">{ends[selIdx].shots.map((s, i) => <ShotIcon key={i} shot={s} index={i} />)}</span></>}
+          </button>
+          <button className="btn ghost small" aria-label="다음 순" onClick={() => setSel(selIdx < 0 ? ends[0].id : selIdx === ends.length - 1 ? null : ends[selIdx + 1].id)}>›</button>
+        </div>
+        <div className="end-strip" role="group" aria-label="순 고르기">
+          {ends.map((e, i) => (
+            <button key={e.id} className={chosen === e.id ? 'on' : ''} aria-pressed={chosen === e.id} aria-label={`${i + 1}순 ${hitsOf(e)}중`}
+              style={{ background: chosen == null || chosen === e.id ? endColor(i) : undefined, borderColor: endColor(i) }}
+              onClick={() => setSel(chosen === e.id ? null : e.id)}>{i + 1}</button>
+          ))}
+        </div>
       </div>
       <div className="target-wrap">
         <Target hand={settings.hand} grid={settings.grid} marks={marks} markRadius={chosen != null ? 10 : 9}
@@ -132,7 +146,7 @@ function TodayTarget({ ends, onRemoveShot }: { ends: End[]; onRemoveShot: (e: En
           label={chosen != null ? `${selIdx + 1}순의 탄착` : '오늘의 탄착'} />
       </div>
       <div className="small muted">
-        {chosen != null ? `${selIdx + 1}순만 보는 중입니다. 원 안 숫자는 몇 번째 시인지입니다.` : '테두리 색은 위 칩의 순 색이고, 원 안 숫자는 몇 번째 시인지입니다. 표시를 누르면 그 순만 봅니다.'}
+        {chosen != null ? `${selIdx + 1}순만 보는 중입니다. 원 안 숫자는 몇 번째 시인지입니다.` : '테두리 색은 위 색 칸의 순이고, 원 안 숫자는 몇 번째 시인지입니다. 표시나 색 칸을 누르면 그 순만 봅니다.'}
         {' '}번호를 끌어 옮기면 그 시를 고치고, 그림 밖으로 끌어내면 지울 수 있습니다.
         {store.editId && ends.some((e) => e.id === store.editId) && ' 고치는 중인 순은 "순 고치기" 쪽에서 고치세요.'}
         {unplaced > 0 && ` 위치 없이 기록한 관중 ${unplaced}시는 과녁에 표시하지 않습니다.`}
@@ -273,6 +287,16 @@ export function ShootScreen() {
   const editing = store.editId ? ends.find((e) => e.id === store.editId) ?? null : null;
   /** 위 과녁: 이번 순 입력, 또는 오늘 쏜 화살 모두 보기 */
   const [view, setView] = useState<'input' | 'today'>('input');
+  /** 입력 과녁 위 (시 칸 + 버튼 줄) 높이. 오늘 전체에서도 같은 높이를 써서 과녁 위치를 맞춘다 */
+  const topRef = useRef<HTMLDivElement>(null);
+  const [topH, setTopH] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = topRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setTopH(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [view]);
   if ((editing?.id ?? null) !== d.editId) {
     setD(editing ? draftOf(editing) : fresh());
     // 고칠 순을 고르면 입력 과녁으로 돌아간다
@@ -494,7 +518,8 @@ export function ShootScreen() {
             <button className={view === 'today' ? 'on' : ''} aria-pressed={view === 'today'} onClick={() => setView('today')}>{past ? '그날' : '오늘'} 전체 {todays.length}순</button>
           </div>
         )}
-        {view === 'today' && todays.length > 0 ? <TodayTarget ends={todays} onRemoveShot={removeSavedShot} /> : <>
+        {view === 'today' && todays.length > 0 ? <TodayTarget ends={todays} onRemoveShot={removeSavedShot} topHeight={topH} /> : <>
+        <div className="target-top" ref={topRef}>
         <div className="shot-tabs">
           {d.shots.map((s, i) => (
             <button key={i} className={`st ${i === d.active ? 'active' : ''} ${s?.hit ? 'hit' : ''}`} onClick={() => setD((p) => ({ ...p, active: i }))}
@@ -509,6 +534,7 @@ export function ShootScreen() {
             <button className="btn ghost small" disabled={!filled} onClick={() => setClearing(true)}>초기화</button>
           </span>
           <button className="btn small" disabled={filled < SHOTS_PER_END} onClick={() => requestSave()}>{filled === SHOTS_PER_END ? `${editing ? '고친 내용 저장' : '저장'} · ${hitCount}중` : `저장 (${filled}/5)`}</button>
+        </div>
         </div>
         <div className="target-wrap">
           <Target hand={settings.hand} grid={settings.grid} marks={marks} onTap={tap} onMove={moveShot} onRemove={(n) => { if (d.shots[n - 1]) setRemoving(n - 1); }} dragLabel={dragLabel} label={`과녁을 눌러 ${d.active + 1}시 입력`} />
