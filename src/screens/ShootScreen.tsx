@@ -54,12 +54,6 @@ export function EndLine({ end, index, showMeta = true, selected, onSelect }: { e
   );
 }
 
-/** 오늘 기록을 목록으로 볼지 과녁으로 볼지 (기기에만 기억) */
-const VIEW_KEY = 'gukgungrok:today-view';
-const readView = (): 'list' | 'target' => {
-  try { return localStorage.getItem(VIEW_KEY) === 'target' ? 'target' : 'list'; } catch { return 'list'; }
-};
-
 /** 오늘 과녁의 표시 번호: 순(0부터)과 시(0부터)를 하나의 수(1부터)로 */
 /** 모든 순을 볼 때 순마다 테두리 색 (9순부터 다시 처음 색) */
 const END_COLORS = ['#1E66D0', '#E08A00', '#2E9D5B', '#8E44AD', '#D0367A', '#0FA3A3', '#8A6A2E', '#5B6B7A'];
@@ -140,7 +134,7 @@ function TodayTarget({ ends, onRemoveShot }: { ends: End[]; onRemoveShot: (e: En
       <div className="small muted">
         {chosen != null ? `${selIdx + 1}순만 보는 중입니다. 원 안 숫자는 몇 번째 시인지입니다.` : '테두리 색은 위 칩의 순 색이고, 원 안 숫자는 몇 번째 시인지입니다. 표시를 누르면 그 순만 봅니다.'}
         {' '}번호를 끌어 옮기면 그 시를 고치고, 그림 밖으로 끌어내면 지울 수 있습니다.
-        {store.editId && ends.some((e) => e.id === store.editId) && ' 위에서 고치는 중인 순은 위 과녁에서 고치세요.'}
+        {store.editId && ends.some((e) => e.id === store.editId) && ' 고치는 중인 순은 "순 고치기" 쪽에서 고치세요.'}
         {unplaced > 0 && ` 위치 없이 기록한 관중 ${unplaced}시는 과녁에 표시하지 않습니다.`}
       </div>
 
@@ -277,21 +271,23 @@ export function ShootScreen() {
 
   /** 다른 곳(오늘 기록, 기록 탭)에서 고칠 순을 고르면 입력 칸에 그 순을 불러온다 */
   const editing = store.editId ? ends.find((e) => e.id === store.editId) ?? null : null;
-  if ((editing?.id ?? null) !== d.editId) setD(editing ? draftOf(editing) : fresh());
+  /** 위 과녁: 이번 순 입력, 또는 오늘 쏜 화살 모두 보기 */
+  const [view, setView] = useState<'input' | 'today'>('input');
+  if ((editing?.id ?? null) !== d.editId) {
+    setD(editing ? draftOf(editing) : fresh());
+    // 고칠 순을 고르면 입력 과녁으로 돌아간다
+    if (editing) setView('input');
+  }
   const editIndex = editing ? ends.filter((e) => e.date === editing.date && e.recordedAt <= editing.recordedAt).length : 0;
   const cancelEdit = () => store.setEditId(null);
   const [weathering, setWeathering] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [rangeOpen, setRangeOpen] = useState(false);
-  const [todayView, setTodayView] = useState<'list' | 'target'>(readView);
-  const pickView = (v: 'list' | 'target') => {
-    setTodayView(v);
-    try { localStorage.setItem(VIEW_KEY, v); } catch { /* 기억 못 해도 지금 화면은 바뀐다 */ }
-  };
   /** 오늘 과녁에서 끌어내 지운 시: 그 순을 입력 칸에 불러와 그 시를 비운다 */
   const removeSavedShot = (e: End, si: number) => {
     store.setEditId(e.id);
     setD({ ...draftOf(e), shots: e.shots.map((s, k) => (k === si ? null : s)), active: si });
+    setView('input');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     toast(`${si + 1}시를 지웠습니다. 과녁을 눌러 다시 입력하세요`);
   };
@@ -492,6 +488,13 @@ export function ShootScreen() {
             <button className={`chip ${settings.grid ? 'on' : ''}`} aria-pressed={settings.grid} onClick={() => store.updateSettings({ grid: !settings.grid })}>9등분</button>
           </span>
         </div>
+        {todays.length > 0 && (
+          <div className="seg shoot-view" role="group" aria-label="과녁 보기">
+            <button className={view === 'input' ? 'on' : ''} aria-pressed={view === 'input'} onClick={() => setView('input')}>{editing ? `${editIndex}순 고치기` : `${todays.length + 1}순 입력`}</button>
+            <button className={view === 'today' ? 'on' : ''} aria-pressed={view === 'today'} onClick={() => setView('today')}>{past ? '그날' : '오늘'} 전체 {todays.length}순</button>
+          </div>
+        )}
+        {view === 'today' && todays.length > 0 ? <TodayTarget ends={todays} onRemoveShot={removeSavedShot} /> : <>
         <div className="shot-tabs">
           {d.shots.map((s, i) => (
             <button key={i} className={`st ${i === d.active ? 'active' : ''} ${s?.hit ? 'hit' : ''}`} onClick={() => setD((p) => ({ ...p, active: i }))}
@@ -529,6 +532,7 @@ export function ShootScreen() {
           {filled === SHOTS_PER_END ? `${editing ? `${editIndex}순 고친 내용 저장` : `${todays.length + 1}순 저장`} · ${hitCount}중` : `5시를 모두 입력하세요 (${filled}/5)`}
         </button>
         {editing && <button className="btn ghost" onClick={cancelEdit}>고치지 않고 돌아가기</button>}
+        </>}
       </section>
 
       <button className="gear" onClick={openPicker}>
@@ -568,17 +572,12 @@ export function ShootScreen() {
         {todays.length === 0
           ? <div className="empty">첫 순을 저장하면 여기에 쌓입니다.</div>
           : <>
-            <div className="seg today-view" role="group" aria-label="오늘 기록 보기">
-              <button className={todayView === 'list' ? 'on' : ''} aria-pressed={todayView === 'list'} onClick={() => pickView('list')}>목록</button>
-              <button className={todayView === 'target' ? 'on' : ''} aria-pressed={todayView === 'target'} onClick={() => pickView('target')}>과녁</button>
-            </div>
-            {todayView === 'target' && <TodayTarget ends={todays} onRemoveShot={removeSavedShot} />}
-            {todayView === 'list' && <div className="today-list">{todays.map((e, i) => (
+            <div className="today-list">{todays.map((e, i) => (
               <EndLine key={e.id} end={e} index={i} selected={e.id === store.editId}
                 onSelect={() => { store.setEditId(e.id === store.editId ? null : e.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
-            ))}</div>}
+            ))}</div>
             <div className="row between">
-              <span className="small muted">{todayView === 'list' ? '저장한 순을 누르면 위 입력 칸에 불러와 고칠 수 있습니다.' : ''}</span>
+              <span className="small muted">저장한 순을 누르면 위 입력 칸에 불러와 고칠 수 있습니다.</span>
               {!past && <button className="btn ghost small danger-text" onClick={() => setResetting(true)}>오늘 기록 초기화</button>}
             </div>
           </>}
