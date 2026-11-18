@@ -61,6 +61,10 @@ const readView = (): 'list' | 'target' => {
 };
 
 /** 오늘 과녁의 표시 번호: 순(0부터)과 시(0부터)를 하나의 수(1부터)로 */
+/** 모든 순을 볼 때 순마다 테두리 색 (9순부터 다시 처음 색) */
+const END_COLORS = ['#1E66D0', '#E08A00', '#2E9D5B', '#8E44AD', '#D0367A', '#0FA3A3', '#8A6A2E', '#5B6B7A'];
+const endColor = (ei: number) => END_COLORS[ei % END_COLORS.length];
+
 const keyOf = (ei: number, si: number) => ei * SHOTS_PER_END + si + 1;
 const unkey = (n: number) => ({ ei: Math.floor((n - 1) / SHOTS_PER_END), si: (n - 1) % SHOTS_PER_END });
 
@@ -86,7 +90,8 @@ function TodayTarget({ ends, onRemoveShot }: { ends: End[]; onRemoveShot: (e: En
     // 위 입력 칸에서 고치는 중인 순은 거기서 고친다 (두 곳에서 따로 고치지 않게)
     const locked = e.id === store.editId;
     return { x: s.x, y: s.y, hit: s.hit, n: on && !locked ? keyOf(ei, si) : undefined,
-      text: chosen == null ? `${ei + 1}-${si + 1}` : on ? String(si + 1) : '', dim: chosen != null && !on, big: chosen != null && on };
+      text: on ? String(si + 1) : '',
+      ring: chosen == null ? endColor(ei) : undefined, dim: chosen != null && !on, big: chosen != null && on };
   }));
   const unplaced = ends.reduce((a, e) => a + (chosen == null || e.id === chosen ? e.shots.filter((s) => s.hit && s.x == null).length : 0), 0);
   const name = (n: number) => { const { ei, si } = unkey(n); return `${ei + 1}순 ${si + 1}시`; };
@@ -121,7 +126,7 @@ function TodayTarget({ ends, onRemoveShot }: { ends: End[]; onRemoveShot: (e: En
         <button className={`chip ${chosen == null ? 'on' : ''}`} aria-pressed={chosen == null} onClick={() => setSel(null)}>모든 순</button>
         {ends.map((e, i) => (
           <button key={e.id} className={`chip ${chosen === e.id ? 'on' : ''}`} aria-pressed={chosen === e.id}
-            onClick={() => setSel(chosen === e.id ? null : e.id)}>{i + 1}순 · {hitsOf(e)}중</button>
+            onClick={() => setSel(chosen === e.id ? null : e.id)}><span className="end-dot" style={{ background: endColor(i) }} aria-hidden />{i + 1}순 · {hitsOf(e)}중</button>
         ))}
       </div>
       <div className="target-wrap">
@@ -133,7 +138,7 @@ function TodayTarget({ ends, onRemoveShot }: { ends: End[]; onRemoveShot: (e: En
           label={chosen != null ? `${selIdx + 1}순의 탄착` : '오늘의 탄착'} />
       </div>
       <div className="small muted">
-        {chosen != null ? `${selIdx + 1}순만 보는 중입니다. 원 안 숫자는 몇 번째 시인지입니다.` : '표시의 "2-3"은 2순 3시라는 뜻입니다. 표시를 누르면 그 순만 봅니다.'}
+        {chosen != null ? `${selIdx + 1}순만 보는 중입니다. 원 안 숫자는 몇 번째 시인지입니다.` : '테두리 색은 위 칩의 순 색이고, 원 안 숫자는 몇 번째 시인지입니다. 표시를 누르면 그 순만 봅니다.'}
         {' '}번호를 끌어 옮기면 그 시를 고치고, 그림 밖으로 끌어내면 지울 수 있습니다.
         {store.editId && ends.some((e) => e.id === store.editId) && ' 위에서 고치는 중인 순은 위 과녁에서 고치세요.'}
         {unplaced > 0 && ` 위치 없이 기록한 관중 ${unplaced}시는 과녁에 표시하지 않습니다.`}
