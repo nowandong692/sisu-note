@@ -608,3 +608,11 @@ nav.tabs .tab-icon .dot { position: absolute; top: -1px; right: -5px; width: 9px
 .share-preview { margin: 0; padding: 8px 10px; border-left: 3px solid var(--line); background: var(--paper); border-radius: 6px; white-space: pre-wrap; font-size: 14px; }
 .comment-older { align-self: flex-start; background: none; border: none; padding: 2px 0; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer; }
 .paged-note { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+
+/* 습사: 오늘 기록을 과녁으로 */
+.today-view { align-self: flex-start; }
+.today-target { display: flex; flex-direction: column; gap: 8px; }
+.today-target .chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+.today-target .chips .chip { flex: none; }
+.today-target .target-wrap svg { max-width: 340px; }
+.end-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
