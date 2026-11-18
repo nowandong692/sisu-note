@@ -222,7 +222,12 @@ export function Target({ hand, grid, marks = [], small, zoneCounts, onTap, label
           <g key={i} opacity={m.dim ? 0.3 : undefined} {...(canDrag ? { 'data-drag': 'true', className: 'mark-drag', onPointerDown: grab(m), 'aria-label': `${m.text ?? `${m.n}시`} 표시 (끌어서 옮기기)` } : {})}>
             {/* 손가락으로 잡기 쉽게 보이지 않는 넓은 자리 */}
             {canDrag && <circle cx={m.x} cy={m.y} r={18} fill="transparent" />}
-            <circle cx={m.x} cy={m.y} r={r} style={{ fill: m.hit ? '#FFFFFF' : 'var(--ink)', stroke: m.hit ? 'var(--hong)' : 'var(--paper)' }} strokeWidth={2} />
+            {(() => {
+              // 글자가 길면 (예: "2-3") 옆으로 긴 알약 모양으로
+              const t = m.text ?? String(m.n ?? '');
+              const w = Math.max(2 * r, t.length * r * 0.62 + r * 0.9);
+              return <rect x={m.x - w / 2} y={m.y - r} width={w} height={2 * r} rx={r} style={{ fill: m.hit ? '#FFFFFF' : 'var(--ink)', stroke: m.hit ? 'var(--hong)' : 'var(--paper)' }} strokeWidth={2} />;
+            })()}
             <text x={m.x} y={m.y + r * 0.4} textAnchor="middle" fontSize={r * 1.1} fontWeight={700} style={{ fill: m.hit ? '#C4302A' : 'var(--paper)' }}>{m.text ?? m.n}</text>
           </g>
         );

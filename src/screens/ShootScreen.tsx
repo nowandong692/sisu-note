@@ -86,7 +86,7 @@ function TodayTarget({ ends, onRemoveShot }: { ends: End[]; onRemoveShot: (e: En
     // 위 입력 칸에서 고치는 중인 순은 거기서 고친다 (두 곳에서 따로 고치지 않게)
     const locked = e.id === store.editId;
     return { x: s.x, y: s.y, hit: s.hit, n: on && !locked ? keyOf(ei, si) : undefined,
-      text: chosen == null ? String(ei + 1) : on ? String(si + 1) : '', dim: chosen != null && !on, big: chosen != null && on };
+      text: chosen == null ? `${ei + 1}-${si + 1}` : on ? String(si + 1) : '', dim: chosen != null && !on, big: chosen != null && on };
   }));
   const unplaced = ends.reduce((a, e) => a + (chosen == null || e.id === chosen ? e.shots.filter((s) => s.hit && s.x == null).length : 0), 0);
   const name = (n: number) => { const { ei, si } = unkey(n); return `${ei + 1}순 ${si + 1}시`; };
@@ -125,7 +125,7 @@ function TodayTarget({ ends, onRemoveShot }: { ends: End[]; onRemoveShot: (e: En
         ))}
       </div>
       <div className="target-wrap">
-        <Target hand={settings.hand} grid={settings.grid} marks={marks} markRadius={chosen != null ? 10 : 8}
+        <Target hand={settings.hand} grid={settings.grid} marks={marks} markRadius={chosen != null ? 10 : 9}
           onMove={move} onRemove={(n) => setRemoving(unkey(n))}
           onPick={(n) => { const e = ends[unkey(n).ei]; if (e) setSel(chosen === e.id ? null : e.id); }}
           dragLabel={(n, x, y) => `${name(n)} · ${shotLabel(classifyTap(x, y, settings.hand, settings.grid), settings.grid)}`}
@@ -133,7 +133,7 @@ function TodayTarget({ ends, onRemoveShot }: { ends: End[]; onRemoveShot: (e: En
           label={chosen != null ? `${selIdx + 1}순의 탄착` : '오늘의 탄착'} />
       </div>
       <div className="small muted">
-        {chosen != null ? `원 안 숫자는 몇 번째 시인지입니다.` : '원 안 숫자는 몇 번째 순인지입니다. 번호를 누르면 그 순만 봅니다.'}
+        {chosen != null ? `${selIdx + 1}순만 보는 중입니다. 원 안 숫자는 몇 번째 시인지입니다.` : '표시의 "2-3"은 2순 3시라는 뜻입니다. 표시를 누르면 그 순만 봅니다.'}
         {' '}번호를 끌어 옮기면 그 시를 고치고, 그림 밖으로 끌어내면 지울 수 있습니다.
         {store.editId && ends.some((e) => e.id === store.editId) && ' 위에서 고치는 중인 순은 위 과녁에서 고치세요.'}
         {unplaced > 0 && ` 위치 없이 기록한 관중 ${unplaced}시는 과녁에 표시하지 않습니다.`}
