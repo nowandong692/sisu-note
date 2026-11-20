@@ -75,7 +75,7 @@ export function DayMemoField({ date, label, autoFocus, onDone }: { date: string;
         {label}
         <span className={`opt ${pending ? 'pending' : ''}`}>{pending ? '공개 전' : status === 'typing' ? '쓰는 중' : status === 'saved' ? '저장됨' : SHARE_STATE_LABEL[share ?? 'private']}</span>
       </label>
-      <AutoTextarea id={id} rows={2} autoFocus={autoFocus} value={text}
+      <AutoTextarea id={id} rows={3} autoFocus={autoFocus} value={text}
         placeholder="예: 사범님이 줌손을 더 밀라고 하심. 다음엔 첫 순 전에 빈활 열 번."
         onChange={(e) => { setText(e.target.value); setStatus('typing'); }}
         onBlur={(e) => {
