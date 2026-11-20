@@ -359,17 +359,63 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     if (ids.length) void enqueueRecords(ids);
   }, [data.loaded, data.ends, data.days, enqueueRecords]);
 
-  // 참여하거나 복구한 뒤 한 번: 이 기기의 기록을 모두 올린다 (이미 쓰던 기기에서 처음 이 기능을 받았을 때도)
+  /** 순 기록·하루 메모: 백업(013)을 모두 받고, 백업에 없는 순은 랭킹에 올린 기록에서 되살려 이 기기에 합친다 */
+  const pullRecords = useCallback(async (key: string) => {
+    const recordRows: { client_id: string; data: unknown }[] = [];
+    try {
+      for (let after: string | null = null; ;) {
+        const page: { client_id: string; data: unknown }[] = await rpc('load_records', { p_key: key, p_after: after, p_limit: 500 }, 20000);
+        recordRows.push(...(page ?? []));
+        if (!page || page.length < 500) break;
+        after = page[page.length - 1].client_id;
+      }
+    } catch (err) {
+      if (err instanceof OnlineError && err.code === 'network') throw err;
+      /* 서버에 013이 아직 없으면 랭킹 기록만 되살린다 */
+    }
+    const ranked = await rpc<RankedEnd[]>('my_ranked_ends', { p_key: key }, 20000).catch((err) => {
+      if (err instanceof OnlineError && err.code === 'network') throw err;
+      return [] as RankedEnd[];
+    });
+    const rec = mergeRecords({ ends: endsRef.current, days: daysRef.current }, recordRows, ranked ?? []);
+    for (const e of rec.addedEnds) await repo.putEnd(e);
+    for (const d of rec.addedDays) await repo.putDay(d);
+    if (rec.addedEnds.length || rec.addedDays.length) {
+      endsRef.current = rec.ends;
+      daysRef.current = rec.days;
+      setData((p) => ({ ...p, ends: rec.ends, days: rec.days }));
+    }
+    return rec;
+  }, [repo]);
+
+  // 참여하거나 복구한 뒤 한 번: 이 기기의 기록을 모두 올린다.
+  // 이 기능이 생기기 전부터 참여 중이던 기기(recordsSeeded가 없음)는 먼저 서버의 기록을 한 번 받아 합치고, 서버 닉네임도 다시 맞춘다
   const recordsSeeded = data.settings.online?.recordsSeeded;
+  const seeding = useRef(false);
   useEffect(() => {
-    if (!data.loaded || !onlineKey || recordsSeeded) return;
-    const o = settingsRef.current.online;
-    if (!o) return;
-    const all = recordIdsOf(endsRef.current, daysRef.current);
-    const have = new Set(o.recordQueue ?? []);
-    void updateSettings({ online: { ...o, recordsSeeded: true, recordQueue: [...(o.recordQueue ?? []), ...all.filter((id) => !have.has(id))] } })
-      .then(() => flushRecords());
-  }, [data.loaded, onlineKey, recordsSeeded, updateSettings, flushRecords]);
+    if (!data.loaded || !onlineKey || recordsSeeded || seeding.current || !onlineAvailable()) return;
+    seeding.current = true;
+    void (async () => {
+      try {
+        if (recordsSeeded === undefined) {
+          const who = await rpc<{ nickname: string; range_name: string | null }[]>('whoami', { p_key: onlineKey });
+          await pullRecords(onlineKey);
+          const cur = settingsRef.current.online;
+          if (cur && cur.key === onlineKey && who?.[0] && who[0].nickname !== cur.nickname) {
+            await updateSettings({ online: { ...cur, nickname: who[0].nickname } });
+          }
+        }
+        const o = settingsRef.current.online;
+        if (!o || o.key !== onlineKey) return;
+        const all = recordIdsOf(endsRef.current, daysRef.current);
+        const have = new Set(o.recordQueue ?? []);
+        await updateSettings({ online: { ...o, recordsSeeded: true, recordQueue: [...(o.recordQueue ?? []), ...all.filter((id) => !have.has(id))] } });
+        void flushRecords();
+      } catch { /* 인터넷이 없으면 다음에 앱을 열 때 다시 한다 */ } finally {
+        seeding.current = false;
+      }
+    })();
+  }, [data.loaded, onlineKey, recordsSeeded, updateSettings, flushRecords, pullRecords]);
 
   useEffect(() => {
     if (!data.loaded) return;
@@ -602,25 +648,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
         for (const g of merged.added) await repo.putGear(g);
         setData((p) => ({ ...p, gear: merged.gear }));
       }
-      // 순 기록·하루 메모: 백업(013)을 모두 받고, 백업에 없는 순은 랭킹에 올린 기록에서 되살린다
-      const recordRows: { client_id: string; data: unknown }[] = [];
-      try {
-        for (let after: string | null = null; ;) {
-          const page: { client_id: string; data: unknown }[] = await rpc('load_records', { p_key: key, p_after: after, p_limit: 500 }, 20000);
-          recordRows.push(...(page ?? []));
-          if (!page || page.length < 500) break;
-          after = page[page.length - 1].client_id;
-        }
-      } catch { /* 서버에 013이 아직 없으면 랭킹 기록만 되살린다 */ }
-      const ranked = await rpc<RankedEnd[]>('my_ranked_ends', { p_key: key }, 20000).catch(() => [] as RankedEnd[]);
-      const rec = mergeRecords({ ends: endsRef.current, days: daysRef.current }, recordRows, ranked ?? []);
-      for (const e of rec.addedEnds) await repo.putEnd(e);
-      for (const d of rec.addedDays) await repo.putDay(d);
-      if (rec.addedEnds.length || rec.addedDays.length) {
-        endsRef.current = rec.ends;
-        daysRef.current = rec.days;
-        setData((p) => ({ ...p, ends: rec.ends, days: rec.days }));
-      }
+      const rec = await pullRecords(key);
       const patch = merged?.patch ?? {};
       const club = patch.club !== undefined ? patch.club : settingsRef.current.club;
       await updateSettings({
@@ -690,7 +718,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       await updateSettings({ current: { bow: null, ring: null, arrow: null } });
       await enqueueMemos([...data.ends.filter((e) => e.share).map((e) => e.id), ...data.days.filter((d) => d.share).map((d) => dayClientId(d.date))]);
     },
-  }), [data, repo, updateSettings, todayWeather, editId, pastDate, setPastDate, ranges, unknownSpot, rangeOffer, noticePosition, enqueue, enqueueMemos, sharedDayIds, commentNews, refreshCommentNews, markCommentsSeen]);
+  }), [data, repo, updateSettings, todayWeather, editId, pastDate, setPastDate, ranges, unknownSpot, rangeOffer, noticePosition, enqueue, enqueueMemos, sharedDayIds, commentNews, refreshCommentNews, markCommentsSeen, pullRecords]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }
