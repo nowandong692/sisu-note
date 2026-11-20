@@ -1,6 +1,7 @@
 import { danShort } from '../domain/dan';
 import { useEffect, useState } from 'react';
 import { ConfirmButton, Sheet, toast } from '../components/ui';
+import { restoreMessage } from '../domain/recordBackup';
 import {
   MIN_ENDS, MIN_PER_15, VOLUME_TOP, eligibility, per15Of, periodStart, rankPeriod, rankVolume, shiftPeriod,
   type ArcherTotal, type RankPeriod, type RankRow,
@@ -66,13 +67,13 @@ export function RestoreForm({ onBack, onDone }: { onBack: () => void; onDone?: (
     setBusy(true); setErr('');
     try {
       const r = await store.restoreOnline(code);
-      toast(r ? `예전 닉네임과 설정을 되살렸습니다${r.gear ? ` (장비 ${r.gear}개)` : ''}` : '예전 닉네임과 랭킹 기록을 이어 씁니다');
+      toast(restoreMessage(r));
       onDone?.();
     } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
   };
   return (
     <>
-      <div className="small muted">처음 참여할 때 받은 복구 코드를 넣으면 그때 쓰던 닉네임과 랭킹 기록, 서버에 백업해 둔 장비와 설정을 이 기기에서 그대로 이어 씁니다. 이 기기의 순 기록은 바뀌지 않습니다.</div>
+      <div className="small muted">처음 참여할 때 받은 복구 코드를 넣으면 그때 쓰던 닉네임과 랭킹 기록, 서버에 백업해 둔 순 기록·하루 메모·장비·설정을 이 기기로 되살립니다. 이 기기에 있는 기록은 지우지 않고 합칩니다.</div>
       <div className="field">
         <label htmlFor="code">복구 코드</label>
         <input id="code" type="text" autoCapitalize="characters" autoComplete="off" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" value={code} onChange={(e) => { setCode(e.target.value); setErr(''); }} />

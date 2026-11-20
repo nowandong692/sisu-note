@@ -13,6 +13,7 @@ import { pastBase } from '../domain/backfill';
 import { sameGear, type EndGear } from '../domain/endGear';
 import { cleanNickname } from '../domain/nickname';
 import { asBackup, makeBackup, mergeBackup } from '../domain/backup';
+import { RECORD_BATCH, changedRecordIds, mergeRecords, recordIdsOf, splitRecordQueue, type RankedEnd } from '../domain/recordBackup';
 import type { Repository } from '../storage/repository';
 
 interface Data {
@@ -97,8 +98,10 @@ export interface Store extends Data {
   markCommentsSeen(latest: number): Promise<void>;
   /** 새로 참여: 복구 코드를 만들고 닉네임을 등록한다 */
   joinOnline(nickname: string, rangeName: string | null): Promise<void>;
-  /** 다른 기기에서 쓰던 복구 코드로 이어 하기. 서버에 장비·설정 백업이 있으면 함께 되살리고, 되살린 장비 수를 돌려준다 (백업이 없으면 null) */
-  restoreOnline(code: string): Promise<{ gear: number } | null>;
+  /** 다른 기기에서 쓰던 복구 코드로 이어 하기. 서버의 장비·설정 백업과 순 기록 백업(없으면 랭킹에 올린 순)을 함께 되살린다 */
+  restoreOnline(code: string): Promise<RestoreResult>;
+  /** 서버 백업에 아직 올리지 못한 순·하루 메모 수 */
+  recordPending: number;
   setOnlineProfile(nickname: string, rangeName: string | null): Promise<void>;
   /** 내 소속을 바꾼다. 랭킹에 참여 중이면 서버 프로필의 활터도 소속으로 바꾼다 */
   setClub(club: Club | null): Promise<void>;
@@ -115,6 +118,9 @@ export interface Store extends Data {
   /** 오늘 저장한 순을 모두 지운다 (랭킹에 올린 오늘 순도 지운다). 지운 순 수를 돌려준다. */
   clearToday(): Promise<number>;
 }
+
+/** 복구 결과: 되살린 장비 수, 순 수 (그중 랭킹 기록에서만 되살려 관중 여부만 있는 순 수), 하루 메모 수 */
+export interface RestoreResult { gear: number; ends: number; fromRanking: number; days: number }
 
 const Ctx = createContext<Store | null>(null);
 
@@ -302,6 +308,76 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     }, 3000);
     return () => clearTimeout(t);
   }, [data.loaded, data.gear, data.settings, onlineKey]);
+
+  // 순 기록·하루 메모 백업 (013): 바뀐 순과 하루 메모를 대기열에 넣고 서버에 올린다
+  const flushingRecords = useRef(false);
+  const flushRecords = useCallback(async () => {
+    if (flushingRecords.current || !onlineAvailable()) return;
+    flushingRecords.current = true;
+    try {
+      for (;;) {
+        const o = settingsRef.current.online;
+        const ids = (o?.recordQueue ?? []).slice(0, RECORD_BATCH);
+        if (!o || !ids.length) return;
+        const { put, del } = splitRecordQueue(ids, endsRef.current, daysRef.current);
+        try {
+          if (put.length) await rpc('save_records', { p_key: o.key, p_rows: put }, 20000);
+          if (del.length) await rpc('delete_records', { p_key: o.key, p_ids: del });
+        } catch (err) {
+          // 인터넷이 없거나 서버에 013이 아직 없으면 모아 둔 채로 다음에 다시 한다. 서버가 거절한 줄은 다시 해도 같으므로 버린다
+          if (err instanceof OnlineError && (err.code === 'network' || err.code === 'missing')) return;
+        }
+        const cur = settingsRef.current.online;
+        if (!cur || cur.key !== o.key) return;
+        const sent = new Set(ids);
+        await updateSettings({ online: { ...cur, recordQueue: (cur.recordQueue ?? []).filter((q) => !sent.has(q)) } });
+      }
+    } finally {
+      flushingRecords.current = false;
+    }
+  }, [updateSettings]);
+
+  const enqueueRecords = useCallback(async (ids: string[]) => {
+    const o = settingsRef.current.online;
+    if (!o || !ids.length) return;
+    const add = new Set(ids);
+    await updateSettings({ online: { ...o, recordQueue: [...(o.recordQueue ?? []).filter((q) => !add.has(q)), ...add] } });
+    void flushRecords();
+  }, [updateSettings, flushRecords]);
+
+  // 화면에 있는 기록이 바뀔 때마다 앞과 견줘 바뀐 것만 대기열에 넣는다.
+  // 기기 기록을 한꺼번에 지우거나 바꾸는 일(기록만 지우기, 모두 지우기, 예시 넣기)은 서버 백업에 알리지 않는다 (bulkRecords)
+  const lastRecords = useRef<{ ends: End[]; days: DayNote[] } | null>(null);
+  const bulkRecords = useRef(false);
+  useEffect(() => {
+    if (!data.loaded) return;
+    const prev = lastRecords.current;
+    const next = { ends: data.ends, days: data.days };
+    lastRecords.current = next;
+    if (!prev || bulkRecords.current) { bulkRecords.current = false; return; }
+    const ids = changedRecordIds(prev, next);
+    if (ids.length) void enqueueRecords(ids);
+  }, [data.loaded, data.ends, data.days, enqueueRecords]);
+
+  // 참여하거나 복구한 뒤 한 번: 이 기기의 기록을 모두 올린다 (이미 쓰던 기기에서 처음 이 기능을 받았을 때도)
+  const recordsSeeded = data.settings.online?.recordsSeeded;
+  useEffect(() => {
+    if (!data.loaded || !onlineKey || recordsSeeded) return;
+    const o = settingsRef.current.online;
+    if (!o) return;
+    const all = recordIdsOf(endsRef.current, daysRef.current);
+    const have = new Set(o.recordQueue ?? []);
+    void updateSettings({ online: { ...o, recordsSeeded: true, recordQueue: [...(o.recordQueue ?? []), ...all.filter((id) => !have.has(id))] } })
+      .then(() => flushRecords());
+  }, [data.loaded, onlineKey, recordsSeeded, updateSettings, flushRecords]);
+
+  useEffect(() => {
+    if (!data.loaded) return;
+    void flushRecords();
+    const on = () => { void flushRecords(); };
+    window.addEventListener('online', on);
+    return () => window.removeEventListener('online', on);
+  }, [data.loaded, flushRecords]);
 
   const w = data.settings.weather;
   const todayWeather = useMemo<Weather | null>(
@@ -495,6 +571,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     async loadSample() {
       const { gear, ends, ranges: sampleRanges } = sampleData();
       await repo.replaceAll({ gear, ends });
+      bulkRecords.current = true;
       setData((p) => ({ ...p, gear, ends }));
       await updateSettings({ hand: 'right', current: { bow: 'sample-b1', ring: 'sample-r1', arrow: 'sample-a1', string: 'sample-s1' }, ranges: [...ranges.filter((x) => !x.id.startsWith(SAMPLE_PREFIX)), ...sampleRanges],
         ...(data.settings.currentRange ? {} : { currentRange: 'sample-g1', currentRangeManual: true }) });
@@ -502,6 +579,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     online: data.settings.online ?? null,
     onlinePending: data.settings.online?.queue.length ?? 0,
     memoPending: data.settings.online?.memoQueue?.length ?? 0,
+    recordPending: data.settings.online?.recordQueue?.length ?? 0,
     commentNews,
     refreshCommentNews,
     markCommentsSeen,
@@ -510,7 +588,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       const key = newRecoveryCode();
       await rpc('register', { p_key: key, p_nickname: nickname.trim() });
       if (rangeName) await rpc('set_profile', { p_key: key, p_nickname: nickname.trim(), p_range_name: rangeName });
-      await updateSettings({ online: { key, nickname: nickname.trim(), rangeName, joinedAt: Date.now(), queue: [] }, rankHistory: {} });
+      await updateSettings({ online: { key, nickname: nickname.trim(), rangeName, joinedAt: Date.now(), queue: [], recordsSeeded: false }, rankHistory: {} });
       await syncDan(key, data.settings.dans);
     },
     async restoreOnline(code) {
@@ -524,17 +602,37 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
         for (const g of merged.added) await repo.putGear(g);
         setData((p) => ({ ...p, gear: merged.gear }));
       }
+      // 순 기록·하루 메모: 백업(013)을 모두 받고, 백업에 없는 순은 랭킹에 올린 기록에서 되살린다
+      const recordRows: { client_id: string; data: unknown }[] = [];
+      try {
+        for (let after: string | null = null; ;) {
+          const page: { client_id: string; data: unknown }[] = await rpc('load_records', { p_key: key, p_after: after, p_limit: 500 }, 20000);
+          recordRows.push(...(page ?? []));
+          if (!page || page.length < 500) break;
+          after = page[page.length - 1].client_id;
+        }
+      } catch { /* 서버에 013이 아직 없으면 랭킹 기록만 되살린다 */ }
+      const ranked = await rpc<RankedEnd[]>('my_ranked_ends', { p_key: key }, 20000).catch(() => [] as RankedEnd[]);
+      const rec = mergeRecords({ ends: endsRef.current, days: daysRef.current }, recordRows, ranked ?? []);
+      for (const e of rec.addedEnds) await repo.putEnd(e);
+      for (const d of rec.addedDays) await repo.putDay(d);
+      if (rec.addedEnds.length || rec.addedDays.length) {
+        endsRef.current = rec.ends;
+        daysRef.current = rec.days;
+        setData((p) => ({ ...p, ends: rec.ends, days: rec.days }));
+      }
       const patch = merged?.patch ?? {};
       const club = patch.club !== undefined ? patch.club : settingsRef.current.club;
       await updateSettings({
         ...patch,
-        online: { key, nickname: rows[0].nickname, rangeName: rows[0].range_name, joinedAt: Date.now(), queue: [] },
+        // recordsSeeded: false → 되살린 기록과 이 기기 기록을 모두 이 닉네임의 백업으로 올린다
+        online: { key, nickname: rows[0].nickname, rangeName: rows[0].range_name, joinedAt: Date.now(), queue: [], recordsSeeded: false },
         rankHistory: patch.rankHistory ?? {},
         // 다른 기기에서 쓰던 소속을 이어받는다 (이 기기에 소속이 없을 때만)
         ...(!club && rows[0].range_name ? { club: { name: rows[0].range_name } } : {}),
       });
       await syncDan(key, settingsRef.current.dans);
-      return merged ? { gear: merged.added.length } : null;
+      return { gear: merged?.added.length ?? 0, ends: rec.addedEnds.length, fromRanking: rec.fromRanking, days: rec.addedDays.length };
     },
     async setOnlineProfile(raw, rangeName) {
       const nickname = cleanNickname(raw);
@@ -575,6 +673,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     async clearEnds() {
       const n = data.ends.length;
       await repo.replaceAll({ gear: data.gear, ends: [], days: [] });
+      bulkRecords.current = true;
       setData((p) => ({ ...p, ends: [], days: [] }));
       daysRef.current = [];
       endsRef.current = [];
@@ -584,6 +683,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     },
     async clearAll() {
       await repo.replaceAll({ gear: [], ends: [], days: [] });
+      bulkRecords.current = true;
       setData((p) => ({ ...p, gear: [], ends: [], days: [] }));
       daysRef.current = [];
       endsRef.current = [];
