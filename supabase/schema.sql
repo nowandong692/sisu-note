@@ -5,6 +5,7 @@
 --  * 저장하는 것: 닉네임, (원하면) 활터 이름, 순마다 서버 기준 날짜, 저장 시각과 다섯 시의 관중 여부.
 --  * 메모와 태그는 궁사가 "공개"로 고른 순만 올린다 (shared_memos). 위치, 날씨는 올리지 않는다.
 --  * 장비와 설정(등록한 활터 위치 포함)은 복구용 백업(backups)으로만 올린다. 열쇠를 아는 본인만 읽는다 (012).
+--  * 순 기록과 하루 메모도 복구용 백업(record_backups)으로만 올린다. 열쇠를 아는 본인만 읽는다 (013).
 --
 -- 보안 원칙
 --  * 모든 테이블에 RLS를 켜고 정책을 하나도 두지 않는다 → anon 키로는 테이블을 직접 읽지도 쓰지도 못한다.
@@ -974,3 +975,72 @@ language sql stable security definer set search_path = public, extensions as $$
 $$;
 
 grant execute on function public.save_backup(text, jsonb), public.load_backup(text) to anon;
+
+-- 순 기록·하루 메모 백업 (013)
+create table if not exists public.record_backups (
+  archer_id uuid not null references public.archers (id) on delete cascade,
+  -- 순은 앱의 순 id, 하루 메모는 'day:YYYY-MM-DD'
+  client_id text not null,
+  data jsonb not null,
+  -- 앱이 마지막으로 고친 시각 (ms). 더 오래된 내용이 새 내용을 덮어쓰지 않게 한다
+  updated_ms bigint not null default 0,
+  updated_at timestamptz not null default now(),
+  primary key (archer_id, client_id),
+  constraint rb_client_id_len check (char_length(client_id) <= 64)
+);
+alter table public.record_backups enable row level security;
+revoke all on public.record_backups from anon, authenticated;
+
+-- 여러 줄 올리기: [{ "id": "...", "u": 1700000000000, "data": {...} }, ...] (한 번에 200줄까지)
+create or replace function public.save_records(p_key text, p_rows jsonb) returns int
+language plpgsql security definer set search_path = public, extensions as $$
+declare a uuid := _archer(p_key); n int;
+begin
+  if p_rows is null or jsonb_typeof(p_rows) <> 'array' then raise exception 'bad records'; end if;
+  if jsonb_array_length(p_rows) > 200 then raise exception 'too many records'; end if;
+  if exists (select 1 from jsonb_array_elements(p_rows) r
+             where jsonb_typeof(r->'data') is distinct from 'object' or coalesce(r->>'id', '') = ''
+                or char_length(r->>'id') > 64 or octet_length((r->'data')::text) > 20000) then
+    raise exception 'bad records';
+  end if;
+  if (select count(*) from record_backups where archer_id = a) + jsonb_array_length(p_rows) > 50000 then
+    raise exception 'too many records';
+  end if;
+  insert into record_backups (archer_id, client_id, data, updated_ms, updated_at)
+  select a, r->>'id', r->'data', coalesce((r->>'u')::bigint, 0), now() from jsonb_array_elements(p_rows) r
+  on conflict (archer_id, client_id) do update
+    set data = excluded.data, updated_ms = excluded.updated_ms, updated_at = now()
+    where record_backups.updated_ms <= excluded.updated_ms;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
+-- 지운 순·하루 메모를 백업에서도 지운다
+create or replace function public.delete_records(p_key text, p_ids text[]) returns void
+language sql security definer set search_path = public, extensions as $$
+  delete from record_backups where archer_id = _archer(p_key) and client_id = any (p_ids)
+$$;
+
+-- 백업 불러오기: client_id 순서로 p_limit줄씩. 다음에는 마지막 client_id를 p_after로 준다
+create or replace function public.load_records(p_key text, p_after text default null, p_limit int default 500)
+returns table (client_id text, data jsonb)
+language sql stable security definer set search_path = public, extensions as $$
+  select b.client_id, b.data from record_backups b
+  where b.archer_id = _archer(p_key) and (p_after is null or b.client_id > p_after)
+  order by b.client_id
+  limit least(greatest(coalesce(p_limit, 500), 1), 1000)
+$$;
+
+-- 랭킹에 올라간 내 순 모두 (백업 전에 사라진 기록을 되살릴 때 쓴다). 공개했던 순은 메모와 태그도 함께
+create or replace function public.my_ranked_ends(p_key text)
+returns table (client_id text, day date, recorded_at timestamptz, hits boolean[], tags text[], memo text, scope text)
+language sql stable security definer set search_path = public, extensions as $$
+  select e.client_id, e.day, e.recorded_at, e.hits, m.tags, m.memo, m.scope
+  from ends e
+  left join shared_memos m on m.archer_id = e.archer_id and m.client_id = e.client_id
+  where e.archer_id = _archer(p_key)
+  order by e.recorded_at
+$$;
+
+grant execute on function public.save_records(text, jsonb), public.delete_records(text, text[]),
+  public.load_records(text, text, int), public.my_ranked_ends(text) to anon;

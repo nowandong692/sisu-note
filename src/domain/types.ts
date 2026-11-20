@@ -129,6 +129,10 @@ export interface OnlineProfile {
   queue: { op: 'put' | 'del'; id: string }[];
   /** 공개 상태를 서버에 아직 알리지 못한 순 id (공개, 고침, 내림) */
   memoQueue?: string[];
+  /** 서버 백업(013)에 아직 알리지 못한 순·하루 메모 id (이 기기에 있으면 올리고, 없으면 지운다) */
+  recordQueue?: string[];
+  /** 이 기기의 기록을 모두 백업 대기열에 넣었는지 (참여하거나 복구한 뒤 한 번) */
+  recordsSeeded?: boolean;
 }
 
 export type ThemeMode = 'system' | 'light' | 'dark';
