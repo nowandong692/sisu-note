@@ -649,12 +649,14 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
         setData((p) => ({ ...p, gear: merged.gear }));
       }
       const rec = await pullRecords(key);
+      const prevOnline = settingsRef.current.online;
       const patch = merged?.patch ?? {};
       const club = patch.club !== undefined ? patch.club : settingsRef.current.club;
       await updateSettings({
         ...patch,
         // recordsSeeded: false → 되살린 기록과 이 기기 기록을 모두 이 닉네임의 백업으로 올린다
-        online: { key, nickname: rows[0].nickname, rangeName: rows[0].range_name, joinedAt: Date.now(), queue: [], recordsSeeded: false },
+        // 같은 복구 코드를 다시 넣었으면 아직 올리지 못한 일은 그대로 둔다
+        online: { ...(prevOnline?.key === key ? prevOnline : { joinedAt: Date.now(), queue: [] }), key, nickname: rows[0].nickname, rangeName: rows[0].range_name, recordsSeeded: false },
         rankHistory: patch.rankHistory ?? {},
         // 다른 기기에서 쓰던 소속을 이어받는다 (이 기기에 소속이 없을 때만)
         ...(!club && rows[0].range_name ? { club: { name: rows[0].range_name } } : {}),

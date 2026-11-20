@@ -58,7 +58,7 @@ function ClubField() {
 }
 
 /** 복구 코드로 예전 닉네임과 랭킹 기록을 이 기기에서 이어 쓰기 */
-export function RestoreForm({ onBack, onDone }: { onBack: () => void; onDone?: () => void }) {
+export function RestoreForm({ onBack, onDone, backLabel = '새 닉네임 정하기로 돌아가기' }: { onBack: () => void; onDone?: () => void; backLabel?: string }) {
   const store = useStore();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -80,7 +80,7 @@ export function RestoreForm({ onBack, onDone }: { onBack: () => void; onDone?: (
       </div>
       {err && <div className="small err-text" role="alert">{err}</div>}
       <button className="btn" disabled={busy || code.replace(/[^0-9a-z]/gi, '').length < 20} onClick={restore}>{busy ? '확인하는 중…' : '이어 쓰기'}</button>
-      <button className="btn ghost small" onClick={onBack}>새 닉네임 정하기로 돌아가기</button>
+      <button className="btn ghost small" onClick={onBack}>{backLabel}</button>
     </>
   );
 }
