@@ -50,6 +50,39 @@ export function weeklyTrend(ends: End[]): { week: string; perEnd: number; ends: 
   });
 }
 
+export type TrendUnit = 'day' | 'week' | 'month';
+
+export interface TrendPoint extends Summary {
+  /** 날짜(YYYY-MM-DD), 주의 월요일, 또는 달(YYYY-MM) */
+  key: string;
+  /** 습사한 날 수 */
+  days: number;
+  /** 이 점까지 최근 몇 개 점을 순 수로 가중해 낸 순당 평균 (흐름선) */
+  smooth: number;
+}
+
+/**
+ * 날짜별·주별·월별 추이. 오래된 것부터.
+ * smooth는 이 점을 포함한 최근 window개 점의 중 합 ÷ 순 합이라, 순이 적은 날 하나에 크게 흔들리지 않는다.
+ */
+export function trendSeries(ends: End[], unit: TrendUnit, window = unit === 'day' ? 5 : 3): TrendPoint[] {
+  const keyOf = (d: string) => (unit === 'day' ? d : unit === 'week' ? weekStart(d) : d.slice(0, 7));
+  const m = new Map<string, End[]>();
+  for (const e of ends) {
+    const k = keyOf(e.date);
+    m.set(k, [...(m.get(k) ?? []), e]);
+  }
+  const pts = [...m.keys()].sort().map((key) => {
+    const list = m.get(key)!;
+    return { key, days: new Set(list.map((e) => e.date)).size, ...summarize(list), smooth: 0 };
+  });
+  pts.forEach((p, i) => {
+    const w = pts.slice(Math.max(0, i - window + 1), i + 1);
+    p.smooth = w.reduce((a, x) => a + x.hits, 0) / w.reduce((a, x) => a + x.ends, 0);
+  });
+  return pts;
+}
+
 export interface MonthRow extends Summary {
   month: string; // YYYY-MM
   days: number; // 습사한 날 수

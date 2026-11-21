@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byWeather, byWindDir, tempBand, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weekStart, weeklyTrend } from './stats';
+import { byWeather, byWindDir, tempBand, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weekStart, weeklyTrend, trendSeries } from './stats';
 import { endsToCsv } from './csv';
 import { sampleData } from './sample';
 import type { End, Shot } from './types';
@@ -28,6 +28,15 @@ describe('통계', () => {
     expect(weekStart('2026-11-09')).toBe('2026-11-09');
     expect(weekStart('2026-11-08')).toBe('2026-11-02');
     expect(weeklyTrend(ends).map((w) => w.week)).toEqual(['2026-11-02', '2026-11-09']);
+  });
+
+  it('추이: 날짜별·주별·월별로 묶고, 흐름선은 최근 점들의 순 가중 평균', () => {
+    expect(trendSeries(ends, 'day').map((p) => [p.key, p.ends, p.hits])).toEqual([['2026-11-02', 1, 5], ['2026-11-03', 1, 3], ['2026-11-10', 1, 2]]);
+    const w = trendSeries(ends, 'week');
+    expect(w.map((p) => [p.key, p.days, p.ends, p.perfect])).toEqual([['2026-11-02', 2, 2, 1], ['2026-11-09', 1, 1, 0]]);
+    expect(w[1].smooth).toBeCloseTo(10 / 3);
+    expect(trendSeries(ends, 'day', 2).map((p) => p.smooth)).toEqual([5, 4, 2.5]);
+    expect(trendSeries(ends, 'month').map((p) => p.key)).toEqual(['2026-11']);
   });
 
   it('월별 통계: 습사일 수와 순당 평균, 최근 달이 먼저', () => {
