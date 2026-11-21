@@ -2,6 +2,7 @@ import { danShort } from '../domain/dan';
 import { useEffect, useState } from 'react';
 import { ConfirmButton, Sheet, toast } from '../components/ui';
 import { restoreMessage } from '../domain/recordBackup';
+import { LoginButtons } from '../components/LoginButtons';
 import {
   MIN_ENDS, MIN_PER_15, VOLUME_TOP, eligibility, per15Of, periodStart, rankPeriod, rankVolume, shiftPeriod,
   type ArcherTotal, type RankPeriod, type RankRow,
@@ -73,7 +74,8 @@ export function RestoreForm({ onBack, onDone, backLabel = '새 닉네임 정하�
   };
   return (
     <>
-      <div className="small muted">처음 참여할 때 받은 복구 코드를 넣으면 그때 쓰던 닉네임과 랭킹 기록, 서버에 백업해 둔 순 기록·하루 메모·장비·설정을 이 기기로 되살립니다. 이 기기에 있는 기록은 지우지 않고 합칩니다.</div>
+      <LoginButtons purpose="login" label={(n) => `${n} 로그인으로 불러오기`} />
+      <div className="small muted">카카오·구글 계정을 연결해 두었다면 위 버튼으로 로그인만 하면 됩니다. 아니면 처음 참여할 때 받은 복구 코드를 넣으면 그때 쓰던 닉네임과 랭킹 기록, 서버에 백업해 둔 순 기록·하루 메모·장비·설정을 이 기기로 되살립니다. 이 기기에 있는 기록은 지우지 않고 합칩니다.</div>
       <div className="field">
         <label htmlFor="code">복구 코드</label>
         <input id="code" type="text" autoCapitalize="characters" autoComplete="off" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" value={code} onChange={(e) => { setCode(e.target.value); setErr(''); }} />
@@ -107,7 +109,7 @@ function JoinCard({ onJoined }: { onJoined: () => void }) {
       <h2>랭킹에 참여하기</h2>
       <div className="small muted">
         닉네임과 소속, 순마다 관중 여부, 저장 시각이 서버에 올라가고, 랭킹에서 닉네임을 누르면 다른 궁사도 볼 수 있습니다. 장비와 설정은 기기를 바꾸거나 저장소가 지워졌을 때 되찾도록 백업만 해 두고, 복구 코드를 가진 본인만 불러옵니다. 메모(공개로 고른 것 말고)와 날씨는 올리지 않습니다.
-        로그인 없이 이 기기에 저장되는 <b>복구 코드</b>로만 구분하고, 참여한 뒤 오늘 저장한 순부터 올라갑니다.
+        이 기기에 저장되는 <b>복구 코드</b>로 구분하고, 참여한 뒤 오늘 저장한 순부터 올라갑니다. 참여한 뒤 설정에서 카카오·구글 계정을 연결해 두면 브라우저 기록을 지워도 로그인으로 되찾습니다.
       </div>
       {!restoring ? (
         <>
@@ -131,6 +133,7 @@ export function CodeSheet({ code, first, onClose }: { code: string; first?: bool
     <Sheet title={first ? '참여했습니다. 복구 코드를 적어 두세요' : '복구 코드'} onClose={onClose}>
       <div className="recovery-code" aria-label="복구 코드">{code}</div>
       <div className="small">휴대폰을 바꾸거나 앱 데이터를 지웠을 때 이 코드로 랭킹 기록을 이어 갑니다. <b>잃어버리면 되찾을 수 없고</b>, 다른 사람이 알면 내 이름으로 기록할 수 있으니 혼자만 보관하세요.</div>
+      <div className="small muted">설정 탭의 "로그인 연결"에서 카카오나 구글 계정을 연결해 두면, 코드를 잃어도 로그인으로 되찾을 수 있습니다.</div>
       <button className="btn" onClick={copy}>복사하기</button>
       <button className="btn ghost small" onClick={onClose}>닫기</button>
     </Sheet>

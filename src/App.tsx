@@ -12,6 +12,8 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { SharedMemosView } from './screens/SharedMemosView';
 import { ShareNotice } from './components/SharePicker';
 import { SHARE_LABEL } from './domain/sharedMemo';
+import { useLoginReturn } from './state/loginReturn';
+import type { LoginReturn } from './platform/login';
 
 type Tab = 'shoot' | 'log' | 'rank' | 'talk' | 'settings';
 const TABS: [Tab, string, string][] = [
@@ -39,9 +41,10 @@ function readTab(): Tab {
   return (TABS.some(([t]) => t === h) ? h : 'shoot') as Tab;
 }
 
-export default function App() {
+export default function App({ loginReturn = null }: { loginReturn?: LoginReturn | null }) {
   const store = useStore();
   useAutoWeather();
+  const loginBusy = useLoginReturn(loginReturn);
   const [tab, setTab] = useState<Tab>(readTab);
   const tabRef = useRef(tab);
   const editingRef = useRef(!!store.editId);
@@ -147,6 +150,7 @@ export default function App() {
           </header>
         )}
         {store.error && <div className="error" role="alert">{store.error}</div>}
+        {loginBusy && <div className="banner" role="status"><span>{loginBusy}</span></div>}
         {store.loaded && sampleCount > 0 && tab !== 'settings' && (
           <div className="banner" role="status">
             <span>예시 기록 {sampleCount}순이 들어 있습니다. 직접 쏜 기록과 따로 뺄 수 있습니다.</span>

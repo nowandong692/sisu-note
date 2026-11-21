@@ -44,3 +44,14 @@ npm run build    # dist/ 에 PWA 빌드
 `main`에 합쳐지면 GitHub Actions가 GitHub Pages로 배포합니다.
 처음 한 번은 저장소 **Settings → Pages → Source**를 **GitHub Actions**로 바꿔 주세요.
 주소: `https://<사용자>.github.io/sisu-note/`
+
+## 카카오·구글 로그인 (선택)
+
+복구 코드를 잃어도 카카오·구글 계정으로 기록을 되찾게 하는 기능입니다. 이메일·이름은 받지 않고, 계정 번호의
+한 방향 해시만 서버에 둡니다. Supabase Auth는 쓰지 않습니다 (이메일을 저장하기 때문).
+
+1. 카카오: 앱의 카카오 로그인을 켜고, 리다이렉트 URI에 앱 주소(`https://<사용자>.github.io/sisu-note/`)를 넣습니다. 동의 항목은 켜지 않습니다.
+2. 구글: 웹 애플리케이션 OAuth 클라이언트를 만들고 같은 주소를 승인된 리디렉션 URI에 넣은 뒤 앱을 게시합니다.
+3. Supabase SQL Editor에서 `supabase/migrations/014_login.sql`, 그다음 키를 채운 `supabase/login_keys.sql`을 실행합니다.
+
+키를 넣기 전에는 앱에 로그인 버튼이 보이지 않습니다.
