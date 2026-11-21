@@ -94,8 +94,33 @@ export function parseLoginReturn(search: string, pendingRaw: string | null, now:
   return { ok: true, provider: p.provider, purpose: p.purpose, code, verifier: p.verifier, redirect };
 }
 
-/** 앱이 열릴 때 한 번: 로그인 회사에서 돌아왔으면 그 결과를 꺼내고 주소를 원래대로 돌려놓는다 */
+const STASH = 'sisu-login-return';
+
+/**
+ * 앱이 열릴 때 한 번: 로그인 회사에서 돌아왔으면 그 결과를 꺼내고 주소를 원래대로 돌려놓는다.
+ * 홈 화면에 설치한 앱(삼성 인터넷 등)은 로그인 창에서 돌아오면 화면이 70%쯤으로 작게 그려지고, 새로 고치면 바로잡힌다.
+ * 그래서 돌아오면 결과를 이 탭(sessionStorage)에 잠깐 맡겨 두고 한 번 새로 고친 뒤, 새로 고친 화면에서 결과를 이어 받는다.
+ */
 export function takeLoginReturn(): LoginReturn | null {
+  try {
+    const stashed = sessionStorage.getItem(STASH);
+    if (stashed) {
+      sessionStorage.removeItem(STASH);
+      return JSON.parse(stashed) as LoginReturn;
+    }
+  } catch { /* 맡겨 둔 것 없음 */ }
+  const r = readLoginReturn();
+  if (!r) return null;
+  try {
+    sessionStorage.setItem(STASH, JSON.stringify(r));
+    location.reload();
+    return null;
+  } catch {
+    return r; // 맡겨 둘 수 없으면 새로 고치지 않고 그대로 이어 한다
+  }
+}
+
+function readLoginReturn(): LoginReturn | null {
   let raw: string | null = null;
   try { raw = localStorage.getItem(PENDING); } catch { /* 없음 */ }
   const r = parseLoginReturn(location.search, raw, Date.now(), redirectUri());
