@@ -6,6 +6,7 @@ import { repository } from './storage';
 import './styles.css';
 import { applySavedAppearance } from './platform/theme';
 import { AdminPage } from './screens/AdminPage';
+import { takeLoginReturn } from './platform/login';
 
 applySavedAppearance();
 
@@ -18,11 +19,14 @@ const isAdmin = () => location.hash === '#admin';
 const admin = isAdmin();
 window.addEventListener('hashchange', () => { if (isAdmin() !== admin) location.reload(); });
 
+// 카카오·구글 로그인 화면에서 돌아왔으면, 화면을 그리기 전에 주소를 원래 탭으로 돌려놓고 결과만 넘긴다
+const loginReturn = admin ? null : takeLoginReturn();
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {admin ? <AdminPage /> : (
       <StoreProvider repo={repository}>
-        <App />
+        <App loginReturn={loginReturn} />
       </StoreProvider>
     )}
   </StrictMode>,

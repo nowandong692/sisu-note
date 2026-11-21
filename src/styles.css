@@ -627,3 +627,10 @@ nav.tabs .tab-icon .dot { position: absolute; top: -1px; right: -5px; width: 9px
 .end-strip button.on { box-shadow: inset 0 0 0 2px var(--paper); }
 .today-target .target-wrap svg { max-width: 340px; }
 .end-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+
+/* 카카오·구글 로그인 버튼 (각 회사 버튼 색을 따른다) */
+.login-btns { display: flex; flex-direction: column; gap: 8px; }
+.btn.login-kakao { background: #FEE500; color: rgba(0, 0, 0, 0.85); border: none; }
+.btn.login-google { background: #fff; color: #1f1f1f; border: 1px solid #747775; }
+.login-linked { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.login-linked li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

@@ -1,6 +1,6 @@
 /**
  * 온라인 랭킹 서버(Supabase) 연결.
- * 로그인 없이 무작위 열쇠(= 복구 코드)로만 궁사를 구분한다. 서버는 열쇠의 해시만 저장한다.
+ * 무작위 열쇠(= 복구 코드)로 궁사를 구분한다. 서버는 열쇠의 해시만 저장한다. 카카오·구글 로그인은 login.ts.
  * 앱은 테이블을 직접 읽거나 쓰지 못하고, supabase/schema.sql의 함수(RPC)만 부른다.
  */
 const URL = import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/, '');
@@ -29,6 +29,10 @@ const MESSAGES: [RegExp, OnlineErrorCode, string][] = [
   [/report limit/, 'server', '하루에 할 수 있는 신고(30건)를 넘었습니다.'],
   [/Could not find the function public\.(report_content|comment_news|admin_content_reports|admin_delete_memo|admin_delete_comment|admin_dismiss_content_report)/, 'missing', '서버에 신고 기능이 아직 없습니다. supabase/migrations/009_memo_reports.sql을 실행해 주세요.'],
   [/Could not find the function public\.(save_backup|load_backup)/, 'missing', '서버에 장비·설정 백업 기능이 아직 없습니다. supabase/migrations/012_backup.sql을 실행해 주세요.'],
+  [/not linked/, 'server', '이 계정에 연결된 기록이 없습니다. 예전에 쓰던 기기의 설정 → 로그인 연결에서 먼저 연결해 두어야 합니다. 복구 코드가 있으면 복구 코드로 이어 써 주세요.'],
+  [/login failed/, 'server', '로그인을 확인하지 못했습니다. 한 번 더 해 주세요.'],
+  [/login not ready/, 'server', '이 로그인은 아직 준비 중입니다.'],
+  [/Could not find the function public\.(login_providers|link_login|login_with|my_logins|unlink_login)/, 'missing', '서버에 로그인 기능이 아직 없습니다. supabase/migrations/014_login.sql을 실행해 주세요.'],
   [/backup too large/, 'server', '장비·설정 백업이 너무 큽니다.'],
   [/no such memo/, 'server', '이 메모는 내려갔거나 볼 수 없습니다.'],
   [/Could not find the function public\.(add_comment|delete_comment|memo_comment_list)/, 'missing', '서버에 댓글 기능이 아직 없습니다. supabase/migrations/008_memo_comments.sql을 실행해 주세요.'],
