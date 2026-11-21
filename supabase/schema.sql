@@ -1046,10 +1046,12 @@ $$;
 grant execute on function public.save_records(text, jsonb), public.delete_records(text, text[]),
   public.load_records(text, text, int), public.my_ranked_ends(text) to anon;
 
--- 카카오·구글 로그인으로 기록 되찾기 (014). 개인정보 없이 회원 번호의 한 방향 해시만 둔다. 키는 login_keys.sql로 넣는다
+-- 카카오·구글 로그인으로 기록 되찾기 (014). 개인정보 없이 회원 번호의 한 방향 해시만 둔다. 비밀 값은 Vault에. 키는 login_keys.sql로 넣는다
 create extension if not exists http with schema extensions;
 
--- 로그인 회사별 앱 키. client_id는 앱에 보내도 되는 공개 값, client_secret은 서버 밖으로 나가지 않는다.
+create extension if not exists supabase_vault;
+
+-- 로그인 회사별 공개 client_id. (client_secret 칸은 예전 014에서 쓰던 것으로, 이제 비워 두고 Vault를 쓴다)
 create table if not exists public.login_config (
   provider text primary key check (provider in ('kakao', 'google')),
   client_id text not null default '',
@@ -1058,14 +1060,48 @@ create table if not exists public.login_config (
 alter table public.login_config enable row level security;
 revoke all on public.login_config from anon, authenticated;
 
--- 해시에 섞는 비밀 값. 처음 한 번 무작위로 만들고 바꾸지 않는다 (바꾸면 연결이 모두 끊긴다).
-create table if not exists public.login_secret (
-  id int primary key default 1 check (id = 1),
-  pepper bytea not null default extensions.gen_random_bytes(32)
-);
-alter table public.login_secret enable row level security;
-revoke all on public.login_secret from anon, authenticated;
-insert into public.login_secret (id) values (1) on conflict (id) do nothing;
+-- Vault에 비밀 값 넣기 (있으면 바꾸기). SQL Editor에서만 부른다
+create or replace function public._vault_put(p_name text, p_value text) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+declare sid uuid;
+begin
+  select id into sid from vault.secrets where name = p_name;
+  if sid is null then perform vault.create_secret(p_value, p_name);
+  else perform vault.update_secret(sid, p_value);
+  end if;
+end $$;
+
+create or replace function public._vault_get(p_name text) returns text
+language sql stable security definer set search_path = public, extensions as $$
+  select decrypted_secret from vault.decrypted_secrets where name = p_name
+$$;
+
+-- 해시에 섞는 pepper: 처음 한 번 무작위로 만들고 바꾸지 않는다 (바꾸면 연결이 모두 끊긴다).
+-- 예전 014의 login_secret 테이블에 있던 값은 그대로 Vault로 옮기고 테이블을 지운다.
+do $$
+declare old bytea;
+begin
+  if public._vault_get('sisu_login_pepper') is null then
+    if to_regclass('public.login_secret') is not null then
+      execute 'select pepper from public.login_secret where id = 1' into old;
+    end if;
+    perform public._vault_put('sisu_login_pepper', encode(coalesce(old, extensions.gen_random_bytes(32)), 'hex'));
+  end if;
+  -- 예전 014로 평문에 넣은 Client Secret도 Vault로 옮긴다
+  perform public._vault_put('sisu_login_secret_' || provider, client_secret)
+  from public.login_config where client_secret <> '';
+  update public.login_config set client_secret = '' where client_secret <> '';
+end $$;
+drop table if exists public.login_secret;
+
+-- 키 넣기: login_keys.sql이 부른다. client_id는 login_config에, client_secret은 Vault에
+create or replace function public.set_login_keys(p_provider text, p_client_id text, p_client_secret text) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+begin
+  insert into login_config (provider, client_id, client_secret) values (p_provider, btrim(coalesce(p_client_id, '')), '')
+  on conflict (provider) do update set client_id = excluded.client_id, client_secret = '';
+  perform _vault_put('sisu_login_secret_' || p_provider, btrim(coalesce(p_client_secret, '')));
+end $$;
 
 -- 연결된 로그인. 회원 번호의 해시와, 그 회원 번호로만 열리는 복구 코드
 create table if not exists public.archer_logins (
@@ -1089,9 +1125,11 @@ declare
   tok jsonb;
   sub text;
   part text;
+  secret text;
 begin
   select * into cfg from login_config where provider = p_provider;
   if cfg is null or cfg.client_id = '' then raise exception 'login not ready'; end if;
+  secret := coalesce(_vault_get('sisu_login_secret_' || p_provider), '');
   if coalesce(p_code, '') = '' or char_length(p_code) > 2000 or coalesce(p_redirect, '') !~ '^https?://' then
     raise exception 'login failed';
   end if;
@@ -1101,7 +1139,7 @@ begin
     r := http_post('https://kauth.kakao.com/oauth/token',
       urlencode(jsonb_strip_nulls(jsonb_build_object(
         'grant_type', 'authorization_code', 'client_id', cfg.client_id, 'redirect_uri', p_redirect,
-        'code', p_code, 'client_secret', nullif(cfg.client_secret, '')))),
+        'code', p_code, 'client_secret', nullif(secret, '')))),
       'application/x-www-form-urlencoded;charset=utf-8');
     if r.status <> 200 then raise exception 'login failed'; end if;
     tok := r.content::jsonb;
@@ -1113,7 +1151,7 @@ begin
   else
     r := http_post('https://oauth2.googleapis.com/token',
       urlencode(jsonb_strip_nulls(jsonb_build_object(
-        'grant_type', 'authorization_code', 'client_id', cfg.client_id, 'client_secret', cfg.client_secret,
+        'grant_type', 'authorization_code', 'client_id', cfg.client_id, 'client_secret', secret,
         'redirect_uri', p_redirect, 'code', p_code, 'code_verifier', nullif(p_verifier, '')))),
       'application/x-www-form-urlencoded');
     if r.status <> 200 then raise exception 'login failed'; end if;
@@ -1136,13 +1174,13 @@ end $$;
 
 create or replace function public._login_hash(p_provider text, p_sub text) returns bytea
 language sql stable security definer set search_path = public, extensions as $$
-  select hmac(convert_to(p_provider || ':' || p_sub, 'utf8'), (select pepper from login_secret where id = 1), 'sha256')
+  select hmac(convert_to(p_provider || ':' || p_sub, 'utf8'), decode(_vault_get('sisu_login_pepper'), 'hex'), 'sha256')
 $$;
 
 -- 복구 코드를 잠그는 비밀번호. 저장하는 해시와는 다른 값이라 해시로는 열 수 없다
 create or replace function public._login_seal(p_provider text, p_sub text) returns text
 language sql stable security definer set search_path = public, extensions as $$
-  select encode(hmac(convert_to('seal:' || p_provider || ':' || p_sub, 'utf8'), (select pepper from login_secret where id = 1), 'sha256'), 'hex')
+  select encode(hmac(convert_to('seal:' || p_provider || ':' || p_sub, 'utf8'), decode(_vault_get('sisu_login_pepper'), 'hex'), 'sha256'), 'hex')
 $$;
 
 -- 앱이 로그인 버튼을 그릴 때 묻는다: 키를 넣어 둔 회사와 공개용 client_id
@@ -1188,7 +1226,8 @@ language sql security definer set search_path = public, extensions as $$
 $$;
 
 revoke all on function public._login_sub(text, text, text, text), public._login_hash(text, text),
-  public._login_seal(text, text) from public, anon, authenticated;
+  public._login_seal(text, text), public._vault_put(text, text), public._vault_get(text),
+  public.set_login_keys(text, text, text) from public, anon, authenticated;
 grant execute on function public.login_providers(), public.link_login(text, text, text, text, text),
   public.login_with(text, text, text, text), public.my_logins(text), public.unlink_login(text, text) to anon;
 

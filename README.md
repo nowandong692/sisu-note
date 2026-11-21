@@ -52,6 +52,6 @@ npm run build    # dist/ 에 PWA 빌드
 
 1. 카카오: 앱의 카카오 로그인을 켜고, 리다이렉트 URI에 앱 주소(`https://<사용자>.github.io/sisu-note/`)를 넣습니다. 동의 항목은 켜지 않습니다.
 2. 구글: 웹 애플리케이션 OAuth 클라이언트를 만들고 같은 주소를 승인된 리디렉션 URI에 넣은 뒤 앱을 게시합니다.
-3. Supabase SQL Editor에서 `supabase/migrations/014_login.sql`, 그다음 키를 채운 `supabase/login_keys.sql`을 실행합니다.
+3. Supabase SQL Editor에서 `supabase/migrations/014_login.sql`, 그다음 키를 채운 `supabase/login_keys.sql`을 실행합니다. Client Secret과 해시용 pepper는 테이블이 아니라 Supabase Vault에 암호화해 둡니다.
 
 키를 넣기 전에는 앱에 로그인 버튼이 보이지 않습니다.
