@@ -277,6 +277,9 @@ export function SettingsScreen() {
           <button className="btn ghost small danger-text" onClick={() => setWarn('all')}>모든 데이터 지우기</button>
         </div>
       </section>
+      <div className="small muted legal-links">
+        <a href={`${import.meta.env.BASE_URL}privacy.html`} target="_blank" rel="noopener">개인정보처리방침</a> · <a href={`${import.meta.env.BASE_URL}terms.html`} target="_blank" rel="noopener">이용약관</a>
+      </div>
       {warn && <DataWarnSheet action={warn} onClose={() => setWarn(null)} />}
     </>
   );
