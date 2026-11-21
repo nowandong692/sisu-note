@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ConfirmButton, toast } from './ui';
+import { Sheet, toast } from './ui';
 import {
   LOGINS_CHANGED as CHANGED, PROVIDER_NAME, loginProviders, myLogins, startLogin, unlinkLogin,
   type LoginProvider, type LoginPurpose,
@@ -44,6 +44,8 @@ export function LoginSection() {
   const providers = useProviders();
   const [linked, setLinked] = useState<LoginProvider[] | null>(null);
   const [err, setErr] = useState('');
+  const [asking, setAsking] = useState<LoginProvider | null>(null);
+  const [busy, setBusy] = useState(false);
   const key = o?.key;
   useEffect(() => {
     if (!key) return;
@@ -55,8 +57,15 @@ export function LoginSection() {
   }, [key]);
   if (!o || !providers?.length) return null;
   const unlink = async (p: LoginProvider) => {
-    try { await unlinkLogin(o.key, p); toast(`${PROVIDER_NAME[p]} 연결을 끊었습니다`); window.dispatchEvent(new Event(CHANGED)); } catch (e) { toast(errText(e)); }
+    setBusy(true);
+    try {
+      await unlinkLogin(o.key, p);
+      toast(`${PROVIDER_NAME[p]} 연결을 끊었습니다`);
+      window.dispatchEvent(new Event(CHANGED));
+      setAsking(null);
+    } catch (e) { toast(errText(e)); } finally { setBusy(false); }
   };
+  const others = (linked ?? []).filter((p) => p !== asking);
   const notLinked = providers.map((p) => p.provider).filter((p) => !linked?.includes(p));
   return (
     <section className="card">
@@ -70,13 +79,26 @@ export function LoginSection() {
           {linked.map((p) => (
             <li key={p}>
               <span><b>{PROVIDER_NAME[p]}</b> 연결됨</span>
-              <ConfirmButton className="btn ghost small" label="연결 끊기" confirmLabel="끊기" onConfirm={() => void unlink(p)} />
+              <button className="btn ghost small" onClick={() => setAsking(p)}>연결 끊기</button>
             </li>
           ))}
         </ul>
       )}
       {err && <div className="small err-text" role="alert">{err}</div>}
       {linked && notLinked.length > 0 && <LoginButtons purpose="link" only={notLinked} label={(n) => `${n} 계정 연결하기`} />}
+      {asking && (
+        <Sheet title={`${PROVIDER_NAME[asking]} 연결을 끊을까요?`} onClose={() => !busy && setAsking(null)}>
+          <div className="small">
+            연결을 끊으면 <b>{PROVIDER_NAME[asking]} 로그인으로는 기록을 되찾을 수 없습니다.</b>
+            {others.length
+              ? ` ${others.map((p) => PROVIDER_NAME[p]).join('·')} 로그인이나 복구 코드로는 계속 되찾을 수 있습니다.`
+              : ' 남는 방법은 복구 코드뿐이니, 끊기 전에 복구 코드를 적어 두었는지 꼭 확인하세요.'}
+          </div>
+          <div className="small muted">이 기기의 기록과 서버에 백업한 기록은 지워지지 않고, 나중에 다시 연결할 수 있습니다.</div>
+          <button className="btn danger" disabled={busy} onClick={() => void unlink(asking)}>{busy ? '끊는 중…' : '연결 끊기'}</button>
+          <button className="btn ghost small" disabled={busy} onClick={() => setAsking(null)}>그대로 두기</button>
+        </Sheet>
+      )}
     </section>
   );
 }
