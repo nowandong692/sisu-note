@@ -1,6 +1,6 @@
 import type { End, GearCategory, MissDirection, MissLevel, WindDir } from './types';
 import { MISS_DIRECTIONS } from './types';
-import { WIND_DIRS } from './weather';
+import { SKIES, WIND_DIRS, WIND_LEVELS } from './weather';
 
 /** 이보다 순이 적은 장비·조합은 순위에서 빼고 "기록 더 필요"로 표시한다. */
 export const MIN_ENDS_FOR_RANKING = 10;
@@ -197,4 +197,52 @@ export function byWindDir(ends: End[]): WindDirRow[] {
     const miss = Object.fromEntries(MISS_DIRECTIONS.map((d) => [d, m.byDir[d][1] + m.byDir[d][2]])) as Record<MissDirection, number>;
     return [{ dir, ...summarize(list), enough: list.length >= MIN_ENDS_FOR_RANKING, miss, missTotal: m.total }];
   });
+}
+
+export interface MissLean {
+  /** 방향을 남긴 불 수 */
+  total: number;
+  /** 방향별 불 수 */
+  count: Record<MissDirection, number>;
+  /**
+   * 불의 평균 방향. 앞남 쪽이 +front, 넘음 쪽이 +over. 각각 -1~1.
+   * 길이(√(front²+over²))가 1이면 모든 불이 한쪽으로만 났고, 0이면 고르게 났다.
+   */
+  front: number;
+  over: number;
+}
+
+/** 불이 어느 쪽으로 치우쳤는지: 불 하나를 그 방향의 길이 1짜리 화살표로 보고 평균 낸다. */
+export function missLean(ends: End[]): MissLean {
+  const count = Object.fromEntries(MISS_DIRECTIONS.map((d) => [d, 0])) as Record<MissDirection, number>;
+  for (const e of ends) for (const s of e.shots) if (!s.hit && s.direction) count[s.direction]++;
+  const total = MISS_DIRECTIONS.reduce((a, d) => a + count[d], 0);
+  return {
+    total,
+    count,
+    front: total ? (count['앞남'] - count['뒤남']) / total : 0,
+    over: total ? (count['넘음'] - count['짧음']) / total : 0,
+  };
+}
+
+export interface WeatherLeanRow extends MissLean {
+  key: string;
+  ends: number;
+  enough: boolean;
+}
+
+const TEMP_BANDS = ['영하', '0~9°', '10~19°', '20~29°', '30° 이상'];
+
+/** 날씨 항목(하늘·기온·바람 세기)의 값마다 불 치우침. 맑음→눈, 추운→더운, 바람 없음→강함 순서로. */
+export function weatherLean(ends: End[], k: 'sky' | 'wind' | 'temp'): WeatherLeanRow[] {
+  const keyOf = (e: End) => (k === 'temp' ? tempBand(e.weather?.temp) : e.weather?.[k] ?? '');
+  const order: readonly string[] = k === 'sky' ? SKIES : k === 'wind' ? WIND_LEVELS : TEMP_BANDS;
+  const m = new Map<string, End[]>();
+  for (const e of ends) {
+    const key = keyOf(e);
+    if (key) m.set(key, [...(m.get(key) ?? []), e]);
+  }
+  return [...m.entries()]
+    .map(([key, list]) => ({ key, ends: list.length, enough: list.length >= MIN_ENDS_FOR_RANKING, ...missLean(list) }))
+    .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
 }

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Target } from '../components/Target';
 import {
-  MIN_ENDS_FOR_RANKING, byRange, byWeather, byWindDir, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, trendSeries, zoneCounts,
-  type GroupRow, type TrendPoint, type TrendUnit,
+  MIN_ENDS_FOR_RANKING, byRange, byWeather, byWindDir, weatherLean, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, trendSeries, zoneCounts,
+  type GroupRow, type TrendPoint, type TrendUnit, type WeatherLeanRow,
 } from '../domain/stats';
-import { MISS_DIRECTIONS, type End } from '../domain/types';
+import { MISS_DIRECTIONS, type End, type Hand, type MissDirection } from '../domain/types';
+import { BAND, TH, TW, TX, TY, VIEW_H, VIEW_W, VIEW_X, VIEW_Y } from '../domain/target';
 import { dayOffset } from '../domain/util';
 import { useStore } from '../state/store';
 import { formatDuration, totalMinutes } from '../domain/session';
@@ -188,6 +189,88 @@ function GroupTable({ rows, label, name, compact }: { rows: GroupRow[]; label: s
   );
 }
 
+const LEAN_KEYS: ['sky' | 'temp' | 'wind', string][] = [['sky', '날씨'], ['temp', '기온'], ['wind', '바람']];
+const SHORT: Record<MissDirection, string> = { 앞남: '앞', 뒤남: '뒤', 넘음: '넘', 짧음: '짧' };
+
+/** 작은 과녁 위에 불의 평균 방향을 화살표 하나로. 길수록 그쪽으로 많이 치우친 것 */
+function LeanTarget({ row, hand }: { row: WeatherLeanRow; hand: Hand }) {
+  const cx = TX + TW / 2, cy = TY + TH / 2;
+  // 앞남은 줌손 쪽: 우궁이면 오른쪽, 좌궁이면 왼쪽
+  const dx = row.front * (hand === 'right' ? 1 : -1);
+  const dy = -row.over;
+  const len = Math.hypot(dx, dy);
+  const R = TW / 2 + 2 * BAND;
+  const ex = cx + dx * R, ey = cy + dy * R;
+  const ux = len ? dx / len : 0, uy = len ? dy / len : 0;
+  const head = 18;
+  const side = directionSide(hand);
+  const pct = (d: MissDirection) => Math.round((row.count[d] / (row.total || 1)) * 100);
+  const most = Math.max(...MISS_DIRECTIONS.map((d) => row.count[d]));
+  return (
+    <div className={`lean ${row.enough ? '' : 'thin'}`}>
+      <div className="lean-name">{row.key}</div>
+      <svg viewBox={`${VIEW_X} ${VIEW_Y} ${VIEW_W} ${VIEW_H}`} width="100%" role="img"
+        aria-label={row.total ? `${row.key}: 불 ${row.total}시, ${MISS_DIRECTIONS.map((d) => `${d} ${pct(d)}%`).join(', ')}` : `${row.key}: 방향을 남긴 불 없음`}>
+        <rect x={TX - 2 * BAND} y={TY - 2 * BAND} width={TW + 4 * BAND} height={TH + 4 * BAND} rx={16} style={{ fill: 'var(--band2)' }} />
+        <rect x={TX - BAND} y={TY - BAND} width={TW + 2 * BAND} height={TH + 2 * BAND} rx={10} style={{ fill: 'var(--band1)' }} />
+        <rect x={TX} y={TY} width={TW} height={TH} style={{ fill: 'var(--surface)', stroke: 'var(--line)' }} strokeWidth={3} />
+        <g fontSize={30} fontWeight={700} textAnchor="middle" style={{ fill: 'var(--muted)' }} opacity={0.7}>
+          <text x={cx} y={TY - 1.25 * BAND}>넘</text>
+          <text x={cx} y={TY + TH + 1.65 * BAND}>짧</text>
+          <text x={TX - BAND} y={cy + 10}>{side.left}</text>
+          <text x={TX + TW + BAND} y={cy + 10}>{side.right}</text>
+        </g>
+        {row.total > 0 && len >= 0.08 && (
+          <g style={{ stroke: 'var(--hong)', fill: 'var(--hong)' }} strokeWidth={10} strokeLinecap="round" strokeLinejoin="round">
+            <line x1={cx} y1={cy} x2={ex - ux * head * 0.6} y2={ey - uy * head * 0.6} />
+            <polygon points={`${ex},${ey} ${ex - ux * head - uy * head * 0.7},${ey - uy * head + ux * head * 0.7} ${ex - ux * head + uy * head * 0.7},${ey - uy * head - ux * head * 0.7}`} strokeWidth={4} />
+          </g>
+        )}
+        {row.total > 0 && <circle cx={cx} cy={cy} r={9} style={{ fill: 'var(--hong)' }} />}
+        {row.total > 0 && len < 0.08 && <text x={cx} y={cy + 42} textAnchor="middle" fontSize={26} fontWeight={700} style={{ fill: 'var(--muted)' }}>고름</text>}
+      </svg>
+      {row.total > 0 ? (
+        <div className="lean-pct">
+          {(['앞남', '뒤남', '넘음', '짧음'] as MissDirection[]).map((d) => (
+            <span key={d} className={most > 0 && row.count[d] === most ? 'top' : ''}>{SHORT[d]} {pct(d)}</span>
+          ))}
+        </div>
+      ) : <div className="lean-pct empty-pct">불 기록 없음</div>}
+      <div className="lean-n">{row.ends}순 · 불 {row.total}시</div>
+    </div>
+  );
+}
+
+/** 과녁 왼쪽·오른쪽에 쓸 글자 (앞·뒤) */
+function directionSide(hand: Hand) {
+  return hand === 'right' ? { left: '뒤', right: '앞' } : { left: '앞', right: '뒤' };
+}
+
+/** 날씨·기온·바람 세기마다 불이 어느 쪽으로 치우쳤는지 작은 과녁을 나란히 */
+function WeatherLeanCard({ ends, hand }: { ends: End[]; hand: Hand }) {
+  const options = LEAN_KEYS.map(([k, l]) => [k, l, weatherLean(ends, k)] as const).filter(([, , rows]) => rows.length > 0);
+  const [key, setKey] = useState<'sky' | 'temp' | 'wind'>('sky');
+  if (!options.length) return null;
+  const cur = options.find(([k]) => k === key) ?? options[0];
+  const rows = cur[2];
+  return (
+    <section className="card">
+      <div className="row between">
+        <h2>날씨별 불 치우침</h2>
+        {options.length > 1 && (
+          <div className="seg" role="group" aria-label="날씨 항목">
+            {options.map(([k, l]) => <button key={k} className={cur[0] === k ? 'on' : ''} aria-pressed={cur[0] === k} onClick={() => setKey(k)}>{l}</button>)}
+          </div>
+        )}
+      </div>
+      <div className="lean-grid">
+        {rows.map((r) => <LeanTarget key={r.key} row={r} hand={hand} />)}
+      </div>
+      <div className="small muted">화살표는 불이 난 평균 방향입니다. 길수록 그쪽으로 많이 치우쳤고, 가운데 점만 있으면 고르게 났습니다. 숫자는 방향을 남긴 불 가운데 비율(%)이고, 가장 많은 쪽을 빨갛게 표시합니다. {MIN_ENDS_FOR_RANKING}순 미만은 흐리게 표시합니다.</div>
+    </section>
+  );
+}
+
 export function StatsScreen() {
   const { ends: allEnds, gear, gearName, settings, rangeName, ranges } = useStore();
   const [period, setPeriod] = useState(30);
@@ -325,6 +408,7 @@ export function StatsScreen() {
           <div className="small muted">날씨를 남긴 순만 셉니다. {MIN_ENDS_FOR_RANKING}순 미만은 흐리게 표시합니다.</div>
         </section>
       )}
+      <WeatherLeanCard ends={ends} hand={settings.hand} />
       {windRows.length > 0 && (
         <section className="card">
           <h2>바람 방향별 불 방향</h2>
