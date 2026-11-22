@@ -1,47 +1,131 @@
 import { useState } from 'react';
 import { Target } from '../components/Target';
 import {
-  MIN_ENDS_FOR_RANKING, byRange, byWeather, byWindDir, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weeklyTrend, zoneCounts,
-  type GroupRow,
+  MIN_ENDS_FOR_RANKING, byRange, byWeather, byWindDir, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, trendSeries, zoneCounts,
+  type GroupRow, type TrendPoint, type TrendUnit,
 } from '../domain/stats';
-import { MISS_DIRECTIONS } from '../domain/types';
+import { MISS_DIRECTIONS, type End } from '../domain/types';
 import { dayOffset } from '../domain/util';
 import { useStore } from '../state/store';
 import { formatDuration, totalMinutes } from '../domain/session';
 
 const PERIODS: [number, string][] = [[30, '최근 30일'], [90, '최근 90일'], [0, '전체']];
 
-function TrendChart({ data }: { data: { week: string; perEnd: number }[] }) {
-  if (data.length < 2) return <div className="empty small">주간 추이는 2주 이상 기록이 쌓이면 보입니다.</div>;
-  const W = 320, H = 150, L = 28, R = 12, T = 12, B = 26;
-  const x = (i: number) => L + ((W - L - R) * i) / (data.length - 1);
-  const y = (v: number) => T + (H - T - B) * (1 - v / 5);
-  const pts = data.map((d, i) => [x(i), y(d.perEnd)] as const);
-  const last = pts[pts.length - 1];
-  const step = Math.max(1, Math.ceil(data.length / 5));
+const UNITS: [TrendUnit, string][] = [['day', '날짜별'], ['week', '주별'], ['month', '월별']];
+type Metric = 'perEnd' | 'perfect' | 'ends';
+const METRICS: [Metric, string][] = [['perEnd', '순당 평균'], ['perfect', '몰기'], ['ends', '순 수']];
+const UNIT_WORD: Record<TrendUnit, string> = { day: '날', week: '주', month: '달' };
+const WEEKDAY = '일월화수목금토';
+
+function pointLabel(key: string, unit: TrendUnit, short = false): string {
+  const [y, m, d] = key.split('-').map(Number);
+  if (unit === 'month') return short ? `${m}월` : `${String(y).slice(2)}년 ${m}월`;
+  if (short) return `${m}/${d}`;
+  if (unit === 'week') return `${m}/${d} 주`;
+  return `${m}/${d} (${WEEKDAY[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]})`;
+}
+
+/** 위 4칸 아래 정도로 짧게 보는 값 축 눈금 (0 포함, 4~5칸) */
+function niceTicks(max: number): number[] {
+  const step = [1, 2, 5, 10, 20, 50, 100, 200, 500].find((s) => max / s <= 4) ?? 1000;
+  const top = Math.max(step, Math.ceil(max / step) * step);
+  return Array.from({ length: top / step + 1 }, (_, i) => i * step);
+}
+
+/** 추이 그래프. 단위(날짜·주·달)와 볼 값(순당 평균·몰기·순 수)을 고른다. 점을 누르면 그때 기록을 보여 준다 */
+function TrendCard({ ends }: { ends: End[] }) {
+  const [unit, setUnit] = useState<TrendUnit>('week');
+  const [metric, setMetric] = useState<Metric>('perEnd');
+  const [sel, setSel] = useState<number | null>(null);
+  const data = trendSeries(ends, unit);
+  const pick = <T,>(set: (v: T) => void) => (v: T) => { set(v); setSel(null); };
+
+  const head = (
+    <>
+      <div className="row between">
+        <h2>추이</h2>
+        <div className="seg" role="group" aria-label="추이 단위">
+          {UNITS.map(([u, l]) => <button key={u} className={unit === u ? 'on' : ''} aria-pressed={unit === u} onClick={() => pick(setUnit)(u)}>{l}</button>)}
+        </div>
+      </div>
+      <div className="chips">
+        {METRICS.map(([k, l]) => <button key={k} className={`chip ${metric === k ? 'on' : ''}`} onClick={() => pick(setMetric)(k)}>{l}</button>)}
+      </div>
+    </>
+  );
+  if (data.length < 2) {
+    return <section className="card">{head}<div className="empty small">{UNIT_WORD[unit]}별 추이는 습사한 {UNIT_WORD[unit]}이 둘 이상이면 보입니다.{unit !== 'day' && ' 위에서 기간을 늘려 보세요.'}</div></section>;
+  }
+
+  const W = 320, H = 160, L = 28, R = 12, T = 14, B = 24;
+  const n = data.length;
+  const slot = (W - L - R) / n;
+  const line = metric === 'perEnd';
+  // 선은 처음과 끝 점을 양 끝에, 막대는 칸 가운데에 둔다
+  const x = (i: number) => (line ? L + ((W - L - R) * i) / (n - 1) : L + slot * (i + 0.5));
+  const value = (p: TrendPoint) => (metric === 'perEnd' ? p.perEnd : metric === 'perfect' ? p.perfect : p.ends);
+  const ticks = line ? [0, 1, 2, 3, 4, 5] : niceTicks(Math.max(...data.map(value), 1));
+  const top = ticks[ticks.length - 1];
+  const y = (v: number) => T + (H - T - B) * (1 - v / top);
+  const at = sel ?? n - 1;
+  const cur = data[at];
+  const step = Math.max(1, Math.ceil(n / 5));
+  const dotted = unit === 'day';
+  const smooth = data.map((p, i) => `${x(i)},${y(p.smooth)}`).join(' ');
+  const raw = data.map((p, i) => `${x(i)},${y(p.perEnd)}`).join(' ');
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="주별 순당 평균 중 수 추이">
-      {[1, 2, 3, 4, 5].map((v) => (
-        <g key={v}>
-          <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} style={{ stroke: 'var(--line)' }} />
-          <text x={L - 6} y={y(v) + 4} textAnchor="end" fontSize={10} style={{ fill: 'var(--muted)' }}>{v}</text>
-        </g>
-      ))}
-      <path d={`M${pts[0][0]} ${y(0)} ${pts.map((p) => `L${p[0]} ${p[1]}`).join(' ')} L${last[0]} ${y(0)}Z`} style={{ fill: 'var(--hong)' }} fillOpacity={0.08} />
-      <polyline points={pts.map((p) => p.join(',')).join(' ')} fill="none" style={{ stroke: 'var(--hong)' }} strokeWidth={2} strokeLinejoin="round" />
-      {pts.map((p, i) => {
-        const end = i === pts.length - 1;
-        return <circle key={i} cx={p[0]} cy={p[1]} r={end ? 4.5 : 2.5} style={{ fill: end ? 'var(--hong)' : 'var(--surface)', stroke: 'var(--hong)' }} strokeWidth={1.5} />;
-      })}
-      <text x={last[0] - 8} y={last[1] - 10} textAnchor="end" fontSize={11} fontWeight={600} style={{ fill: 'var(--ink)' }}>
-        이번 주 {data[data.length - 1].perEnd.toFixed(1)}
-      </text>
-      {data.map((d, i) => {
-        if (i % step && i !== data.length - 1) return null;
-        const [, m, dd] = d.week.split('-').map(Number);
-        return <text key={d.week} x={x(i)} y={H - 8} textAnchor="middle" fontSize={10} style={{ fill: 'var(--muted)' }}>{m}/{dd}</text>;
-      })}
-    </svg>
+    <section className="card">
+      {head}
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`${UNIT_WORD[unit]}별 ${METRICS.find(([k]) => k === metric)![1]} 추이`} style={{ touchAction: 'pan-y' }}>
+        {ticks.map((v) => (
+          <g key={v}>
+            <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} style={{ stroke: 'var(--line)' }} />
+            <text x={L - 6} y={y(v) + 4} textAnchor="end" fontSize={10} style={{ fill: 'var(--muted)' }}>{v}</text>
+          </g>
+        ))}
+        <line x1={x(at)} x2={x(at)} y1={T} y2={H - B} style={{ stroke: 'var(--muted)' }} strokeDasharray="2 3" />
+        {line ? (
+          <>
+            {dotted ? (
+              <>
+                {data.map((p, i) => <circle key={p.key} cx={x(i)} cy={y(p.perEnd)} r={2.2} style={{ fill: 'var(--hong)' }} fillOpacity={0.3} />)}
+                <polyline points={smooth} fill="none" style={{ stroke: 'var(--hong)' }} strokeWidth={2} strokeLinejoin="round" />
+              </>
+            ) : (
+              <>
+                <path d={`M${x(0)} ${y(0)} L${raw.replace(/ /g, ' L')} L${x(n - 1)} ${y(0)}Z`} style={{ fill: 'var(--hong)' }} fillOpacity={0.08} />
+                <polyline points={raw} fill="none" style={{ stroke: 'var(--hong)' }} strokeWidth={2} strokeLinejoin="round" />
+                {data.map((p, i) => <circle key={p.key} cx={x(i)} cy={y(p.perEnd)} r={2.5} style={{ fill: 'var(--surface)', stroke: 'var(--hong)' }} strokeWidth={1.5} />)}
+              </>
+            )}
+            <circle cx={x(at)} cy={y(dotted ? cur.smooth : cur.perEnd)} r={4.5} style={{ fill: 'var(--hong)', stroke: 'var(--surface)' }} strokeWidth={1.5} />
+          </>
+        ) : (
+          data.map((p, i) => {
+            const w = Math.max(1.5, Math.min(18, slot * 0.7));
+            return <rect key={p.key} x={x(i) - w / 2} y={y(value(p))} width={w} height={y(0) - y(value(p))} rx={Math.min(2, w / 3)}
+              style={{ fill: i === at ? 'var(--hong)' : 'var(--ink)' }} fillOpacity={i === at ? 1 : 0.35} />;
+          })
+        )}
+        {data.map((p, i) => {
+          if (i % step && i !== n - 1) return null;
+          if (i !== n - 1 && n - 1 - i < step / 2) return null; // 마지막 이름과 겹치지 않게
+          return <text key={p.key} x={x(i)} y={H - 7} textAnchor={line && i === 0 ? 'start' : line && i === n - 1 ? 'end' : 'middle'} fontSize={10} style={{ fill: 'var(--muted)' }}>{pointLabel(p.key, unit, true)}</text>;
+        })}
+        {data.map((p, i) => (
+          <rect key={p.key} x={x(i) - slot / 2} y={0} width={slot} height={H} fill="transparent" onClick={() => setSel(i)} style={{ cursor: 'pointer' }} />
+        ))}
+      </svg>
+      <div className="trend-pick">
+        <b>{pointLabel(cur.key, unit)}</b>
+        <span>{cur.ends}순{unit !== 'day' && ` · ${cur.days}일`} · 순당 {cur.perEnd.toFixed(1)} · 중률 {Math.round(cur.rate * 100)}% · 몰기 {cur.perfect}</span>
+      </div>
+      <div className="small muted">
+        {line && dotted ? '흐린 점은 날마다의 순당 평균, 선은 최근 5번 습사한 날을 묶은 흐름입니다. ' : ''}
+        점이나 막대를 누르면 그때 기록을 봅니다. 위의 기간·활·활터 선택을 따릅니다.
+      </div>
+    </section>
   );
 }
 
@@ -177,7 +261,7 @@ export function StatsScreen() {
           );
         })()}
       </section>
-      <section className="card"><h2>주별 순당 평균</h2><TrendChart data={weeklyTrend(ends)} /></section>
+      <TrendCard ends={ends} />
       <MonthlyCard rows={monthlyStats(allEnds.filter(pick))} />
       <section className="card">
         <h2>순별 중 수 분포</h2>

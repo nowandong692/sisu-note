@@ -636,3 +636,7 @@ nav.tabs .tab-icon .dot { position: absolute; top: -1px; right: -5px; width: 9px
 .login-linked li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .legal-links { text-align: center; padding: 8px 0 16px; }
 .legal-links a { color: inherit; }
+
+/* 통계 추이 그래프에서 고른 점 */
+.trend-pick { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; font-size: 13px; }
+.trend-pick span { color: var(--muted); }
