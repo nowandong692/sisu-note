@@ -192,6 +192,28 @@ function GroupTable({ rows, label, name, compact }: { rows: GroupRow[]; label: s
 const LEAN_KEYS: ['sky' | 'temp' | 'wind', string][] = [['sky', '날씨'], ['temp', '기온'], ['wind', '바람']];
 const SHORT: Record<MissDirection, string> = { 앞남: '앞', 뒤남: '뒤', 넘음: '넘', 짧음: '짧' };
 
+/** 죽시(대나무 화살) 모양 화살표. (x, y)에 오늬를 두고 angle 쪽으로 length만큼 뻗는다 */
+function Juksi({ length: L, x, y, angle }: { length: number; x: number; y: number; angle: number }) {
+  const tip = 18; // 촉
+  const fl = Math.min(28, L * 0.3); // 깃
+  const shaftEnd = L - tip + 2;
+  const nodes = L > 90 ? [0.45, 0.72] : L > 64 ? [0.58] : [];
+  return (
+    <g transform={`translate(${x} ${y}) rotate(${angle})`}>
+      {/* 시위에 거는 오늬 */}
+      <rect x={-3} y={-4.5} width={7} height={9} rx={2} style={{ fill: 'var(--ink)' }} />
+      {/* 대나무 살대 */}
+      <rect x={2} y={-3.5} width={shaftEnd - 2} height={7} rx={3} className="jj-shaft" />
+      {nodes.map((f) => <rect key={f} x={2 + (shaftEnd - 2) * f - 1.5} y={-5} width={3} height={10} rx={1.2} className="jj-node" />)}
+      {/* 깃 세 장 중 위아래 두 장 */}
+      <path d={`M${5} -3 L${5 + fl} -3 L${fl - 1} -12 Q${fl * 0.45} -14 ${2} -11 Z`} style={{ fill: 'var(--hong)' }} />
+      <path d={`M${5} 3 L${5 + fl} 3 L${fl - 1} 12 Q${fl * 0.45} 14 ${2} 11 Z`} style={{ fill: 'var(--hong)' }} />
+      {/* 쇠 촉 */}
+      <path d={`M${L - tip} -6.5 L${L} 0 L${L - tip} 6.5 Z`} className="jj-tip" />
+    </g>
+  );
+}
+
 /** 작은 과녁 위에 불의 평균 방향을 화살표 하나로. 길수록 그쪽으로 많이 치우친 것 */
 function LeanTarget({ row, hand }: { row: WeatherLeanRow; hand: Hand }) {
   const cx = TX + TW / 2, cy = TY + TH / 2;
@@ -199,10 +221,8 @@ function LeanTarget({ row, hand }: { row: WeatherLeanRow; hand: Hand }) {
   const dx = row.front * (hand === 'right' ? 1 : -1);
   const dy = -row.over;
   const len = Math.hypot(dx, dy);
-  const R = TW / 2 + 2 * BAND;
-  const ex = cx + dx * R, ey = cy + dy * R;
-  const ux = len ? dx / len : 0, uy = len ? dy / len : 0;
-  const head = 18;
+  const R = 170;
+  const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
   const side = directionSide(hand);
   const pct = (d: MissDirection) => Math.round((row.count[d] / (row.total || 1)) * 100);
   const most = Math.max(...MISS_DIRECTIONS.map((d) => row.count[d]));
@@ -220,13 +240,8 @@ function LeanTarget({ row, hand }: { row: WeatherLeanRow; hand: Hand }) {
           <text x={TX - BAND} y={cy + 10}>{side.left}</text>
           <text x={TX + TW + BAND} y={cy + 10}>{side.right}</text>
         </g>
-        {row.total > 0 && len >= 0.08 && (
-          <g style={{ stroke: 'var(--hong)', fill: 'var(--hong)' }} strokeWidth={10} strokeLinecap="round" strokeLinejoin="round">
-            <line x1={cx} y1={cy} x2={ex - ux * head * 0.6} y2={ey - uy * head * 0.6} />
-            <polygon points={`${ex},${ey} ${ex - ux * head - uy * head * 0.7},${ey - uy * head + ux * head * 0.7} ${ex - ux * head + uy * head * 0.7},${ey - uy * head - ux * head * 0.7}`} strokeWidth={4} />
-          </g>
-        )}
-        {row.total > 0 && <circle cx={cx} cy={cy} r={9} style={{ fill: 'var(--hong)' }} />}
+        {row.total > 0 && len >= 0.08 && <Juksi length={Math.min(150, Math.max(60, len * R))} x={cx} y={cy} angle={angle} />}
+        {row.total > 0 && <circle cx={cx} cy={cy} r={6} style={{ fill: 'var(--muted)' }} />}
         {row.total > 0 && len < 0.08 && <text x={cx} y={cy + 42} textAnchor="middle" fontSize={26} fontWeight={700} style={{ fill: 'var(--muted)' }}>고름</text>}
       </svg>
       {row.total > 0 ? (
@@ -266,7 +281,7 @@ function WeatherLeanCard({ ends, hand }: { ends: End[]; hand: Hand }) {
       <div className="lean-grid">
         {rows.map((r) => <LeanTarget key={r.key} row={r} hand={hand} />)}
       </div>
-      <div className="small muted">화살표는 불이 난 평균 방향입니다. 길수록 그쪽으로 많이 치우쳤고, 가운데 점만 있으면 고르게 났습니다. 숫자는 방향을 남긴 불 가운데 비율(%)이고, 가장 많은 쪽을 빨갛게 표시합니다. {MIN_ENDS_FOR_RANKING}순 미만은 흐리게 표시합니다.</div>
+      <div className="small muted">화살은 불이 난 평균 방향을 가리킵니다. 길수록 그쪽으로 많이 치우쳤고, 화살 없이 가운데 점만 있으면 고르게 났습니다. 숫자는 방향을 남긴 불 가운데 비율(%)이고, 가장 많은 쪽을 빨갛게 표시합니다. {MIN_ENDS_FOR_RANKING}순 미만은 흐리게 표시합니다.</div>
     </section>
   );
 }
