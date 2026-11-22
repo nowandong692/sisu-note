@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byWeather, byWindDir, tempBand, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weekStart, weeklyTrend, trendSeries } from './stats';
+import { missLean, weatherLean, byWeather, byWindDir, tempBand, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weekStart, weeklyTrend, trendSeries } from './stats';
 import { endsToCsv } from './csv';
 import { sampleData } from './sample';
 import type { End, Shot } from './types';
@@ -75,6 +75,23 @@ describe('통계', () => {
     expect(byWeather(list, 'sky')).toEqual([]);
     expect(byWeather(list, 'temp').map((r) => r.key).sort()).toEqual(['10~19°', '영하']);
     expect(tempBand(null)).toBe('');
+  });
+
+  it('날씨별 불 치우침: 평균 방향과 비율', () => {
+    const w = (sky: '맑음' | '비') => ({ sky, temp: null, wind: null, windDir: null });
+    const list = [
+      { ...end('2026-11-02', [M('앞남'), M('앞남'), M('넘음'), H, H]), weather: w('맑음') },
+      { ...end('2026-11-03', [M('앞남'), M('뒤남'), H, H, H]), weather: w('맑음') },
+      { ...end('2026-11-04', [M('짧음', 2), H, H, H, H]), weather: w('비') },
+      end('2026-11-05', [M('짧음'), H, H, H, H]),
+    ];
+    const rows = weatherLean(list, 'sky');
+    expect(rows.map((r) => [r.key, r.ends, r.total])).toEqual([['맑음', 2, 5], ['비', 1, 1]]);
+    expect(rows[0].front).toBeCloseTo(2 / 5);
+    expect(rows[0].over).toBeCloseTo(1 / 5);
+    expect(rows[1]).toMatchObject({ front: 0, over: -1 });
+    expect(missLean([end('2026-11-06', [H, H, H, H, H])])).toMatchObject({ total: 0, front: 0, over: 0 });
+    expect(weatherLean(list, 'wind')).toEqual([]);
   });
 
   it('바람 방향별로 성적과 불 방향을 센다', () => {

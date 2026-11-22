@@ -640,3 +640,16 @@ nav.tabs .tab-icon .dot { position: absolute; top: -1px; right: -5px; width: 9px
 /* 통계 추이 그래프에서 고른 점 */
 .trend-pick { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; font-size: 13px; }
 .trend-pick span { color: var(--muted); }
+.lean-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 8px; margin: 8px 0 10px; }
+.lean { text-align: center; min-width: 0; }
+.lean.thin { opacity: 0.45; }
+.lean-name { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+.lean-pct { display: grid; grid-template-columns: 1fr 1fr; gap: 0 4px; font-size: 12px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.lean-pct .top { color: var(--hong); font-weight: 700; }
+.lean-pct.empty-pct { display: block; }
+.lean-n { font-size: 11px; color: var(--muted); }
+.jj-shaft { fill: #CDA860; stroke: #8C6A2E; stroke-width: 1.2; }
+.jj-node { fill: #8C6A2E; }
+.jj-tip { fill: #4A505A; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .jj-tip { fill: #C3C8D0; } }
+:root[data-theme="dark"] .jj-tip { fill: #C3C8D0; }

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Target } from '../components/Target';
 import {
-  MIN_ENDS_FOR_RANKING, byRange, byWeather, byWindDir, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, trendSeries, zoneCounts,
-  type GroupRow, type TrendPoint, type TrendUnit,
+  MIN_ENDS_FOR_RANKING, byRange, byWeather, byWindDir, weatherLean, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, trendSeries, zoneCounts,
+  type GroupRow, type TrendPoint, type TrendUnit, type WeatherLeanRow,
 } from '../domain/stats';
-import { MISS_DIRECTIONS, type End } from '../domain/types';
+import { MISS_DIRECTIONS, type End, type Hand, type MissDirection } from '../domain/types';
+import { BAND, TH, TW, TX, TY, VIEW_H, VIEW_W, VIEW_X, VIEW_Y } from '../domain/target';
 import { dayOffset } from '../domain/util';
 import { useStore } from '../state/store';
 import { formatDuration, totalMinutes } from '../domain/session';
@@ -188,6 +189,103 @@ function GroupTable({ rows, label, name, compact }: { rows: GroupRow[]; label: s
   );
 }
 
+const LEAN_KEYS: ['sky' | 'temp' | 'wind', string][] = [['sky', '날씨'], ['temp', '기온'], ['wind', '바람']];
+const SHORT: Record<MissDirection, string> = { 앞남: '앞', 뒤남: '뒤', 넘음: '넘', 짧음: '짧' };
+
+/** 죽시(대나무 화살) 모양 화살표. (x, y)에 오늬를 두고 angle 쪽으로 length만큼 뻗는다 */
+function Juksi({ length: L, x, y, angle }: { length: number; x: number; y: number; angle: number }) {
+  const tip = 18; // 촉
+  const fl = Math.min(28, L * 0.3); // 깃
+  const shaftEnd = L - tip + 2;
+  const nodes = L > 90 ? [0.45, 0.72] : L > 64 ? [0.58] : [];
+  return (
+    <g transform={`translate(${x} ${y}) rotate(${angle})`}>
+      {/* 시위에 거는 오늬 */}
+      <rect x={-3} y={-4.5} width={7} height={9} rx={2} style={{ fill: 'var(--ink)' }} />
+      {/* 대나무 살대 */}
+      <rect x={2} y={-3.5} width={shaftEnd - 2} height={7} rx={3} className="jj-shaft" />
+      {nodes.map((f) => <rect key={f} x={2 + (shaftEnd - 2) * f - 1.5} y={-5} width={3} height={10} rx={1.2} className="jj-node" />)}
+      {/* 깃 세 장 중 위아래 두 장 */}
+      <path d={`M${5} -3 L${5 + fl} -3 L${fl - 1} -12 Q${fl * 0.45} -14 ${2} -11 Z`} style={{ fill: 'var(--hong)' }} />
+      <path d={`M${5} 3 L${5 + fl} 3 L${fl - 1} 12 Q${fl * 0.45} 14 ${2} 11 Z`} style={{ fill: 'var(--hong)' }} />
+      {/* 쇠 촉 */}
+      <path d={`M${L - tip} -6.5 L${L} 0 L${L - tip} 6.5 Z`} className="jj-tip" />
+    </g>
+  );
+}
+
+/** 작은 과녁 위에 불의 평균 방향을 화살표 하나로. 길수록 그쪽으로 많이 치우친 것 */
+function LeanTarget({ row, hand }: { row: WeatherLeanRow; hand: Hand }) {
+  const cx = TX + TW / 2, cy = TY + TH / 2;
+  // 앞남은 줌손 쪽: 우궁이면 오른쪽, 좌궁이면 왼쪽
+  const dx = row.front * (hand === 'right' ? 1 : -1);
+  const dy = -row.over;
+  const len = Math.hypot(dx, dy);
+  const R = 170;
+  const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+  const side = directionSide(hand);
+  const pct = (d: MissDirection) => Math.round((row.count[d] / (row.total || 1)) * 100);
+  const most = Math.max(...MISS_DIRECTIONS.map((d) => row.count[d]));
+  return (
+    <div className={`lean ${row.enough ? '' : 'thin'}`}>
+      <div className="lean-name">{row.key}</div>
+      <svg viewBox={`${VIEW_X} ${VIEW_Y} ${VIEW_W} ${VIEW_H}`} width="100%" role="img"
+        aria-label={row.total ? `${row.key}: 불 ${row.total}시, ${MISS_DIRECTIONS.map((d) => `${d} ${pct(d)}%`).join(', ')}` : `${row.key}: 방향을 남긴 불 없음`}>
+        <rect x={TX - 2 * BAND} y={TY - 2 * BAND} width={TW + 4 * BAND} height={TH + 4 * BAND} rx={16} style={{ fill: 'var(--band2)' }} />
+        <rect x={TX - BAND} y={TY - BAND} width={TW + 2 * BAND} height={TH + 2 * BAND} rx={10} style={{ fill: 'var(--band1)' }} />
+        <rect x={TX} y={TY} width={TW} height={TH} style={{ fill: 'var(--surface)', stroke: 'var(--line)' }} strokeWidth={3} />
+        <g fontSize={30} fontWeight={700} textAnchor="middle" style={{ fill: 'var(--muted)' }} opacity={0.7}>
+          <text x={cx} y={TY - 1.25 * BAND}>넘</text>
+          <text x={cx} y={TY + TH + 1.65 * BAND}>짧</text>
+          <text x={TX - BAND} y={cy + 10}>{side.left}</text>
+          <text x={TX + TW + BAND} y={cy + 10}>{side.right}</text>
+        </g>
+        {row.total > 0 && len >= 0.08 && <Juksi length={Math.min(150, Math.max(60, len * R))} x={cx} y={cy} angle={angle} />}
+        {row.total > 0 && <circle cx={cx} cy={cy} r={6} style={{ fill: 'var(--muted)' }} />}
+        {row.total > 0 && len < 0.08 && <text x={cx} y={cy + 42} textAnchor="middle" fontSize={26} fontWeight={700} style={{ fill: 'var(--muted)' }}>고름</text>}
+      </svg>
+      {row.total > 0 ? (
+        <div className="lean-pct">
+          {(['앞남', '뒤남', '넘음', '짧음'] as MissDirection[]).map((d) => (
+            <span key={d} className={most > 0 && row.count[d] === most ? 'top' : ''}>{SHORT[d]} {pct(d)}</span>
+          ))}
+        </div>
+      ) : <div className="lean-pct empty-pct">불 기록 없음</div>}
+      <div className="lean-n">{row.ends}순 · 불 {row.total}시</div>
+    </div>
+  );
+}
+
+/** 과녁 왼쪽·오른쪽에 쓸 글자 (앞·뒤) */
+function directionSide(hand: Hand) {
+  return hand === 'right' ? { left: '뒤', right: '앞' } : { left: '앞', right: '뒤' };
+}
+
+/** 날씨·기온·바람 세기마다 불이 어느 쪽으로 치우쳤는지 작은 과녁을 나란히 */
+function WeatherLeanCard({ ends, hand }: { ends: End[]; hand: Hand }) {
+  const options = LEAN_KEYS.map(([k, l]) => [k, l, weatherLean(ends, k)] as const).filter(([, , rows]) => rows.length > 0);
+  const [key, setKey] = useState<'sky' | 'temp' | 'wind'>('sky');
+  if (!options.length) return null;
+  const cur = options.find(([k]) => k === key) ?? options[0];
+  const rows = cur[2];
+  return (
+    <section className="card">
+      <div className="row between">
+        <h2>날씨별 불 치우침</h2>
+        {options.length > 1 && (
+          <div className="seg" role="group" aria-label="날씨 항목">
+            {options.map(([k, l]) => <button key={k} className={cur[0] === k ? 'on' : ''} aria-pressed={cur[0] === k} onClick={() => setKey(k)}>{l}</button>)}
+          </div>
+        )}
+      </div>
+      <div className="lean-grid">
+        {rows.map((r) => <LeanTarget key={r.key} row={r} hand={hand} />)}
+      </div>
+      <div className="small muted">화살은 불이 난 평균 방향을 가리킵니다. 길수록 그쪽으로 많이 치우쳤고, 화살 없이 가운데 점만 있으면 고르게 났습니다. 숫자는 방향을 남긴 불 가운데 비율(%)이고, 가장 많은 쪽을 빨갛게 표시합니다. {MIN_ENDS_FOR_RANKING}순 미만은 흐리게 표시합니다.</div>
+    </section>
+  );
+}
+
 export function StatsScreen() {
   const { ends: allEnds, gear, gearName, settings, rangeName, ranges } = useStore();
   const [period, setPeriod] = useState(30);
@@ -325,6 +423,7 @@ export function StatsScreen() {
           <div className="small muted">날씨를 남긴 순만 셉니다. {MIN_ENDS_FOR_RANKING}순 미만은 흐리게 표시합니다.</div>
         </section>
       )}
+      <WeatherLeanCard ends={ends} hand={settings.hand} />
       {windRows.length > 0 && (
         <section className="card">
           <h2>바람 방향별 불 방향</h2>
