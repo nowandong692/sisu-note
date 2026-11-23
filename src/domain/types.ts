@@ -201,8 +201,8 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 export const MISS_DIRECTIONS: MissDirection[] = ['앞남', '뒤남', '넘음', '짧음'];
-/** 8방향 불: 네 방향 먼저, 그다음 대각선 */
-export const MISS_DIRS8: MissDir8[] = ['앞남', '뒤남', '넘음', '짧음', '앞넘음', '앞짧음', '뒤넘음', '뒤짧음'];
+/** 8방향 불을 보여 주는 순서: 넘는 쪽 줄(뒤→앞), 옆(뒤→앞), 짧은 쪽 줄(뒤→앞) */
+export const MISS_DIRS8: MissDir8[] = ['뒤넘음', '넘음', '앞넘음', '뒤남', '앞남', '뒤짧음', '짧음', '앞짧음'];
 /** 8방향을 사수 기준 평면에 놓은 단위 벡터. front = 앞남 쪽, over = 넘음 쪽 */
 export const DIR8_VEC: Record<MissDir8, { front: number; over: number }> = {
   앞남: { front: 1, over: 0 }, 뒤남: { front: -1, over: 0 }, 넘음: { front: 0, over: 1 }, 짧음: { front: 0, over: -1 },
