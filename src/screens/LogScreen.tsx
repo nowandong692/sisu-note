@@ -12,21 +12,22 @@ import type { End, Hand } from '../domain/types';
 import { useStore } from '../state/store';
 import { endMeta } from '../domain/endMeta';
 import { EndLine } from './ShootScreen';
+import { endColor } from '../components/endColor';
 import { MemoView } from './MemoView';
 import { dayMinutes, daySegments, formatDuration, spanLabel } from '../domain/session';
 import { DayShareBadge, ShareBadge } from '../components/ShareBadge';
 import { shareStateOf } from '../domain/sharedMemo';
 
 /**
- * 그날 쏜 화살을 과녁 하나에 모두 찍는다.
- * 순을 고르면 그 순의 화살만, 시를 고르면 그 시의 화살만 번호와 함께 강조한다 (둘 다 고르면 그 한 발).
+ * 그날 쏜 화살을 과녁 하나에 모두 찍는다. 습사 탭 오늘 과녁처럼 테두리 색은 순, 원 안 숫자는 몇 번째 시다.
+ * 순을 고르면 그 순의 화살만, 시를 고르면 그 시의 화살만 남기고 나머지는 흐리게 한다 (색·크기는 그대로).
  */
 function DayTarget({ ends, hand, selEnd, selShot, onShot }: { ends: End[]; hand: Hand; selEnd: string | null; selShot: number | null; onShot: (i: number | null) => void }) {
   const filtering = selEnd != null || selShot != null;
   const endIdx = ends.findIndex((e) => e.id === selEnd);
   const marks: Mark[] = ends.flatMap((e, ei) => e.shots.map((s, si) => {
     const on = (selEnd == null || e.id === selEnd) && (selShot == null || si === selShot);
-    return { x: s.x, y: s.y, hit: s.hit, big: filtering && on, dim: filtering && !on, n: selEnd != null ? si + 1 : ei + 1 };
+    return { x: s.x, y: s.y, hit: s.hit, dim: filtering && !on, text: on ? String(si + 1) : '', ring: endColor(ei) };
   }));
   const chosen = ends.flatMap((e) => (selEnd == null || e.id === selEnd ? e.shots.filter((_, si) => selShot == null || si === selShot) : []));
   const unplaced = chosen.filter((s) => s.hit && s.x == null).length;
@@ -41,11 +42,11 @@ function DayTarget({ ends, hand, selEnd, selShot, onShot }: { ends: End[]; hand:
           <button key={i} className={`chip ${selShot === i ? 'on' : ''}`} aria-pressed={selShot === i} onClick={() => onShot(selShot === i ? null : i)}>{i + 1}시</button>
         ))}
       </div>
-      <Target hand={hand} grid={hasZones} small dotRadius={5} marks={marks} label="그날의 탄착" />
+      <div className="target-wrap"><Target hand={hand} grid={hasZones} marks={marks} markRadius={9} label="그날의 탄착" /></div>
       <div className="small muted">
         {filtering
-          ? `${what}: ${chosen.length}발 중 ${hits}중. 원 안 숫자는 ${selEnd != null ? '몇 번째 시' : '몇 번째 순'}인지입니다.`
-          : '파란 점은 관중, 회색 점은 불입니다. 아래에서 순을 누르면 그 순의 화살만 강조됩니다.'}
+          ? `${what}: ${chosen.length}발 중 ${hits}중. 원 안 숫자는 몇 번째 시인지입니다.`
+          : '테두리 색은 아래 순 옆 색이고, 원 안 숫자는 몇 번째 시인지입니다. 흰 원은 관중, 검은 원은 불입니다. 아래에서 순을 누르면 그 순만 봅니다.'}
         {unplaced > 0 && ` 위치 없이 기록한 관중 ${unplaced}시는 과녁에 표시하지 않습니다.`}
       </div>
     </div>
@@ -172,7 +173,7 @@ export function LogScreen() {
                   return (
                     <div key={e.id} id={`end-${e.id}`} className={`end-block ${selEnd === e.id ? 'selected' : ''}`} role="button" tabIndex={0} aria-pressed={selEnd === e.id}
                       onClick={() => toggle(e.id)} onKeyDown={(ev) => { if (ev.target === ev.currentTarget && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); toggle(e.id); } }}>
-                      <EndLine end={e} index={i} showMeta={false} />
+                      <EndLine end={e} index={i} showMeta={false} color={endColor(i)} />
                       {/* 장비·태그와 고치기·삭제는 둘째 줄에 둔다. 첫 줄(시·몰기)이 길어도 버튼 자리가 늘 같다. */}
                       <div className="end-sub">
                         <span className="meta">{endMeta(e, gearName)}</span>

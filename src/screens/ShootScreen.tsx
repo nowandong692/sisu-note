@@ -20,6 +20,7 @@ import { ShareConfirmSheet, ShareNotice, SharePicker } from '../components/Share
 import { defaultShare, needsShareConfirm, SHARE_LABEL } from '../domain/sharedMemo';
 import { useStore } from '../state/store';
 import { focusLogEnd } from './LogScreen';
+import { endColor } from '../components/endColor';
 import { showLogView } from './RecordsScreen';
 import { GearScreen } from './GearScreen';
 import { GEAR_KEY, gearOfEnd, gearOfSettings, lastGearOf, sameGear, type EndGear } from '../domain/endGear';
@@ -40,13 +41,13 @@ interface Draft {
 const emptyDraft = (share: MemoShare | null = null): Draft => ({ editId: null, shots: Array(SHOTS_PER_END).fill(null), active: 0, tags: [], memo: '', share, gear: null });
 const draftOf = (e: End): Draft => ({ editId: e.id, shots: [...e.shots], active: 0, tags: [...e.tags], memo: e.memo, share: e.share ?? null, gear: gearOfEnd(e) });
 
-export function EndLine({ end, index, showMeta = true, selected, onSelect }: { end: End; index: number; showMeta?: boolean; selected?: boolean; onSelect?: () => void }) {
+export function EndLine({ end, index, showMeta = true, selected, onSelect, color }: { end: End; index: number; showMeta?: boolean; selected?: boolean; onSelect?: () => void; color?: string }) {
   const { gearName } = useStore();
   const h = hitsOf(end);
   return (
     <div className={`end-line ${onSelect ? 'selectable' : ''} ${selected ? 'selected' : ''}`}
       {...(onSelect ? { role: 'button', tabIndex: 0, 'aria-pressed': !!selected, onClick: onSelect, onKeyDown: (ev: React.KeyboardEvent) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onSelect(); } } } : {})}>
-      <span className="idx">{index + 1}순</span>
+      <span className="idx">{color && <span className="end-dot" style={{ background: color }} aria-hidden />}{index + 1}순</span>
       <span className="dots">{end.shots.map((s, i) => <ShotIcon key={i} shot={s} index={i} />)}</span>
       <span className="cnt">{h}중{h === 5 && <span className="pill best">몰기</span>}</span>
       {showMeta && <span className="meta">{endMeta(end, gearName)}</span>}
@@ -55,9 +56,6 @@ export function EndLine({ end, index, showMeta = true, selected, onSelect }: { e
 }
 
 /** 오늘 과녁의 표시 번호: 순(0부터)과 시(0부터)를 하나의 수(1부터)로 */
-/** 모든 순을 볼 때 순마다 테두리 색 (9순부터 다시 처음 색) */
-const END_COLORS = ['#1E66D0', '#E08A00', '#2E9D5B', '#8E44AD', '#D0367A', '#0FA3A3', '#8A6A2E', '#5B6B7A'];
-const endColor = (ei: number) => END_COLORS[ei % END_COLORS.length];
 
 const keyOf = (ei: number, si: number) => ei * SHOTS_PER_END + si + 1;
 const unkey = (n: number) => ({ ei: Math.floor((n - 1) / SHOTS_PER_END), si: (n - 1) % SHOTS_PER_END });
