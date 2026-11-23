@@ -20,6 +20,15 @@ function errText(e: unknown) {
 export function LoginButtons({ purpose, only, label }: { purpose: LoginPurpose; only?: LoginProvider[]; label: (name: string) => string }) {
   const list = useProviders();
   const [going, setGoing] = useState<LoginProvider | null>(null);
+  // 로그인 화면에서 로그인하지 않고 뒤로 오면 브라우저가 떠나기 직전 화면(여는 중…, 버튼 잠김)을 그대로 되살린다.
+  // 화면이 다시 보이면 버튼을 풀어 다시 누를 수 있게 한다.
+  useEffect(() => {
+    const reset = () => setGoing(null);
+    const onVisible = () => { if (document.visibilityState === 'visible') reset(); };
+    window.addEventListener('pageshow', reset);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { window.removeEventListener('pageshow', reset); document.removeEventListener('visibilitychange', onVisible); };
+  }, []);
   const shown = (list ?? []).filter((p) => !only || only.includes(p.provider));
   if (!shown.length) return null;
   const go = (p: { provider: LoginProvider; client_id: string }) => {
