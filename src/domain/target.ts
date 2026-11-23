@@ -1,4 +1,4 @@
-import type { Hand, MissDirection, MissSide, Shot } from './types';
+import type { Hand, MissDir8, MissDirection, MissSide, Shot } from './types';
 import { LEVEL_LABEL } from './types';
 
 /**
@@ -56,10 +56,12 @@ export function hitShot(): Shot {
   return { hit: true, x: null, y: null, zone: null, side: null, level: null, direction: null };
 }
 
-export function shotLabel(s: Shot | null, showZone: boolean): string {
+/** 관중이면 "관중"(칸 번호), 불이면 8방향과 조금·많이 (예: "앞넘음 조금") */
+export function shotLabel(s: Shot | null, showZone: boolean, hand?: Hand): string {
   if (!s) return '';
   if (s.hit) return s.zone && showZone ? `관중 ${s.zone}` : '관중';
-  return s.direction && s.level ? `${s.direction} ${LEVEL_LABEL[s.level]}` : '불';
+  const d = missDir8(s, hand);
+  return d && s.level ? `${d} ${LEVEL_LABEL[s.level]}` : '불';
 }
 
 /** 과녁 중심에서 빠진 위치까지의 방향을 8방향(0 = 위, 시계 방향 45도씩)으로 나눈다. */
@@ -74,4 +76,27 @@ export function missOctant(s: Shot): number | null {
     return ((Math.round(deg / 45) % 8) + 8) % 8;
   }
   return s.side === 'over' ? 0 : s.side === 'right' ? 2 : s.side === 'short' ? 4 : s.side === 'left' ? 6 : null;
+}
+
+/** 화면 8방향(0 = 위, 시계 방향) 가운데 오른쪽 절반(1~3)이 앞인지 뒤인지에 따라 붙이는 이름 */
+const OCTANT_RIGHT_FRONT: MissDir8[] = ['넘음', '앞넘음', '앞남', '앞짧음', '짧음', '뒤짧음', '뒤남', '뒤넘음'];
+const OCTANT_LEFT_FRONT: MissDir8[] = ['넘음', '뒤넘음', '뒤남', '뒤짧음', '짧음', '앞짧음', '앞남', '앞넘음'];
+
+/**
+ * 불을 사수 기준 8방향(앞·뒤·넘·짧과 그 사이 대각선)으로 나눈다.
+ * 누른 위치가 있으면 위치로, 없으면 저장된 네 방향 그대로.
+ * 앞이 어느 쪽인지는 저장할 때 판정한 앞남·뒤남에서 읽고, 넘음·짧음으로 저장된 불이면 hand(우궁·좌궁)를 쓴다.
+ */
+export function missDir8(s: Shot, hand?: Hand): MissDir8 | null {
+  if (s.hit) return null;
+  const o = missOctant(s);
+  if (o == null || o % 4 === 0) return o === 0 ? '넘음' : o === 4 ? '짧음' : s.direction;
+  let rightFront: boolean | null = null;
+  if ((s.side === 'left' || s.side === 'right') && (s.direction === '앞남' || s.direction === '뒤남')) {
+    rightFront = (s.side === 'right') === (s.direction === '앞남');
+  } else if (hand) {
+    rightFront = hand === 'right';
+  }
+  if (rightFront == null) return s.direction; // 앞이 어느 쪽인지 모르면 저장된 네 방향
+  return (rightFront ? OCTANT_RIGHT_FRONT : OCTANT_LEFT_FRONT)[o];
 }

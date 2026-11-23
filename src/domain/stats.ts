@@ -1,5 +1,6 @@
-import type { End, GearCategory, MissDirection, MissLevel, WindDir } from './types';
-import { MISS_DIRECTIONS } from './types';
+import type { End, GearCategory, Hand, MissDir8, MissLevel, WindDir } from './types';
+import { DIR8_VEC, MISS_DIRS8 } from './types';
+import { missDir8 } from './target';
 import { SKIES, WIND_DIRS, WIND_LEVELS } from './weather';
 
 /** 이보다 순이 적은 장비·조합은 순위에서 빼고 "기록 더 필요"로 표시한다. */
@@ -115,13 +116,15 @@ export function shotPositionRates(ends: End[]): number[] {
   return c.map((v) => (ends.length ? v / ends.length : 0));
 }
 
-export function missBreakdown(ends: End[]): { total: number; byDir: Record<MissDirection, Record<MissLevel, number>> } {
-  const byDir = Object.fromEntries(MISS_DIRECTIONS.map((d) => [d, { 1: 0, 2: 0 }])) as Record<MissDirection, Record<MissLevel, number>>;
+/** 8방향 불 수를 조금·많이로 나눠 센다. hand는 앞이 어느 쪽인지 모르는 옛 기록에만 쓴다. */
+export function missBreakdown(ends: End[], hand?: Hand): { total: number; byDir: Record<MissDir8, Record<MissLevel, number>> } {
+  const byDir = Object.fromEntries(MISS_DIRS8.map((d) => [d, { 1: 0, 2: 0 }])) as Record<MissDir8, Record<MissLevel, number>>;
   let total = 0;
   for (const e of ends) {
     for (const s of e.shots) {
-      if (!s.hit && s.direction && s.level) {
-        byDir[s.direction][s.level]++;
+      const d = missDir8(s, hand);
+      if (d && s.level) {
+        byDir[d][s.level]++;
         total++;
       }
     }
@@ -180,8 +183,8 @@ export function byWeather(ends: End[], k: 'sky' | 'wind' | 'temp'): GroupRow[] {
 export interface WindDirRow extends Summary {
   dir: WindDir;
   enough: boolean;
-  /** 불이 난 방향별 개수와 불 합계 */
-  miss: Record<MissDirection, number>;
+  /** 불이 난 8방향별 개수와 불 합계 */
+  miss: Record<MissDir8, number>;
   missTotal: number;
 }
 
@@ -189,12 +192,12 @@ export interface WindDirRow extends Summary {
  * 사대 기준 바람 방향(맞바람·뒷바람·왼쪽·오른쪽)마다 성적과 불 방향.
  * 바람 방향을 남긴 순만 세고, 바람이 없던 순은 뺀다.
  */
-export function byWindDir(ends: End[]): WindDirRow[] {
+export function byWindDir(ends: End[], hand?: Hand): WindDirRow[] {
   return WIND_DIRS.flatMap((dir) => {
     const list = ends.filter((e) => e.weather?.windDir === dir && e.weather.wind !== '없음');
     if (!list.length) return [];
-    const m = missBreakdown(list);
-    const miss = Object.fromEntries(MISS_DIRECTIONS.map((d) => [d, m.byDir[d][1] + m.byDir[d][2]])) as Record<MissDirection, number>;
+    const m = missBreakdown(list, hand);
+    const miss = Object.fromEntries(MISS_DIRS8.map((d) => [d, m.byDir[d][1] + m.byDir[d][2]])) as Record<MissDir8, number>;
     return [{ dir, ...summarize(list), enough: list.length >= MIN_ENDS_FOR_RANKING, miss, missTotal: m.total }];
   });
 }
@@ -202,8 +205,8 @@ export function byWindDir(ends: End[]): WindDirRow[] {
 export interface MissLean {
   /** 방향을 남긴 불 수 */
   total: number;
-  /** 방향별 불 수 */
-  count: Record<MissDirection, number>;
+  /** 8방향별 불 수 */
+  count: Record<MissDir8, number>;
   /**
    * 불의 평균 방향. 앞남 쪽이 +front, 넘음 쪽이 +over. 각각 -1~1.
    * 길이(√(front²+over²))가 1이면 모든 불이 한쪽으로만 났고, 0이면 고르게 났다.
@@ -213,16 +216,12 @@ export interface MissLean {
 }
 
 /** 불이 어느 쪽으로 치우쳤는지: 불 하나를 그 방향의 길이 1짜리 화살표로 보고 평균 낸다. */
-export function missLean(ends: End[]): MissLean {
-  const count = Object.fromEntries(MISS_DIRECTIONS.map((d) => [d, 0])) as Record<MissDirection, number>;
-  for (const e of ends) for (const s of e.shots) if (!s.hit && s.direction) count[s.direction]++;
-  const total = MISS_DIRECTIONS.reduce((a, d) => a + count[d], 0);
-  return {
-    total,
-    count,
-    front: total ? (count['앞남'] - count['뒤남']) / total : 0,
-    over: total ? (count['넘음'] - count['짧음']) / total : 0,
-  };
+export function missLean(ends: End[], hand?: Hand): MissLean {
+  const count = Object.fromEntries(MISS_DIRS8.map((d) => [d, 0])) as Record<MissDir8, number>;
+  for (const e of ends) for (const s of e.shots) { const d = missDir8(s, hand); if (d) count[d]++; }
+  const total = MISS_DIRS8.reduce((a, d) => a + count[d], 0);
+  const sum = (k: 'front' | 'over') => MISS_DIRS8.reduce((a, d) => a + count[d] * DIR8_VEC[d][k], 0);
+  return { total, count, front: total ? sum('front') / total : 0, over: total ? sum('over') / total : 0 };
 }
 
 export interface WeatherLeanRow extends MissLean {
@@ -234,7 +233,7 @@ export interface WeatherLeanRow extends MissLean {
 const TEMP_BANDS = ['영하', '0~9°', '10~19°', '20~29°', '30° 이상'];
 
 /** 날씨 항목(하늘·기온·바람 세기)의 값마다 불 치우침. 맑음→눈, 추운→더운, 바람 없음→강함 순서로. */
-export function weatherLean(ends: End[], k: 'sky' | 'wind' | 'temp'): WeatherLeanRow[] {
+export function weatherLean(ends: End[], k: 'sky' | 'wind' | 'temp', hand?: Hand): WeatherLeanRow[] {
   const keyOf = (e: End) => (k === 'temp' ? tempBand(e.weather?.temp) : e.weather?.[k] ?? '');
   const order: readonly string[] = k === 'sky' ? SKIES : k === 'wind' ? WIND_LEVELS : TEMP_BANDS;
   const m = new Map<string, End[]>();
@@ -243,6 +242,6 @@ export function weatherLean(ends: End[], k: 'sky' | 'wind' | 'temp'): WeatherLea
     if (key) m.set(key, [...(m.get(key) ?? []), e]);
   }
   return [...m.entries()]
-    .map(([key, list]) => ({ key, ends: list.length, enough: list.length >= MIN_ENDS_FOR_RANKING, ...missLean(list) }))
+    .map(([key, list]) => ({ key, ends: list.length, enough: list.length >= MIN_ENDS_FOR_RANKING, ...missLean(list, hand) }))
     .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
 }

@@ -4,7 +4,7 @@ import {
   MIN_ENDS_FOR_RANKING, byRange, byWeather, byWindDir, weatherLean, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, trendSeries, zoneCounts,
   type GroupRow, type TrendPoint, type TrendUnit, type WeatherLeanRow,
 } from '../domain/stats';
-import { MISS_DIRECTIONS, type End, type Hand, type MissDirection } from '../domain/types';
+import { DIR8_VEC, MISS_DIRS8, type End, type Hand, type MissDir8 } from '../domain/types';
 import { BAND, TH, TW, TX, TY, VIEW_H, VIEW_W, VIEW_X, VIEW_Y } from '../domain/target';
 import { dayOffset } from '../domain/util';
 import { useStore } from '../state/store';
@@ -190,7 +190,7 @@ function GroupTable({ rows, label, name, compact }: { rows: GroupRow[]; label: s
 }
 
 const LEAN_KEYS: ['sky' | 'temp' | 'wind', string][] = [['sky', '날씨'], ['temp', '기온'], ['wind', '바람']];
-const SHORT: Record<MissDirection, string> = { 앞남: '앞', 뒤남: '뒤', 넘음: '넘', 짧음: '짧' };
+const SHORT: Record<MissDir8, string> = { 앞남: '앞', 뒤남: '뒤', 넘음: '넘', 짧음: '짧', 앞넘음: '앞넘', 앞짧음: '앞짧', 뒤넘음: '뒤넘', 뒤짧음: '뒤짧' };
 
 /** 죽시(대나무 화살) 모양 화살표. (x, y)에 오늬를 두고 angle 쪽으로 length만큼 뻗는다 */
 function Juksi({ length: L, x, y, angle }: { length: number; x: number; y: number; angle: number }) {
@@ -214,56 +214,59 @@ function Juksi({ length: L, x, y, angle }: { length: number; x: number; y: numbe
   );
 }
 
-/** 작은 과녁 위에 불의 평균 방향을 화살표 하나로. 길수록 그쪽으로 많이 치우친 것 */
+/** 8방향 비율을 과녁 바깥 띠의 그 방향 자리에 쓴다: 위아래·양옆 가운데와 네 모서리 */
+function dirSpot(d: MissDir8, hand: Hand) {
+  const v = DIR8_VEC[d];
+  const sx = Math.sign(v.front) * (hand === 'right' ? 1 : -1);
+  const sy = -Math.sign(v.over);
+  return { x: TX + TW / 2 + sx * (TW / 2 + BAND), y: TY + TH / 2 + sy * (TH / 2 + BAND) };
+}
+
+/** 작은 과녁 위에 불의 평균 방향을 화살표 하나로, 바깥 띠에 8방향 비율. 화살이 길수록 그쪽으로 많이 치우친 것 */
 function LeanTarget({ row, hand }: { row: WeatherLeanRow; hand: Hand }) {
   const cx = TX + TW / 2, cy = TY + TH / 2;
   // 앞남은 줌손 쪽: 우궁이면 오른쪽, 좌궁이면 왼쪽
   const dx = row.front * (hand === 'right' ? 1 : -1);
   const dy = -row.over;
   const len = Math.hypot(dx, dy);
-  const R = 170;
+  const R = 150;
   const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-  const side = directionSide(hand);
-  const pct = (d: MissDirection) => Math.round((row.count[d] / (row.total || 1)) * 100);
-  const most = Math.max(...MISS_DIRECTIONS.map((d) => row.count[d]));
+  const pct = (d: MissDir8) => Math.round((row.count[d] / (row.total || 1)) * 100);
+  const most = Math.max(...MISS_DIRS8.map((d) => row.count[d]));
   return (
     <div className={`lean ${row.enough ? '' : 'thin'}`}>
       <div className="lean-name">{row.key}</div>
       <svg viewBox={`${VIEW_X} ${VIEW_Y} ${VIEW_W} ${VIEW_H}`} width="100%" role="img"
-        aria-label={row.total ? `${row.key}: 불 ${row.total}시, ${MISS_DIRECTIONS.map((d) => `${d} ${pct(d)}%`).join(', ')}` : `${row.key}: 방향을 남긴 불 없음`}>
+        aria-label={row.total ? `${row.key}: 불 ${row.total}시, ${MISS_DIRS8.map((d) => `${d} ${pct(d)}%`).join(', ')}` : `${row.key}: 방향을 남긴 불 없음`}>
         <rect x={TX - 2 * BAND} y={TY - 2 * BAND} width={TW + 4 * BAND} height={TH + 4 * BAND} rx={16} style={{ fill: 'var(--band2)' }} />
         <rect x={TX - BAND} y={TY - BAND} width={TW + 2 * BAND} height={TH + 2 * BAND} rx={10} style={{ fill: 'var(--band1)' }} />
         <rect x={TX} y={TY} width={TW} height={TH} style={{ fill: 'var(--surface)', stroke: 'var(--line)' }} strokeWidth={3} />
-        <g fontSize={30} fontWeight={700} textAnchor="middle" style={{ fill: 'var(--muted)' }} opacity={0.7}>
-          <text x={cx} y={TY - 1.25 * BAND}>넘</text>
-          <text x={cx} y={TY + TH + 1.65 * BAND}>짧</text>
-          <text x={TX - BAND} y={cy + 10}>{side.left}</text>
-          <text x={TX + TW + BAND} y={cy + 10}>{side.right}</text>
-        </g>
-        {row.total > 0 && len >= 0.08 && <Juksi length={Math.min(150, Math.max(60, len * R))} x={cx} y={cy} angle={angle} />}
+        {row.total > 0 && len >= 0.08 && <Juksi length={Math.min(118, Math.max(56, len * R))} x={cx} y={cy} angle={angle} />}
         {row.total > 0 && <circle cx={cx} cy={cy} r={6} style={{ fill: 'var(--muted)' }} />}
         {row.total > 0 && len < 0.08 && <text x={cx} y={cy + 42} textAnchor="middle" fontSize={26} fontWeight={700} style={{ fill: 'var(--muted)' }}>고름</text>}
+        <g textAnchor="middle" className="lean-dirs">
+          {MISS_DIRS8.map((d) => {
+            const p = dirSpot(d, hand);
+            const top = row.total > 0 && most > 0 && row.count[d] === most;
+            const side = d.length === 2; // 앞남·뒤남·넘음·짧음은 글자도 쓴다
+            return (
+              <g key={d} className={top ? 'top' : ''}>
+                {side && <text x={p.x} y={p.y - 6} fontSize={26} className="dir-name">{SHORT[d]}</text>}
+                <text x={p.x} y={side ? p.y + 30 : p.y + 13} fontSize={side ? 34 : 32} className="dir-pct">{row.total > 0 ? pct(d) : ''}</text>
+              </g>
+            );
+          })}
+        </g>
       </svg>
-      {row.total > 0 ? (
-        <div className="lean-pct">
-          {(['앞남', '뒤남', '넘음', '짧음'] as MissDirection[]).map((d) => (
-            <span key={d} className={most > 0 && row.count[d] === most ? 'top' : ''}>{SHORT[d]} {pct(d)}</span>
-          ))}
-        </div>
-      ) : <div className="lean-pct empty-pct">불 기록 없음</div>}
+      {row.total === 0 && <div className="lean-pct empty-pct">불 기록 없음</div>}
       <div className="lean-n">{row.ends}순 · 불 {row.total}시</div>
     </div>
   );
 }
 
-/** 과녁 왼쪽·오른쪽에 쓸 글자 (앞·뒤) */
-function directionSide(hand: Hand) {
-  return hand === 'right' ? { left: '뒤', right: '앞' } : { left: '앞', right: '뒤' };
-}
-
 /** 날씨·기온·바람 세기마다 불이 어느 쪽으로 치우쳤는지 작은 과녁을 나란히 */
 function WeatherLeanCard({ ends, hand }: { ends: End[]; hand: Hand }) {
-  const options = LEAN_KEYS.map(([k, l]) => [k, l, weatherLean(ends, k)] as const).filter(([, , rows]) => rows.length > 0);
+  const options = LEAN_KEYS.map(([k, l]) => [k, l, weatherLean(ends, k, hand)] as const).filter(([, , rows]) => rows.length > 0);
   const [key, setKey] = useState<'sky' | 'temp' | 'wind'>('sky');
   if (!options.length) return null;
   const cur = options.find(([k]) => k === key) ?? options[0];
@@ -281,7 +284,7 @@ function WeatherLeanCard({ ends, hand }: { ends: End[]; hand: Hand }) {
       <div className="lean-grid">
         {rows.map((r) => <LeanTarget key={r.key} row={r} hand={hand} />)}
       </div>
-      <div className="small muted">화살은 불이 난 평균 방향을 가리킵니다. 길수록 그쪽으로 많이 치우쳤고, 화살 없이 가운데 점만 있으면 고르게 났습니다. 숫자는 방향을 남긴 불 가운데 비율(%)이고, 가장 많은 쪽을 빨갛게 표시합니다. {MIN_ENDS_FOR_RANKING}순 미만은 흐리게 표시합니다.</div>
+      <div className="small muted">화살은 불이 난 평균 방향을 가리킵니다. 길수록 그쪽으로 많이 치우쳤고, 화살 없이 가운데 점만 있으면 고르게 났습니다. 과녁 둘레의 숫자는 그 방향(앞·뒤·넘·짧과 네 모서리 대각선)으로 난 불의 비율(%)이고, 가장 많은 쪽을 빨갛게 표시합니다. {MIN_ENDS_FOR_RANKING}순 미만은 흐리게 표시합니다.</div>
     </section>
   );
 }
@@ -332,13 +335,13 @@ export function StatsScreen() {
   const maxD = Math.max(...dist) || 1;
   const pos = shotPositionRates(ends);
   const weakest = pos.indexOf(Math.min(...pos));
-  const miss = missBreakdown(ends);
+  const miss = missBreakdown(ends, settings.hand);
   const shots = ends.flatMap((e) => e.shots);
   const unplacedHits = shots.filter((x) => x.hit && x.x == null).length;
   const zones = zoneCounts(ends);
   const hasZones = zones.some((z) => z > 0);
   const name = (k: string) => gearName(k || null);
-  const windRows = byWindDir(ends);
+  const windRows = byWindDir(ends, settings.hand);
   const weatherGroups = ([['sky', '날씨'], ['temp', '기온'], ['wind', '바람']] as const)
     .map(([k, label]) => [label, byWeather(ends, k)] as const).filter(([, rows]) => rows.length > 0);
 
@@ -399,7 +402,7 @@ export function StatsScreen() {
         <section className="card">
           <h2>불 방향</h2>
           <div className="bars">
-            {MISS_DIRECTIONS.map((d) => {
+            {MISS_DIRS8.map((d) => {
               const a = miss.byDir[d][1], b = miss.byDir[d][2], pct = Math.round(((a + b) / miss.total) * 100);
               return (
                 <div key={d}>
@@ -413,7 +416,7 @@ export function StatsScreen() {
               );
             })}
           </div>
-          <div className="small muted">불 {miss.total}시 기준. 연한 막대는 조금, 진한 막대는 많이 빠진 것입니다.</div>
+          <div className="small muted">불 {miss.total}시 기준. 앞·뒤·넘·짧 네 방향과 그 사이 대각선(앞넘음은 앞으로 넘은 것)까지 8방향으로 나눕니다. 연한 막대는 조금, 진한 막대는 많이 빠진 것입니다.</div>
         </section>
       )}
       {weatherGroups.length > 0 && (
@@ -430,17 +433,17 @@ export function StatsScreen() {
           <div className="scroll-x">
             <table className="wind-table">
               <thead>
-                <tr><th>바람</th><th>순</th><th>순당</th>{MISS_DIRECTIONS.map((d) => <th key={d}>{d}</th>)}</tr>
+                <tr><th>바람</th><th>순</th><th>순당</th>{MISS_DIRS8.map((d) => <th key={d}>{SHORT[d]}</th>)}</tr>
               </thead>
               <tbody>
                 {windRows.map((r) => {
-                  const top = Math.max(...MISS_DIRECTIONS.map((d) => r.miss[d]));
+                  const top = Math.max(...MISS_DIRS8.map((d) => r.miss[d]));
                   return (
                     <tr key={r.dir} className={r.enough ? '' : 'thin'}>
                       <td>{r.dir === '왼쪽에서' ? '왼쪽' : r.dir === '오른쪽에서' ? '오른쪽' : r.dir}</td>
                       <td>{r.ends}</td>
                       <td>{r.perEnd.toFixed(1)}</td>
-                      {MISS_DIRECTIONS.map((d) => (
+                      {MISS_DIRS8.map((d) => (
                         <td key={d} className={top > 0 && r.miss[d] === top ? 'top' : ''}>{r.missTotal ? `${Math.round((r.miss[d] / r.missTotal) * 100)}%` : '–'}</td>
                       ))}
                     </tr>

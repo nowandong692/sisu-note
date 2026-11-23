@@ -169,7 +169,7 @@ export function LogScreen() {
                 })()}
                 <DayTarget ends={list} hand={settings.hand} selEnd={list.some((e) => e.id === selEnd) ? selEnd : null} selShot={selShot} onShot={setSelShot} />
                 {list.map((e, i) => {
-                  const misses = e.shots.flatMap((s, k) => (s.hit ? [] : [`${k + 1}시 ${shotLabel(s, settings.grid)}`]));
+                  const misses = e.shots.flatMap((s, k) => (s.hit ? [] : [`${k + 1}시 ${shotLabel(s, settings.grid, settings.hand)}`]));
                   return (
                     <div key={e.id} id={`end-${e.id}`} className={`end-block ${selEnd === e.id ? 'selected' : ''}`} role="button" tabIndex={0} aria-pressed={selEnd === e.id}
                       onClick={() => toggle(e.id)} onKeyDown={(ev) => { if (ev.target === ev.currentTarget && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); toggle(e.id); } }}>

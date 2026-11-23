@@ -104,7 +104,7 @@ function TodayTarget({ ends, onRemoveShot, topHeight }: { ends: End[]; onRemoveS
     const shots = e.shots.map((s, k) => (k === moving.si ? moving.next : s));
     await store.updateEnd({ ...e, shots });
     const h = shots.filter((s) => s.hit).length;
-    toast(`${moving.ei + 1}순 ${moving.si + 1}시를 ${shotLabel(moving.next, settings.grid)}(으)로 고쳤습니다 · ${h}중`);
+    toast(`${moving.ei + 1}순 ${moving.si + 1}시를 ${shotLabel(moving.next, settings.grid, settings.hand)}(으)로 고쳤습니다 · ${h}중`);
     setBusy(false);
     setMoving(null);
   };
@@ -140,7 +140,7 @@ function TodayTarget({ ends, onRemoveShot, topHeight }: { ends: End[]; onRemoveS
         <Target hand={settings.hand} grid={settings.grid} marks={marks} markRadius={9}
           onMove={move} onRemove={(n) => setRemoving(unkey(n))}
           onPick={(n) => { const e = ends[unkey(n).ei]; if (e) setSel(chosen === e.id ? null : e.id); }}
-          dragLabel={(n, x, y) => `${name(n)} · ${shotLabel(classifyTap(x, y, settings.hand, settings.grid), settings.grid)}`}
+          dragLabel={(n, x, y) => `${name(n)} · ${shotLabel(classifyTap(x, y, settings.hand, settings.grid), settings.grid, settings.hand)}`}
           removeLabel={(n) => `놓으면 ${name(n)} 지우기`}
           label={chosen != null ? `${selIdx + 1}순의 탄착` : '오늘의 탄착'} />
       </div>
@@ -154,9 +154,9 @@ function TodayTarget({ ends, onRemoveShot, topHeight }: { ends: End[]; onRemoveS
       {mv && (
         <Sheet title={`${mv.ei + 1}순 ${mv.si + 1}시를 옮겨 저장할까요?`} onClose={() => setMoving(null)}>
           <div className="move-change">
-            <span><ShotIcon shot={mv.e.shots[mv.si]} index={mv.si} /> {shotLabel(mv.e.shots[mv.si], settings.grid)}</span>
+            <span><ShotIcon shot={mv.e.shots[mv.si]} index={mv.si} /> {shotLabel(mv.e.shots[mv.si], settings.grid, settings.hand)}</span>
             <span aria-hidden>→</span>
-            <span><ShotIcon shot={mv.next} index={mv.si} /> <b>{shotLabel(mv.next, settings.grid)}</b></span>
+            <span><ShotIcon shot={mv.next} index={mv.si} /> <b>{shotLabel(mv.next, settings.grid, settings.hand)}</b></span>
           </div>
           <div className="confirm-end">
             <span className="dots">{after.map((s, i) => <ShotIcon key={i} shot={s} index={i} />)}</span>
@@ -170,7 +170,7 @@ function TodayTarget({ ends, onRemoveShot, topHeight }: { ends: End[]; onRemoveS
       {rm && (
         <Sheet title={`${rm.ei + 1}순 ${rm.si + 1}시를 지울까요?`} onClose={() => setRemoving(null)}>
           <div className="move-change">
-            <span><ShotIcon shot={rm.e.shots[rm.si]} index={rm.si} /> {rm.ei + 1}순 {rm.si + 1}시 {shotLabel(rm.e.shots[rm.si], settings.grid)}</span>
+            <span><ShotIcon shot={rm.e.shots[rm.si]} index={rm.si} /> {rm.ei + 1}순 {rm.si + 1}시 {shotLabel(rm.e.shots[rm.si], settings.grid, settings.hand)}</span>
           </div>
           <div className="small muted">한 순은 5시라서 {rm.ei + 1}순을 위 입력 칸에 불러오고 {rm.si + 1}시를 비워 둡니다. 과녁을 눌러 다시 입력하면 저장할지 묻습니다. 다시 입력하기 전까지 저장된 기록은 그대로입니다.</div>
           <button className="btn danger" onClick={() => { setRemoving(null); onRemoveShot(rm.e, rm.si); }}>{rm.si + 1}시 지우고 다시 입력</button>
@@ -347,7 +347,7 @@ export function ShootScreen() {
 
   /** 과녁의 표시를 끌어 옮긴 시. 저장한 순을 고칠 때만 저장할지 묻는다 (prev: 되돌릴 때 쓸 원래 시) */
   const [moved, setMoved] = useState<{ i: number; prev: Shot } | null>(null);
-  const dragLabel = (n: number, x: number, y: number) => `${n}시 · ${shotLabel(classifyTap(x, y, settings.hand, settings.grid), settings.grid)}`;
+  const dragLabel = (n: number, x: number, y: number) => `${n}시 · ${shotLabel(classifyTap(x, y, settings.hand, settings.grid), settings.grid, settings.hand)}`;
   const moveShot = (n: number, x: number, y: number) => {
     const i = n - 1;
     const prev = d.shots[i];
@@ -363,7 +363,7 @@ export function ShootScreen() {
     }
     // 아직 저장하지 않은 순: 그냥 옮긴다 (저장할 때 다시 묻는다)
     setD({ ...d, shots });
-    toast(`${n}시를 ${shotLabel(next, settings.grid)}(으)로 옮겼습니다`);
+    toast(`${n}시를 ${shotLabel(next, settings.grid, settings.hand)}(으)로 옮겼습니다`);
   };
   /** 입력한 5시를 모두 지울지 묻는 중 */
   const [clearing, setClearing] = useState(false);
@@ -522,8 +522,8 @@ export function ShootScreen() {
         <div className="shot-tabs">
           {d.shots.map((s, i) => (
             <button key={i} className={`st ${i === d.active ? 'active' : ''} ${s?.hit ? 'hit' : ''}`} onClick={() => setD((p) => ({ ...p, active: i }))}
-              aria-label={`${i + 1}시 ${s ? shotLabel(s, settings.grid) : '미입력'}`}>
-              <b>{i + 1}시</b><span>{s ? shotLabel(s, settings.grid) : '—'}</span>
+              aria-label={`${i + 1}시 ${s ? shotLabel(s, settings.grid, settings.hand) : '미입력'}`}>
+              <b>{i + 1}시</b><span>{s ? shotLabel(s, settings.grid, settings.hand) : '—'}</span>
             </button>
           ))}
         </div>
@@ -616,7 +616,7 @@ export function ShootScreen() {
             <span className="dots">{(d.shots as Shot[]).map((s, i) => <ShotIcon key={i} shot={s} index={i} />)}</span>
             <b>{hitCount}중{hitCount === 5 ? ' · 몰기' : ''}</b>
           </div>
-          <div className="small muted">{d.shots.map((s, i) => `${i + 1}시 ${shotLabel(s, settings.grid)}`).join(', ')}</div>
+          <div className="small muted">{d.shots.map((s, i) => `${i + 1}시 ${shotLabel(s, settings.grid, settings.hand)}`).join(', ')}</div>
           {askShare && d.share
             ? <>
               <ShareNotice scope={d.share} what="시수, 태그, 메모가" memo={d.memo} tags={d.tags} />
@@ -635,9 +635,9 @@ export function ShootScreen() {
         return (
           <Sheet title={`${moved.i + 1}시를 옮겨 저장할까요?`} onClose={undoMove}>
             <div className="move-change">
-              <span><ShotIcon shot={moved.prev} index={moved.i} /> {shotLabel(moved.prev, settings.grid)}</span>
+              <span><ShotIcon shot={moved.prev} index={moved.i} /> {shotLabel(moved.prev, settings.grid, settings.hand)}</span>
               <span aria-hidden>→</span>
-              <span><ShotIcon shot={now!} index={moved.i} /> <b>{shotLabel(now, settings.grid)}</b></span>
+              <span><ShotIcon shot={now!} index={moved.i} /> <b>{shotLabel(now, settings.grid, settings.hand)}</b></span>
             </div>
             <div className="confirm-end">
               <span className="dots">{(d.shots as Shot[]).map((s, i) => <ShotIcon key={i} shot={s} index={i} />)}</span>
@@ -666,7 +666,7 @@ export function ShootScreen() {
       {removing != null && d.shots[removing] && (
         <Sheet title={`${removing + 1}시를 지울까요?`} onClose={() => setRemoving(null)}>
           <div className="move-change">
-            <span><ShotIcon shot={d.shots[removing]!} index={removing} /> {removing + 1}시 {shotLabel(d.shots[removing], settings.grid)}</span>
+            <span><ShotIcon shot={d.shots[removing]!} index={removing} /> {removing + 1}시 {shotLabel(d.shots[removing], settings.grid, settings.hand)}</span>
           </div>
           <div className="small muted">{editing
             ? `한 순은 5시라서 지운 칸은 비워 둡니다. 과녁을 눌러 ${removing + 1}시를 다시 입력하면 ${editIndex}순에 저장할지 묻습니다. 다시 입력하기 전까지 저장된 기록은 그대로입니다.`

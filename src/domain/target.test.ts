@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BAND, TH, TW, TX, TY, classifyTap, directionFor, missOctant, shotLabel } from './target';
+import { BAND, TH, TW, TX, TY, classifyTap, directionFor, missDir8, missOctant, shotLabel } from './target';
 
 const cx = TX + TW / 2;
 const cy = TY + TH / 2;
@@ -53,5 +53,24 @@ describe('과녁 판정', () => {
     expect(at(TX - 10, cy)).toBe(6);
     expect(at(TX - 30, TY - 30)).toBe(7);
     expect(missOctant(classifyTap(cx, cy, 'right', true))).toBeNull();
+  });
+
+  it('불 이름은 사수 기준 8방향 (대각선은 앞넘음·앞짧음·뒤넘음·뒤짧음)', () => {
+    const cy = TY + TH / 2;
+    const r = (x: number, y: number) => missDir8(classifyTap(x, y, 'right', true), 'right');
+    expect(r(TX + TW + 30, TY - 30)).toBe('앞넘음');
+    expect(r(TX + TW + 30, TY + TH + 30)).toBe('앞짧음');
+    expect(r(TX - 30, TY + TH + 30)).toBe('뒤짧음');
+    expect(r(TX - 30, TY - 30)).toBe('뒤넘음');
+    expect(r(TX + TW + 10, cy)).toBe('앞남');
+    // 좌궁은 왼쪽이 앞
+    expect(missDir8(classifyTap(TX - 30, TY - 30, 'left', true), 'left')).toBe('앞넘음');
+    // 넘음으로 저장된 불은 지금 설정(hand)으로 앞·뒤를 정한다
+    const over = classifyTap(TX + TW + 30, TY - 40, 'left', true);
+    expect(over.direction).toBe('넘음');
+    expect(missDir8(over, 'left')).toBe('뒤넘음');
+    expect(missDir8(over)).toBe('넘음');
+    expect(shotLabel(classifyTap(TX + TW + 30, TY - 30, 'right', true), true, 'right')).toBe('앞넘음 조금');
+    expect(shotLabel(classifyTap(TX + TW + BAND + 20, TY - BAND - 20, 'right', true), true, 'right')).toBe('앞넘음 많이');
   });
 });
