@@ -271,7 +271,7 @@ export function SettingsScreen() {
         <h2>데이터</h2>
         <div className="small muted">순 기록은 이 기기에만 저장됩니다. 가끔 CSV로 내보내 백업해 두세요. 장비와 설정은 랭킹에 참여 중이면 서버에 백업되어, 브라우저 저장소가 지워져도 복구 코드나 연결해 둔 카카오·구글 로그인으로 되찾을 수 있습니다. "기록만 지우기"는 순 기록만, "모든 데이터 지우기"는 장비까지 지웁니다. 누르면 무엇이 지워지는지 먼저 보여 줍니다.</div>
         <div className="row">
-          <button className="btn ghost small" disabled={!ends.length} onClick={() => saveTextFile(`국궁록-${today()}.csv`, endsToCsv(ends, gear, store.ranges))}>CSV 내보내기</button>
+          <button className="btn ghost small" disabled={!ends.length} onClick={() => saveTextFile(`국궁록-${today()}.csv`, endsToCsv(ends, gear, store.ranges, store.settings.hand))}>CSV 내보내기</button>
           {hasSample && <button className="btn ghost small" onClick={() => setWarn('sample')}>예시 기록 빼기</button>}
           <button className="btn ghost small" onClick={() => setWarn('ends')}>기록만 지우기</button>
           <button className="btn ghost small danger-text" onClick={() => setWarn('all')}>모든 데이터 지우기</button>

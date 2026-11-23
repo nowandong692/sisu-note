@@ -2,10 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { missLean, weatherLean, byWeather, byWindDir, tempBand, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weekStart, weeklyTrend, trendSeries } from './stats';
 import { endsToCsv } from './csv';
 import { sampleData } from './sample';
+import { TH, TW, TX, TY, classifyTap } from './target';
 import type { End, Shot } from './types';
 
 const H: Shot = { hit: true, x: null, y: null, zone: null, side: null, level: null, direction: null };
-const M = (direction: Shot['direction'], level: 1 | 2 = 1): Shot => ({ hit: false, x: 0, y: 0, zone: null, side: 'right', level, direction });
+// 위치 없이 네 방향만 남긴 불 (우궁 기준 쪽)
+const SIDE = { 앞남: 'right', 뒤남: 'left', 넘음: 'over', 짧음: 'short' } as const;
+const M = (direction: NonNullable<Shot['direction']>, level: 1 | 2 = 1): Shot => ({ hit: false, x: null, y: null, zone: null, side: SIDE[direction], level, direction });
+/** 과녁 그림에서 누른 위치로 만든 불 */
+const P = (x: number, y: number, hand: 'right' | 'left' = 'right'): Shot => classifyTap(x, y, hand, true);
 
 function end(date: string, shots: Shot[], bowId = 'b1', ringId = 'r1'): End {
   return { id: Math.random().toString(), date, recordedAt: 0, bowId, ringId, arrowId: null, shots, tags: [], memo: '', updatedAt: 0 };
@@ -58,6 +63,19 @@ describe('통계', () => {
     expect(m.byDir['뒤남']).toEqual({ 1: 0, 2: 1 });
   });
 
+  it('위치를 남긴 불은 대각선까지 8방향으로 센다', () => {
+    const list = [end('2026-11-02', [P(TX + TW + 30, TY - 30), P(TX - 30, TY + TH + 30), P(TX + TW + 10, TY + TH / 2), P(TX + TW + 30, TY - 30, 'left'), H])];
+    const m = missBreakdown(list, 'right');
+    expect(m.total).toBe(4);
+    expect(m.byDir['앞넘음'][1]).toBe(1);
+    expect(m.byDir['뒤짧음'][1]).toBe(1);
+    expect(m.byDir['앞남'][1]).toBe(1);
+    expect(m.byDir['뒤넘음'][1]).toBe(1); // 좌궁으로 기록한 오른쪽 위는 뒤넘음
+    const lean = missLean([end('2026-11-03', [P(TX + TW + 30, TY - 30), H, H, H, H])], 'right');
+    expect(lean.front).toBeCloseTo(Math.SQRT1_2);
+    expect(lean.over).toBeCloseTo(Math.SQRT1_2);
+  });
+
   it('장비별 비교는 표본이 적으면 순위에서 뺀다', () => {
     const rows = byGear(ends, 'bow');
     expect(rows.every((r) => !r.enough)).toBe(true);
@@ -104,7 +122,7 @@ describe('통계', () => {
     ];
     const rows = byWindDir(list);
     expect(rows.map((r) => [r.dir, r.ends, r.missTotal])).toEqual([['맞바람', 1, 3], ['뒷바람', 1, 1]]);
-    expect(rows[0].miss).toEqual({ 앞남: 1, 뒤남: 0, 넘음: 0, 짧음: 2 });
+    expect(rows[0].miss).toEqual({ 앞남: 1, 뒤남: 0, 넘음: 0, 짧음: 2, 앞넘음: 0, 앞짧음: 0, 뒤넘음: 0, 뒤짧음: 0 });
   });
 
   it('예시 데이터는 매번 같은 기록을 만든다', () => {

@@ -1,4 +1,5 @@
-import type { End, Gear, Range } from './types';
+import type { End, Gear, Hand, Range } from './types';
+import { missDir8 } from './target';
 import { hitsOf } from './stats';
 
 function cell(v: string | number | null | undefined): string {
@@ -7,14 +8,15 @@ function cell(v: string | number | null | undefined): string {
 }
 
 /** 순 하나가 한 줄. 엑셀에서 바로 열 수 있다. */
-export function endsToCsv(ends: End[], gear: Gear[], ranges: Range[] = []): string {
+export function endsToCsv(ends: End[], gear: Gear[], ranges: Range[] = [], hand?: Hand): string {
   const name = (id: string | null) => gear.find((g) => g.id === id)?.nickname ?? '';
   const head = ['날짜', '활터', '활', '깍지', '화살', '현', '중', '1시', '2시', '3시', '4시', '5시', '날씨', '기온', '바람', '태그', '메모'];
   const shot = (e: End, i: number) => {
     const s = e.shots[i];
     if (!s) return '';
     if (s.hit) return s.zone ? `관중(${s.zone})` : '관중';
-    return s.direction ? `${s.direction}${s.level === 2 ? '(많이)' : '(조금)'}` : '불';
+    const d = missDir8(s, hand);
+    return d ? `${d}${s.level === 2 ? '(많이)' : '(조금)'}` : '불';
   };
   const wind = (e: End) => {
     const w = e.weather;

@@ -648,6 +648,10 @@ nav.tabs .tab-icon .dot { position: absolute; top: -1px; right: -5px; width: 9px
 .lean-pct .top { color: var(--hong); font-weight: 700; }
 .lean-pct.empty-pct { display: block; }
 .lean-n { font-size: 11px; color: var(--muted); }
+.lean-dirs text { font-weight: 700; font-variant-numeric: tabular-nums; paint-order: stroke; stroke-width: 7px; stroke-linejoin: round; }
+.lean-dirs .dir-name { fill: var(--muted); stroke: var(--band1); opacity: 0.8; }
+.lean-dirs .dir-pct { fill: var(--ink); stroke: var(--band2); }
+.lean-dirs .top .dir-pct { fill: var(--hong); }
 .jj-shaft { fill: #CDA860; stroke: #8C6A2E; stroke-width: 1.2; }
 .jj-node { fill: #8C6A2E; }
 .jj-tip { fill: #4A505A; }

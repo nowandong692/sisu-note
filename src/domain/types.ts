@@ -32,6 +32,12 @@ export type MissSide = 'left' | 'right' | 'over' | 'short';
 
 export type MissDirection = '앞남' | '뒤남' | '넘음' | '짧음';
 
+/**
+ * 통계·기록에 쓰는 8방향 불. 앞·뒤·넘·짧 네 방향에 그 사이 대각선 네 방향을 더한다.
+ * 저장은 네 방향(direction)과 누른 위치(x, y)로 하고, 8방향은 위치로 계산한다.
+ */
+export type MissDir8 = '앞남' | '뒤남' | '넘음' | '짧음' | '앞넘음' | '앞짧음' | '뒤넘음' | '뒤짧음';
+
 /** 1 = 조금, 2 = 많이 */
 export type MissLevel = 1 | 2;
 
@@ -195,6 +201,14 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 export const MISS_DIRECTIONS: MissDirection[] = ['앞남', '뒤남', '넘음', '짧음'];
+/** 8방향 불을 보여 주는 순서: 넘는 쪽 줄(뒤→앞), 옆(뒤→앞), 짧은 쪽 줄(뒤→앞) */
+export const MISS_DIRS8: MissDir8[] = ['뒤넘음', '넘음', '앞넘음', '뒤남', '앞남', '뒤짧음', '짧음', '앞짧음'];
+/** 8방향을 사수 기준 평면에 놓은 단위 벡터. front = 앞남 쪽, over = 넘음 쪽 */
+export const DIR8_VEC: Record<MissDir8, { front: number; over: number }> = {
+  앞남: { front: 1, over: 0 }, 뒤남: { front: -1, over: 0 }, 넘음: { front: 0, over: 1 }, 짧음: { front: 0, over: -1 },
+  앞넘음: { front: Math.SQRT1_2, over: Math.SQRT1_2 }, 앞짧음: { front: Math.SQRT1_2, over: -Math.SQRT1_2 },
+  뒤넘음: { front: -Math.SQRT1_2, over: Math.SQRT1_2 }, 뒤짧음: { front: -Math.SQRT1_2, over: -Math.SQRT1_2 },
+};
 export const LEVEL_LABEL: Record<MissLevel, string> = { 1: '조금', 2: '많이' };
 /** 기본 메모 태그. 사용자가 설정에서 바꾸기 전까지 쓴다 */
 export const MEMO_TAGS = ['줌손', '깍지손', '만작', '호흡', '시선', '바람'];
