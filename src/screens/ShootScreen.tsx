@@ -85,7 +85,8 @@ function TodayTarget({ ends, onRemoveShot, topHeight }: { ends: End[]; onRemoveS
     const locked = e.id === store.editId;
     return { x: s.x, y: s.y, hit: s.hit, n: on && !locked ? keyOf(ei, si) : undefined,
       text: on ? String(si + 1) : '',
-      ring: chosen == null ? endColor(ei) : undefined, dim: chosen != null && !on, big: chosen != null && on };
+      // 순을 골라도 모든 순 볼 때와 같은 색·크기로 둔다
+      ring: endColor(ei), dim: chosen != null && !on };
   }));
   const totalHits = ends.reduce((a, e) => a + hitsOf(e), 0);
   const unplaced = ends.reduce((a, e) => a + (chosen == null || e.id === chosen ? e.shots.filter((s) => s.hit && s.x == null).length : 0), 0);
@@ -138,7 +139,7 @@ function TodayTarget({ ends, onRemoveShot, topHeight }: { ends: End[]; onRemoveS
         </div>
       </div>
       <div className="target-wrap">
-        <Target hand={settings.hand} grid={settings.grid} marks={marks} markRadius={chosen != null ? 10 : 9}
+        <Target hand={settings.hand} grid={settings.grid} marks={marks} markRadius={9}
           onMove={move} onRemove={(n) => setRemoving(unkey(n))}
           onPick={(n) => { const e = ends[unkey(n).ei]; if (e) setSel(chosen === e.id ? null : e.id); }}
           dragLabel={(n, x, y) => `${name(n)} · ${shotLabel(classifyTap(x, y, settings.hand, settings.grid), settings.grid)}`}
