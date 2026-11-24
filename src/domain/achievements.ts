@@ -1,4 +1,4 @@
-/** 업적: 집궁, 처음 1중~5중(초몰기), 연중(2~50연중), 연몰기(2~20연몰, 20연몰은 백발백중), 랭킹. 기록에서 매번 다시 계산한다 */
+/** 업적: 집궁, 처음 1중~5중(접장), 연중(2~50연중), 연몰기(2~20연몰, 20연몰은 백발백중), 랭킹. 기록에서 매번 다시 계산한다 */
 import type { End, Gear } from './types';
 import { sampleEndIds } from './sample';
 import { hitsOf } from './stats';
@@ -47,7 +47,7 @@ export interface Achievement {
   name: string;
   /** 무엇을 하면 되는지 */
   desc: string;
-  /** 초몰기, 3연몰처럼 따로 크게 보여 줄 것 */
+  /** 접장, 3연몰처럼 따로 크게 보여 줄 것 */
   special?: boolean;
   /** 이룬 날 (아직이면 없음) */
   date?: string;
@@ -105,7 +105,8 @@ function catalog(): Achievement[] {
     { id: 'jipgung', group: 'first', name: '집궁', desc: '첫 순을 저장' },
   ];
   for (let k = 1; k <= 4; k++) list.push({ id: `hit${k}`, group: 'first', name: FIRST_NAMES[k], desc: `한 순에서 ${k}중 이상` });
-  list.push({ id: 'chomolgi', group: 'first', name: '초몰기', desc: '처음으로 한 순 5시 5중', special: true });
+  // id는 예전 이름(초몰기) 그대로 둔다. 대표 칭호로 단 사람이 그대로 이어 쓰게
+  list.push({ id: 'chomolgi', group: 'first', name: '접장', desc: '처음으로 한 순 5시 5중 (첫 몰기)', special: true });
   for (let n = 2; n <= STREAK_MAX; n++) list.push({ id: `streak${n}`, group: 'streak', name: `${n}연중`, desc: `${n}시를 이어서 관중` });
   for (let n = 2; n <= MOLGI_STREAK_MAX; n++) {
     list.push({
@@ -119,7 +120,6 @@ function catalog(): Achievement[] {
   list.push({ id: 'month20', group: 'steady', name: `한 달 ${MONTH_DAYS_GOAL}일`, desc: `한 달에 ${MONTH_DAYS_GOAL}일 습사` });
   list.push(
     { id: 'dayends10', group: 'challenge', name: `하루 ${DAY_ENDS_GOAL}순`, desc: `하루에 ${DAY_ENDS_GOAL}순(${DAY_ENDS_GOAL * 5}시) 이상 습사` },
-    { id: 'fifteen10', group: 'challenge', name: '15시 10중', desc: '같은 날 잇따른 3순에서 10중 이상 (대회 입상권 시수)' },
     { id: 'windmolgi', group: 'challenge', name: '강풍 몰기', desc: '바람이 강한 날 몰기' },
     { id: 'rainday', group: 'challenge', name: '우중의 궁사', desc: '비나 눈 오는 날 습사' },
     { id: 'rainmolgi', group: 'challenge', name: '우중 몰기', desc: '비나 눈 오는 날 몰기' },
@@ -144,7 +144,6 @@ const dayNo = (d: string) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.sli
 export function achievements(all: End[], ranks: RankHistory = {}, todayDate = ymd(new Date()), gear: Pick<Gear, 'id' | 'bowType'>[] = []): AchievementReport {
   const gakgung = new Set(gear.filter((g) => g.bowType === '각궁').map((g) => g.id));
   const ranges = new Set<string>();
-  let dayHits: number[] = [];
   const sample = sampleEndIds(all);
   const ends = all.filter((e) => !sample.has(e.id))
     .sort((a, b) => (a.date === b.date ? a.recordedAt - b.recordedAt : a.date < b.date ? -1 : 1));
@@ -171,7 +170,7 @@ export function achievements(all: End[], ranks: RankHistory = {}, todayDate = ym
       run = day && dayNo(e.date) - dayNo(day) === 1 ? run + 1 : 1;
       bestDayRun = Math.max(bestDayRun, run);
       monthDays = day.slice(0, 7) === e.date.slice(0, 7) ? monthDays + 1 : 1;
-      day = e.date; no = 0; streak = 0; molgi = 0; dayHits = [];
+      day = e.date; no = 0; streak = 0; molgi = 0;
       if (run >= 2) for (const n of DAY_RUN_STEPS) if (run === n) mark(`dayrun${n}`, e, 1);
       if (monthDays === MONTH_DAYS_GOAL) mark('month20', e, 1);
     }
@@ -180,9 +179,7 @@ export function achievements(all: End[], ranks: RankHistory = {}, todayDate = ym
     const h = hitsOf(e);
     for (let k = 1; k <= Math.min(h, 4); k++) mark(`hit${k}`, e, no);
     if (h === 5) mark('chomolgi', e, no);
-    dayHits.push(h);
     if (no >= DAY_ENDS_GOAL) mark('dayends10', e, no);
-    if (no >= 3 && dayHits[no - 1] + dayHits[no - 2] + dayHits[no - 3] >= 10) mark('fifteen10', e, no);
     if (h === 5 && e.weather?.wind === '강함') mark('windmolgi', e, no);
     if (e.weather?.sky === '비' || e.weather?.sky === '눈') mark('rainday', e, no);
     if (h === 5 && (e.weather?.sky === '비' || e.weather?.sky === '눈')) mark('rainmolgi', e, no);

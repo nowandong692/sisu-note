@@ -37,7 +37,7 @@ describe('업적', () => {
     expect(g.streak6).toBeUndefined();
   });
 
-  it('초몰기와 3연몰 (15시 15중)', () => {
+  it('접장(첫 몰기)과 3연몰 (15시 15중)', () => {
     const ends = [end('2026-11-03', 'ooooo'), end('2026-11-03', 'ooooo'), end('2026-11-03', 'ooooo'), end('2026-11-03', 'oxooo')];
     const r = achievements(ends);
     const g = got(ends);
@@ -48,7 +48,7 @@ describe('업적', () => {
     expect(g.streak16).toBe('2026-11-03#4');
     expect(g.streak17).toBeUndefined();
     expect(r.bestMolgi).toBe(3);
-    expect(r.list.filter((a) => a.special).map((a) => a.name)).toEqual(['초몰기', '3연몰', '6연몰', '9연몰', '12연몰', '15연몰', '18연몰', '백발백중']);
+    expect(r.list.filter((a) => a.special).map((a) => a.name)).toEqual(['접장', '3연몰', '6연몰', '9연몰', '12연몰', '15연몰', '18연몰', '백발백중']);
   });
 
   it('예시 기록은 넣지 않는다', () => {
@@ -143,7 +143,7 @@ describe('업적', () => {
     expect(got([...days(25, 7, '2026-10'), ...days(1, 1, '2026-11')]).dayrun7).toBe('2026-10-31#1');
   });
 
-  it('도전: 하루 10순, 15시 10중, 조건 몰기, 활터 수', () => {
+  it('도전: 하루 10순, 조건 몰기, 활터 수', () => {
     const ends = [
       end('2026-11-01', 'ooooo', { weather: { sky: '맑음', temp: 10, wind: '강함', windDir: null }, rangeId: 'g1' }),
       end('2026-11-01', 'oooxx', { rangeId: 'g1' }),
@@ -155,15 +155,13 @@ describe('업적', () => {
     const r = achievements(ends, {}, '2026-11-03', [{ id: 'b1', bowType: '각궁' }, { id: 'b2', bowType: '개량궁' }]);
     const g = Object.fromEntries(r.list.filter((a) => a.date).map((a) => [a.id, `${a.date}#${a.endNo}`]));
     expect(g.windmolgi).toBe('2026-11-01#1');
-    expect(g.fifteen10).toBe('2026-11-01#3');
     expect(g.rainmolgi).toBe('2026-11-02#1');
     expect(g.gakgungmolgi).toBe('2026-11-03#10');
     expect(g.dayends10).toBe('2026-11-03#10');
     expect(g.ranges3).toBe('2026-11-02#1');
     expect(g.ranges5).toBeUndefined();
-    // 날마다 3순은 새로 센다: 전날 끝 2순과 다음 날 첫 순은 잇지 않는다
-    expect(got([end('2026-11-05', 'xxxxx'), end('2026-11-05', 'ooooo'), end('2026-11-05', 'ooooo'), end('2026-11-06', 'xxxxx')]).fifteen10).toBe('2026-11-05#3');
-    expect(got([end('2026-11-05', 'ooooo'), end('2026-11-05', 'ooooo'), end('2026-11-06', 'ooooo')]).fifteen10).toBeUndefined();
+    // 15시 10중 업적은 뺐다 (15시 15중은 3연몰)
+    expect(r.list.some((a) => a.id === 'fifteen10')).toBe(false);
   });
 
   it('우중의 궁사: 비·눈 오는 날 습사 (몰기가 아니어도)', () => {
@@ -183,9 +181,12 @@ describe('업적', () => {
 
   it('대표 칭호: 이룬 업적만 이름을 준다', () => {
     const r = achievements([end('2026-11-01', 'ooooo')]);
-    expect(titleName(r.list, 'chomolgi')).toBe('초몰기');
+    expect(titleName(r.list, 'chomolgi')).toBe('접장');
     expect(titleName(r.list, 'molgi3')).toBeNull();
     expect(titleName(r.list, 'nope')).toBeNull();
+    // 뺀 업적을 칭호로 달았던 사람은 칭호가 보이지 않는다
+    expect(titleName(r.list, 'fifteen10')).toBeNull();
+    expect(achievementName('fifteen10')).toBeNull();
     expect(titleName(r.list, null)).toBeNull();
     expect(achievementName('molgi20')).toBe('백발백중');
     expect(achievementName('<script>')).toBeNull();
