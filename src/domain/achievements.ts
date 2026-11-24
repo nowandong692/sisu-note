@@ -1,4 +1,4 @@
-/** 업적: 집궁, 처음 1중~5중(접장), 연중(2~50연중), 연몰기(2~20연몰, 20연몰은 백발백중), 랭킹. 기록에서 매번 다시 계산한다 */
+/** 업적: 집궁, 처음 1중~4중과 몰기, 연중(2~50연중), 연몰기(2~20연몰, 20연몰은 백발백중), 랭킹. 기록에서 매번 다시 계산한다 */
 import type { End, Gear } from './types';
 import { sampleEndIds } from './sample';
 import { hitsOf } from './stats';
@@ -47,7 +47,7 @@ export interface Achievement {
   name: string;
   /** 무엇을 하면 되는지 */
   desc: string;
-  /** 접장, 3연몰처럼 따로 크게 보여 줄 것 */
+  /** 몰기, 3연몰처럼 따로 크게 보여 줄 것 */
   special?: boolean;
   /** 이룬 날 (아직이면 없음) */
   date?: string;
@@ -108,7 +108,7 @@ function catalog(): Achievement[] {
   ];
   for (let k = 1; k <= 4; k++) list.push({ id: `hit${k}`, group: 'first', name: FIRST_NAMES[k], desc: `한 순에서 ${k}중 이상` });
   // id는 예전 이름(초몰기) 그대로 둔다. 대표 칭호로 단 사람이 그대로 이어 쓰게
-  list.push({ id: 'chomolgi', group: 'first', name: '접장', desc: '처음으로 한 순 5시 5중 (첫 몰기)', special: true });
+  list.push({ id: 'chomolgi', group: 'first', name: '몰기', desc: '한 순 5시 5중', special: true });
   for (let n = 2; n <= STREAK_MAX; n++) list.push({ id: `streak${n}`, group: 'streak', name: `${n}연중`, desc: `${n}시를 이어서 관중` });
   for (let n = 2; n <= MOLGI_STREAK_MAX; n++) {
     list.push({
@@ -190,7 +190,7 @@ export function achievements(all: End[], ranks: RankHistory = {}, todayDate = ym
     mark('jipgung', e, no);
     const h = hitsOf(e);
     for (let k = 1; k <= Math.min(h, 4); k++) mark(`hit${k}`, e, no);
-    if (h === 5) mark('chomolgi', e, no);
+    if (h === 5) again('chomolgi', e, no, e.id);
     if (no >= DAY_ENDS_GOAL) again('dayends10', e, no, e.date);
     if (h === 5 && e.weather?.wind === '강함') again('windmolgi', e, no, e.id);
     if (e.weather?.sky === '비' || e.weather?.sky === '눈') again('rainday', e, no, e.date);
@@ -266,7 +266,8 @@ export function newlyEarned(before: AchievementReport, after: AchievementReport)
 /** 이미 이룬 업적을 이번에 또 이뤄 횟수가 늘어난 것 */
 export function newlyRepeated(before: AchievementReport, after: AchievementReport): Achievement[] {
   const had = new Map(before.list.filter((a) => a.date).map((a) => [a.id, a.times ?? 0]));
-  return after.list.filter((a) => had.has(a.id) && (a.times ?? 0) > had.get(a.id)!);
+  // 몰기 횟수는 저장 알림이 따로 '몰기! (누적 N회)'로 알린다
+  return after.list.filter((a) => a.id !== 'chomolgi' && had.has(a.id) && (a.times ?? 0) > had.get(a.id)!);
 }
 
 /**

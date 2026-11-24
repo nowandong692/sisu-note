@@ -325,7 +325,7 @@ export function ShootScreen() {
   const hitCount = d.shots.filter((s) => s?.hit).length;
 
   const [asking, setAsking] = useState(false);
-  /** 방금 이룬 접장(첫 몰기)·3연몰 (축하 창) */
+  /** 방금 이룬 첫 몰기·3연몰 (축하 창) */
   const [cheer, setCheer] = useState<Achievement[]>([]);
 
   /** 5시가 처음 다 채워지는 순간 저장할지 묻는다 */
@@ -434,7 +434,7 @@ export function ShootScreen() {
     // 또 이룬 업적은 축하 창 없이 알림 한 줄에 횟수만 (예: 업적 강풍 몰기 ×4)
     const line = earnedLine(earned, newlyRepeated(before, after));
     const special = earned.filter((a) => a.special);
-    // 접장·3연몰은 축하 창이 대신 알린다 (알림이 창을 가리지 않게)
+    // 첫 몰기·3연몰은 축하 창이 대신 알린다 (알림이 창을 가리지 않게)
     if (special.length) setCheer(special);
     else toast(`${todays.length + 1}순 저장 · ${h}중${h === 5 ? ` 몰기! (누적 ${after.totalMolgi}회)` : ''}${line ? ` · ${line}` : ''}`);
     setD(fresh());
