@@ -12,7 +12,7 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { SharedMemosView } from './screens/SharedMemosView';
 import { ShareNotice } from './components/SharePicker';
 import { SHARE_LABEL } from './domain/sharedMemo';
-import { useLoginReturn } from './state/loginReturn';
+import { useGoogleAutoLogin, useLoginReturn } from './state/loginReturn';
 import type { LoginReturn } from './platform/login';
 
 type Tab = 'shoot' | 'log' | 'rank' | 'talk' | 'settings';
@@ -44,7 +44,9 @@ function readTab(): Tab {
 export default function App({ loginReturn = null }: { loginReturn?: LoginReturn | null }) {
   const store = useStore();
   useAutoWeather();
-  const loginBusy = useLoginReturn(loginReturn);
+  const returnBusy = useLoginReturn(loginReturn);
+  const autoBusy = useGoogleAutoLogin(!!loginReturn);
+  const loginBusy = returnBusy ?? autoBusy;
   const [tab, setTab] = useState<Tab>(readTab);
   const tabRef = useRef(tab);
   const editingRef = useRef(!!store.editId);

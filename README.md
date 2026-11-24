@@ -55,3 +55,11 @@ npm run build    # dist/ 에 PWA 빌드
 3. Supabase SQL Editor에서 `supabase/migrations/014_login.sql`, 그다음 키를 채운 `supabase/login_keys.sql`을 실행합니다. Client Secret과 해시용 pepper는 테이블이 아니라 Supabase Vault에 암호화해 둡니다.
 
 키를 넣기 전에는 앱에 로그인 버튼이 보이지 않습니다.
+
+### 구글 자동 로그인 (016)
+
+기록이 하나도 없고 랭킹에도 참여하지 않은 상태(처음 깔았거나 기록이 지워진 상태)로 앱을 열면, 구글 원탭으로
+이 브라우저에 로그인된 구글 계정을 받아 연결해 둔 계정이면 바로 기록을 되살립니다.
+
+1. 구글 클라우드 콘솔의 같은 OAuth 클라이언트에 **승인된 자바스크립트 원본**으로 `https://<사용자>.github.io`를 넣습니다.
+2. Supabase SQL Editor에서 `supabase/migrations/016_google_auto_login.sql`을 실행합니다.
