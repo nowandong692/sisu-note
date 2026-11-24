@@ -10,6 +10,12 @@ import { useStore } from '../state/store';
 import { focusLogEnd } from './LogScreen';
 
 const fullDate = (s: string) => `${s.slice(0, 4)}년 ${formatDate(s)}`;
+const shortDate = (s: string) => s.slice(2).replace(/-/g, '.');
+
+/** 두 번 이상 이룬 업적에 붙이는 횟수 */
+function Times({ a }: { a: Achievement }) {
+  return a.date && a.times && a.times > 1 ? <span className="pill times" aria-label={`${a.times}회 달성`}>×{a.times}</span> : null;
+}
 
 /** 업적을 이룬 순을 기록 보기에서 펼쳐 보여 준다 */
 function openEnd(a: Achievement, toLog: () => void) {
@@ -19,34 +25,35 @@ function openEnd(a: Achievement, toLog: () => void) {
 }
 
 /** 접장·3연몰: 크게, 이룬 날짜와 함께 */
-function Feature({ a, hint, sub, toLog }: { a: Achievement; hint: string; sub?: string; toLog: () => void }) {
+function Feature({ a, hint, sub, note, toLog }: { a: Achievement; hint: string; sub?: string; note?: string; toLog: () => void }) {
   return (
     <button className={`feat ${a.date ? 'on' : ''}`} disabled={!a.date} onClick={() => openEnd(a, toLog)}>
       <span className="feat-badge" aria-hidden>{a.date ? '中' : '·'}</span>
-      <b className="feat-name">{a.name}</b>
+      <b className="feat-name">{a.name}<Times a={a} /></b>
       {sub && <span className="feat-sub">{sub}</span>}
       {a.date
-        ? <span className="feat-when">{fullDate(a.date)}<br />{a.endNo}순째</span>
+        ? <span className="feat-when">{fullDate(a.date)}<br />{a.endNo}순째{a.times && a.times > 1 && a.lastDate ? <><br />최근 {shortDate(a.lastDate)}</> : null}{note ? <><br />{note}</> : null}</span>
         : <span className="feat-when">{hint}</span>}
     </button>
   );
 }
 
 function Row({ a, toLog }: { a: Achievement; toLog: () => void }) {
-  const short = a.date ? a.date.slice(2).replace(/-/g, '.') : '';
+  const short = a.date ? shortDate(a.date) : '';
   const when = !a.date ? ''
     : !a.label ? `${short} · ${a.endNo}순`
-    : `${a.label.endsWith('월') ? `${short.slice(0, 2)}년 ${Number(short.slice(3, 5))}월` : a.label.endsWith('주') ? `${short} 주` : short}${a.times && a.times > 1 ? ` · ${a.times}회` : ''}`;
+    : a.label.endsWith('월') ? `${short.slice(0, 2)}년 ${Number(short.slice(3, 5))}월` : a.label.endsWith('주') ? `${short} 주` : short;
+  const last = a.date && a.times && a.times > 1 && a.lastDate ? `최근 ${shortDate(a.lastDate)}` : '';
   return (
     <li className={`ach-row ${a.date ? 'on' : ''} ${a.special ? 'sp' : ''}`}>
       <button disabled={!a.date || !a.endId} onClick={() => openEnd(a, toLog)} title={a.label}
-        aria-label={`${a.name}, ${a.desc}, ${a.date ? `달성 ${when}` : '미달성'}`}>
+        aria-label={`${a.name}, ${a.desc}, ${a.date ? `달성 ${when}${a.times && a.times > 1 ? `, ${a.times}회` : ''}` : '미달성'}`}>
         <span className="ach-check" aria-hidden>{a.date ? '✓' : ''}</span>
         <span className="ach-text">
-          <b>{a.name}{a.special && <span className="pill best">특기</span>}</b>
+          <b>{a.name}{a.special && <span className="pill best">특기</span>}<Times a={a} /></b>
           <span className="ach-req">{a.desc}</span>
         </span>
-        <span className="ach-when">{a.date ? <>달성<br />{when}</> : '미달성'}</span>
+        <span className="ach-when">{a.date ? <>달성<br />{when}{last && <><br />{last}</>}</> : '미달성'}</span>
       </button>
     </li>
   );
@@ -239,6 +246,7 @@ export function AchievementsView({ toLog, active }: { toLog: () => void; active:
             <p><b>랭킹</b>은 겨루기에 참여한 뒤 끝난 기간(어제까지의 일간, 지난주, 지난달)만 셉니다. 기간이 끝나야 순위가 정해지기 때문입니다.</p>
             <p><b>꾸준함</b>은 순을 하나라도 저장한 날을 습사한 날로 칩니다. 연속 습사는 오늘이나 어제까지 이어져 있어야 지금 이어지는 것으로 봅니다.</p>
             <p><b>접장</b>은 처음으로 한 순 5시 5중(몰기)을 낸 순입니다. <b>강풍·우중·각궁 몰기</b>와 <b>활터</b>는 날씨·활·활터를 남긴 순에서만 셉니다.</p>
+            <p><b>반복 횟수</b>: 연몰, 강풍·우중·각궁 몰기는 이룬 순마다, 하루 10순·우중의 궁사·새벽을 여는 활은 하루에 한 번, 한 달 20일은 달마다 한 번 더 셉니다. 두 번 넘게 이루면 ×3처럼 횟수를 붙이고 처음 이룬 날과 가장 최근 날을 함께 보여 줍니다. 지난 기록도 모두 셉니다. 접장은 첫 몰기 한 번뿐이라 세지 않고, 대신 지금까지 몰기 횟수를 함께 보여 줍니다.</p>
             <p>달성한 업적을 누르면 그 순을 기록에서 펼쳐 보여 줍니다. 지난 순을 고치거나 지우면 업적도 다시 계산합니다.</p>
           </HelpButton>
         </div>
@@ -248,7 +256,7 @@ export function AchievementsView({ toLog, active }: { toLog: () => void; active:
           </div>
         )}
         <div className="feats">
-          <Feature a={chomolgi} toLog={toLog} sub="첫 5시 5중" hint={bestHit ? `아직 · 한 순 최고 ${bestHit}중` : '아직'} />
+          <Feature a={chomolgi} toLog={toLog} sub="첫 5시 5중" note={r.totalMolgi ? `지금까지 몰기 ${r.totalMolgi}회` : undefined} hint={bestHit ? `아직 · 한 순 최고 ${bestHit}중` : '아직'} />
           <Feature a={sam} toLog={toLog} sub="15시 15중" hint={molgiHint} />
           <Feature a={baekbal} toLog={toLog} sub="20연몰 · 100시 100중" hint={molgiHint} />
         </div>

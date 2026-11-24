@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { achievements, earnedLine, titleName, achievementName, myRankResult, newlyEarned, rankPeriodsToFetch } from './achievements';
+import { achievements, earnedLine, titleName, achievementName, myRankResult, newlyEarned, newlyRepeated, rankPeriodsToFetch } from './achievements';
 import { sampleData } from './sample';
 import type { End, Shot } from './types';
 
@@ -190,5 +190,64 @@ describe('업적', () => {
     expect(titleName(r.list, null)).toBeNull();
     expect(achievementName('molgi20')).toBe('백발백중');
     expect(achievementName('<script>')).toBeNull();
+  });
+
+  it('반복 횟수: 조건 몰기·연몰은 순마다, 하루 단위는 날마다, 한 달 20일은 달마다', () => {
+    const rain = { sky: '비', temp: 10, wind: '강함', windDir: null } as const;
+    const ends = [
+      end('2026-10-01', 'ooooo', { weather: rain }), end('2026-10-01', 'ooooo', { weather: rain }), end('2026-10-01', 'xxxxx', { weather: rain }),
+      end('2026-10-01', 'ooooo'), end('2026-10-01', 'ooooo'),
+      end('2026-10-02', 'ooooo', { weather: rain }),
+      ...Array.from({ length: 12 }, () => end('2026-10-03', 'xxxxx')),
+      ...Array.from({ length: 10 }, () => end('2026-10-04', 'xxxxx')),
+    ];
+    const r = achievements(ends);
+    const t = (id: string) => r.list.find((a) => a.id === id)!;
+    // 접장은 첫 몰기 한 번뿐이라 세지 않는다 (몰기 횟수는 totalMolgi)
+    expect(t('chomolgi').times).toBeUndefined();
+    expect(t('chomolgi').date).toBe('2026-10-01');
+    expect(r.totalMolgi).toBe(5);
+    expect(t('windmolgi').lastDate).toBe('2026-10-02');
+    expect(t('windmolgi').times).toBe(3);
+    expect(t('rainmolgi').times).toBe(3);
+    expect(t('rainday').times).toBe(2);
+    expect(t('molgi2').times).toBe(2);
+    expect(t('molgi3').times).toBeUndefined();
+    expect(t('dayends10').times).toBe(2);
+    expect(t('dayends10').lastDate).toBe('2026-10-04');
+    // 세지 않는 업적은 횟수가 없다
+    expect(t('jipgung').times).toBeUndefined();
+    expect(t('hit1').times).toBeUndefined();
+    expect(t('streak2').times).toBeUndefined();
+    expect(t('ends100').times).toBeUndefined();
+  });
+
+  it('한 달 20일은 달마다 한 번', () => {
+    const days = (m: string) => Array.from({ length: 21 }, (_, i) => end(`2026-${m}-${String(i + 1).padStart(2, '0')}`, 'xxxxx'));
+    const r = achievements([...days('09'), ...days('10')]);
+    const a = r.list.find((x) => x.id === 'month20')!;
+    expect(a.times).toBe(2);
+    expect(a.lastDate).toBe('2026-10-20');
+  });
+
+  it('또 이룬 업적은 한 줄 알림에 횟수로', () => {
+    const first = [end('2026-11-01', 'ooooo'), end('2026-11-01', 'xxxxx')];
+    const before = achievements(first);
+    const after = achievements([...first, end('2026-11-02', 'ooooo')]);
+    const earned = newlyEarned(before, after);
+    const repeated = newlyRepeated(before, after);
+    expect(earned).toEqual([]);
+    // 접장은 다시 세지 않으므로 또 이룬 업적이 없다
+    expect(repeated).toEqual([]);
+    expect(earnedLine(earned, repeated)).toBe('');
+    const rain = { sky: '비', temp: 10, wind: null, windDir: null } as const;
+    const wet = [end('2026-11-01', 'xxxxx', { weather: rain })];
+    const b2 = achievements(wet);
+    const a2 = achievements([...wet, end('2026-11-02', 'xxxxx', { weather: rain })]);
+    expect(earnedLine(newlyEarned(b2, a2), newlyRepeated(b2, a2))).toBe('업적 우중의 궁사 ×2');
+    // 새로 이룬 업적이 있으면 그것을 먼저 알린다
+    const more = achievements([...first, end('2026-11-02', 'ooooo'), end('2026-11-02', 'ooooo')]);
+    const after2 = achievements([...first, end('2026-11-02', 'ooooo')]);
+    expect(earnedLine(newlyEarned(after2, more), newlyRepeated(after2, more))).toMatch(/^업적 2연몰( 외 \d+개)?$/);
   });
 });

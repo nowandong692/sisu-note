@@ -488,6 +488,9 @@ textarea.autogrow { resize: none; overflow-y: auto; max-height: 60vh; }
 .welcome p { margin: 0; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .welcome .remark { font-size: 13px; white-space: normal; }
 .welcome b { color: var(--ink); font-weight: 600; }
+.pill.times { background: var(--hong-soft); color: var(--hong); font-weight: 700; font-variant-numeric: tabular-nums; }
+.feat .pill.times, .ach-row.sp.on .pill { background: var(--surface); }
+.feat .pill.times { vertical-align: middle; }
 .pill.dan { background: var(--paper); color: var(--ink); border: 1px solid var(--line); }
 
 /* 관리자: 궁사 기록 관리 */
