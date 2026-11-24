@@ -55,8 +55,10 @@ export interface Achievement {
   endNo?: number;
   /** 랭킹 업적: 이룬 기간 이름 (예: 11월 둘째 주) */
   label?: string;
-  /** 랭킹 업적: 지금까지 몇 번 이뤘는지 */
+  /** 지금까지 몇 번 이뤘는지 (랭킹 업적과 반복해 셀 만한 업적만. 나머지는 없음) */
   times?: number;
+  /** 반복 업적: 가장 최근에 이룬 날 */
+  lastDate?: string;
   /** 이룬 순 id */
   endId?: string;
 }
@@ -153,6 +155,16 @@ export function achievements(all: End[], ranks: RankHistory = {}, todayDate = ym
     const a = byId.get(id);
     if (a && !a.date) { a.date = e.date; a.endNo = no; a.endId = e.id; }
   };
+  // 반복해 세는 업적: 처음 이룬 순은 mark처럼 남기고, key(순·날·달)가 바뀔 때마다 한 번 더 센다
+  const lastKey = new Map<string, string>();
+  const again = (id: string, e: End, no: number, key: string) => {
+    mark(id, e, no);
+    const a = byId.get(id);
+    if (!a || lastKey.get(id) === key) return;
+    lastKey.set(id, key);
+    a.times = (a.times ?? 0) + 1;
+    a.lastDate = e.date;
+  };
 
   let day = '';
   let no = 0;
@@ -172,19 +184,19 @@ export function achievements(all: End[], ranks: RankHistory = {}, todayDate = ym
       monthDays = day.slice(0, 7) === e.date.slice(0, 7) ? monthDays + 1 : 1;
       day = e.date; no = 0; streak = 0; molgi = 0;
       if (run >= 2) for (const n of DAY_RUN_STEPS) if (run === n) mark(`dayrun${n}`, e, 1);
-      if (monthDays === MONTH_DAYS_GOAL) mark('month20', e, 1);
+      if (monthDays === MONTH_DAYS_GOAL) again('month20', e, 1, e.date.slice(0, 7));
     }
     no++;
     mark('jipgung', e, no);
     const h = hitsOf(e);
     for (let k = 1; k <= Math.min(h, 4); k++) mark(`hit${k}`, e, no);
-    if (h === 5) mark('chomolgi', e, no);
-    if (no >= DAY_ENDS_GOAL) mark('dayends10', e, no);
-    if (h === 5 && e.weather?.wind === '강함') mark('windmolgi', e, no);
-    if (e.weather?.sky === '비' || e.weather?.sky === '눈') mark('rainday', e, no);
-    if (h === 5 && (e.weather?.sky === '비' || e.weather?.sky === '눈')) mark('rainmolgi', e, no);
-    if (atDawn(e)) mark('dawn', e, no);
-    if (h === 5 && e.bowId && gakgung.has(e.bowId)) mark('gakgungmolgi', e, no);
+    if (h === 5) again('chomolgi', e, no, e.id);
+    if (no >= DAY_ENDS_GOAL) again('dayends10', e, no, e.date);
+    if (h === 5 && e.weather?.wind === '강함') again('windmolgi', e, no, e.id);
+    if (e.weather?.sky === '비' || e.weather?.sky === '눈') again('rainday', e, no, e.date);
+    if (h === 5 && (e.weather?.sky === '비' || e.weather?.sky === '눈')) again('rainmolgi', e, no, e.id);
+    if (atDawn(e)) again('dawn', e, no, e.date);
+    if (h === 5 && e.bowId && gakgung.has(e.bowId)) again('gakgungmolgi', e, no, e.id);
     if (e.rangeId && !ranges.has(e.rangeId)) { ranges.add(e.rangeId); mark(`ranges${ranges.size}`, e, no); }
     for (const s of e.shots) {
       if (!s.hit) { streak = 0; continue; }
@@ -196,7 +208,7 @@ export function achievements(all: End[], ranks: RankHistory = {}, todayDate = ym
     bestMolgi = Math.max(bestMolgi, molgi);
     if (h === 5) { totalMolgi++; mark(`molgicount${totalMolgi}`, e, no); }
     mark(`ends${i + 1}`, e, no);
-    if (molgi >= 2 && molgi <= MOLGI_STREAK_MAX) mark(`molgi${molgi}`, e, no);
+    if (molgi >= 2 && molgi <= MOLGI_STREAK_MAX) again(`molgi${molgi}`, e, no, e.id);
   }
 
   // 랭킹: 기간이 이른 것부터. 같은 업적을 여러 번 이뤘으면 횟수를 센다
@@ -207,6 +219,7 @@ export function achievements(all: End[], ranks: RankHistory = {}, todayDate = ym
       if (!item.test(p, ranks[k])) continue;
       const a = byId.get(item.id)!;
       a.times = (a.times ?? 0) + 1;
+      a.lastDate = start;
       if (!a.date) { a.date = start; a.label = periodLabel(p, start); }
     }
   }
@@ -250,8 +263,22 @@ export function newlyEarned(before: AchievementReport, after: AchievementReport)
   return after.list.filter((a) => a.date && !had.has(a.id));
 }
 
-/** 새로 이룬 업적을 한 줄로: 특기할 것 먼저, 그다음 가장 높은 것 하나와 나머지 개수 */
-export function earnedLine(earned: Achievement[]): string {
+/** 이미 이룬 업적을 이번에 또 이뤄 횟수가 늘어난 것 */
+export function newlyRepeated(before: AchievementReport, after: AchievementReport): Achievement[] {
+  const had = new Map(before.list.filter((a) => a.date).map((a) => [a.id, a.times ?? 0]));
+  return after.list.filter((a) => had.has(a.id) && (a.times ?? 0) > had.get(a.id)!);
+}
+
+/**
+ * 새로 이룬 업적을 한 줄로: 특기할 것 먼저, 그다음 가장 높은 것 하나와 나머지 개수.
+ * 새로 이룬 것이 없으면 또 이룬 업적을 횟수와 함께 (예: 업적 접장 ×4)
+ */
+export function earnedLine(earned: Achievement[], repeated: Achievement[] = []): string {
+  if (!earned.length && repeated.length) {
+    const top = repeated.filter((a) => a.special).concat(repeated.filter((a) => !a.special).reverse());
+    const rest = repeated.length - 1;
+    return `업적 ${top[0].name} ×${top[0].times}${rest ? ` 외 ${rest}개` : ''}`;
+  }
   if (!earned.length) return '';
   const top = earned.filter((a) => a.special).concat(earned.filter((a) => !a.special).reverse());
   const rest = earned.length - 1;
