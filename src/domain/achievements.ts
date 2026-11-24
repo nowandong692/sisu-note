@@ -190,7 +190,7 @@ export function achievements(all: End[], ranks: RankHistory = {}, todayDate = ym
     mark('jipgung', e, no);
     const h = hitsOf(e);
     for (let k = 1; k <= Math.min(h, 4); k++) mark(`hit${k}`, e, no);
-    if (h === 5) again('chomolgi', e, no, e.id);
+    if (h === 5) mark('chomolgi', e, no);
     if (no >= DAY_ENDS_GOAL) again('dayends10', e, no, e.date);
     if (h === 5 && e.weather?.wind === '강함') again('windmolgi', e, no, e.id);
     if (e.weather?.sky === '비' || e.weather?.sky === '눈') again('rainday', e, no, e.date);
@@ -271,7 +271,7 @@ export function newlyRepeated(before: AchievementReport, after: AchievementRepor
 
 /**
  * 새로 이룬 업적을 한 줄로: 특기할 것 먼저, 그다음 가장 높은 것 하나와 나머지 개수.
- * 새로 이룬 것이 없으면 또 이룬 업적을 횟수와 함께 (예: 업적 접장 ×4)
+ * 새로 이룬 것이 없으면 또 이룬 업적을 횟수와 함께 (예: 업적 강풍 몰기 ×4)
  */
 export function earnedLine(earned: Achievement[], repeated: Achievement[] = []): string {
   if (!earned.length && repeated.length) {

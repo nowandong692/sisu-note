@@ -423,7 +423,7 @@ export function ShootScreen() {
       const before = achievements(ends, {}, today(), store.gear);
       const after = achievements([...ends, e], {}, today(), store.gear);
       const line = earnedLine(newlyEarned(before, after), newlyRepeated(before, after));
-      toast(`${formatDate(past)} ${todays.length + 1}순 저장 · ${h}중${h === 5 ? ' 몰기!' : ''}${line ? ` · ${line}` : ''}`);
+      toast(`${formatDate(past)} ${todays.length + 1}순 저장 · ${h}중${h === 5 ? ` 몰기! (누적 ${after.totalMolgi}회)` : ''}${line ? ` · ${line}` : ''}`);
       setD(fresh());
       setAsking(false);
       return;
@@ -431,12 +431,12 @@ export function ShootScreen() {
     const before = achievements(ends, {}, today(), store.gear);
     const after = achievements([...ends, e], {}, today(), store.gear);
     const earned = newlyEarned(before, after);
-    // 또 이룬 업적은 축하 창 없이 알림 한 줄에 횟수만 (예: 업적 접장 ×4)
+    // 또 이룬 업적은 축하 창 없이 알림 한 줄에 횟수만 (예: 업적 강풍 몰기 ×4)
     const line = earnedLine(earned, newlyRepeated(before, after));
     const special = earned.filter((a) => a.special);
     // 접장·3연몰은 축하 창이 대신 알린다 (알림이 창을 가리지 않게)
     if (special.length) setCheer(special);
-    else toast(`${todays.length + 1}순 저장 · ${h}중${h === 5 ? ' 몰기!' : ''}${line ? ` · ${line}` : ''}`);
+    else toast(`${todays.length + 1}순 저장 · ${h}중${h === 5 ? ` 몰기! (누적 ${after.totalMolgi}회)` : ''}${line ? ` · ${line}` : ''}`);
     setD(fresh());
     setAsking(false);
   };

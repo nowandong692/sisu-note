@@ -192,7 +192,7 @@ describe('업적', () => {
     expect(achievementName('<script>')).toBeNull();
   });
 
-  it('반복 횟수: 몰기류는 순마다, 하루 단위는 날마다, 한 달 20일은 달마다', () => {
+  it('반복 횟수: 조건 몰기·연몰은 순마다, 하루 단위는 날마다, 한 달 20일은 달마다', () => {
     const rain = { sky: '비', temp: 10, wind: '강함', windDir: null } as const;
     const ends = [
       end('2026-10-01', 'ooooo', { weather: rain }), end('2026-10-01', 'ooooo', { weather: rain }), end('2026-10-01', 'xxxxx', { weather: rain }),
@@ -203,9 +203,11 @@ describe('업적', () => {
     ];
     const r = achievements(ends);
     const t = (id: string) => r.list.find((a) => a.id === id)!;
-    expect(t('chomolgi').times).toBe(5);
+    // 접장은 첫 몰기 한 번뿐이라 세지 않는다 (몰기 횟수는 totalMolgi)
+    expect(t('chomolgi').times).toBeUndefined();
     expect(t('chomolgi').date).toBe('2026-10-01');
-    expect(t('chomolgi').lastDate).toBe('2026-10-02');
+    expect(r.totalMolgi).toBe(5);
+    expect(t('windmolgi').lastDate).toBe('2026-10-02');
     expect(t('windmolgi').times).toBe(3);
     expect(t('rainmolgi').times).toBe(3);
     expect(t('rainday').times).toBe(2);
@@ -235,8 +237,14 @@ describe('업적', () => {
     const earned = newlyEarned(before, after);
     const repeated = newlyRepeated(before, after);
     expect(earned).toEqual([]);
-    expect(repeated.map((a) => a.id)).toEqual(['chomolgi']);
-    expect(earnedLine(earned, repeated)).toBe('업적 접장 ×2');
+    // 접장은 다시 세지 않으므로 또 이룬 업적이 없다
+    expect(repeated).toEqual([]);
+    expect(earnedLine(earned, repeated)).toBe('');
+    const rain = { sky: '비', temp: 10, wind: null, windDir: null } as const;
+    const wet = [end('2026-11-01', 'xxxxx', { weather: rain })];
+    const b2 = achievements(wet);
+    const a2 = achievements([...wet, end('2026-11-02', 'xxxxx', { weather: rain })]);
+    expect(earnedLine(newlyEarned(b2, a2), newlyRepeated(b2, a2))).toBe('업적 우중의 궁사 ×2');
     // 새로 이룬 업적이 있으면 그것을 먼저 알린다
     const more = achievements([...first, end('2026-11-02', 'ooooo'), end('2026-11-02', 'ooooo')]);
     const after2 = achievements([...first, end('2026-11-02', 'ooooo')]);
