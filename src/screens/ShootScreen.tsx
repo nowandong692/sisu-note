@@ -15,6 +15,7 @@ import { formatDate, today } from '../domain/util';
 import { weatherLabel } from '../domain/weather';
 import { honorific, trendOf, welcomeFor, welcomeWho } from '../domain/welcome';
 import { danShort, topDan } from '../domain/dan';
+import { GradeMark } from '../components/GradeMark';
 import { DayMemoField } from '../components/DayMemoField';
 import { ShareConfirmSheet, ShareNotice, SharePicker } from '../components/SharePicker';
 import { defaultShare, needsShareConfirm, SHARE_LABEL } from '../domain/sharedMemo';
@@ -478,9 +479,12 @@ export function ShootScreen() {
   return (
     <>
       {!editing && !past && (
-        <div className="welcome">
-          <p><b>{welcomeWho(settings.club?.name, settings.online?.nickname, honorific(ends.some((e) => hitsOf(e) === SHOTS_PER_END)), myDan ? danShort(myDan) : null)}</b>, {welcome.greet}</p>
-          <p className="remark">{welcome.remark}</p>
+        <div className="welcome-row">
+          {store.grade.grade && <GradeMark grade={store.grade.grade} size={40} />}
+          <div className="welcome">
+            <p><b>{welcomeWho(settings.club?.name, settings.online?.nickname, honorific(ends.some((e) => hitsOf(e) === SHOTS_PER_END)), myDan ? danShort(myDan) : null)}</b>, {welcome.greet}</p>
+            <p className="remark">{store.title && <span className="pill title big">{store.title}</span>} {welcome.remark}</p>
+          </div>
         </div>
       )}
       <section className={`card shoot-card ${editing ? 'editing' : ''}`}>

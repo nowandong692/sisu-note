@@ -21,6 +21,13 @@ export const TOTAL_ENDS_STEPS = [100, 500, 1000];
 export const TOTAL_MOLGI_STEPS = [10, 50, 100];
 /** 며칠 잇따라 습사했는지 단계 (일) */
 export const DAY_RUN_STEPS = [7, 30];
+/** 이 시각(시) 전에 저장한 순이면 '새벽을 여는 활' */
+export const DAWN_HOUR = 6;
+/** 그날 그 자리에서 저장한 순인지, 저장한 시각이 오전 DAWN_HOUR시 전인지. 지난 날 기록은 정오로 저장하므로 들지 않는다 */
+function atDawn(e: End): boolean {
+  const t = new Date(e.recordedAt);
+  return ymd(t) === e.date && t.getHours() < DAWN_HOUR;
+}
 /** 한 달에 습사한 날 */
 export const MONTH_DAYS_GOAL = 20;
 
@@ -114,7 +121,9 @@ function catalog(): Achievement[] {
     { id: 'dayends10', group: 'challenge', name: `하루 ${DAY_ENDS_GOAL}순`, desc: `하루에 ${DAY_ENDS_GOAL}순(${DAY_ENDS_GOAL * 5}시) 이상 습사` },
     { id: 'fifteen10', group: 'challenge', name: '15시 10중', desc: '같은 날 잇따른 3순에서 10중 이상 (대회 입상권 시수)' },
     { id: 'windmolgi', group: 'challenge', name: '강풍 몰기', desc: '바람이 강한 날 몰기' },
+    { id: 'rainday', group: 'challenge', name: '우중의 궁사', desc: '비나 눈 오는 날 습사' },
     { id: 'rainmolgi', group: 'challenge', name: '우중 몰기', desc: '비나 눈 오는 날 몰기' },
+    { id: 'dawn', group: 'challenge', name: '새벽을 여는 활', desc: `오전 ${DAWN_HOUR}시 전에 쏜 순을 그 자리에서 저장` },
     { id: 'gakgungmolgi', group: 'challenge', name: '각궁 몰기', desc: '각궁으로 처음 몰기' },
     ...RANGE_STEPS.map((n) => ({ id: `ranges${n}`, group: 'challenge' as const, name: `활터 ${n}곳`, desc: `서로 다른 활터 ${n}곳에서 습사` })),
   );
@@ -175,7 +184,9 @@ export function achievements(all: End[], ranks: RankHistory = {}, todayDate = ym
     if (no >= DAY_ENDS_GOAL) mark('dayends10', e, no);
     if (no >= 3 && dayHits[no - 1] + dayHits[no - 2] + dayHits[no - 3] >= 10) mark('fifteen10', e, no);
     if (h === 5 && e.weather?.wind === '강함') mark('windmolgi', e, no);
+    if (e.weather?.sky === '비' || e.weather?.sky === '눈') mark('rainday', e, no);
     if (h === 5 && (e.weather?.sky === '비' || e.weather?.sky === '눈')) mark('rainmolgi', e, no);
+    if (atDawn(e)) mark('dawn', e, no);
     if (h === 5 && e.bowId && gakgung.has(e.bowId)) mark('gakgungmolgi', e, no);
     if (e.rangeId && !ranges.has(e.rangeId)) { ranges.add(e.rangeId); mark(`ranges${ranges.size}`, e, no); }
     for (const s of e.shots) {
@@ -248,4 +259,16 @@ export function earnedLine(earned: Achievement[]): string {
   const top = earned.filter((a) => a.special).concat(earned.filter((a) => !a.special).reverse());
   const rest = earned.length - 1;
   return `업적 ${top[0].name}${rest ? ` 외 ${rest}개` : ''}`;
+}
+
+/** 업적 id로 이름 (랭킹에서 남의 대표 칭호를 보일 때). 모르는 id면 null */
+export function achievementName(id: string | null | undefined): string | null {
+  return id ? catalog().find((a) => a.id === id)?.name ?? null : null;
+}
+
+/** 대표 칭호: 고른 업적을 이뤘을 때만 그 이름 (못 이뤘거나 기록을 지웠으면 null) */
+export function titleName(list: Achievement[], id: string | null | undefined): string | null {
+  if (!id) return null;
+  const a = list.find((x) => x.id === id);
+  return a?.date ? a.name : null;
 }

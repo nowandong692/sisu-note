@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { HelpButton } from '../components/ui';
+import { HelpButton, Sheet, toast } from '../components/ui';
+import { GradeMark } from '../components/GradeMark';
+import { GRADES, GRADE_HOLD_DAYS, GRADE_WINDOW, gradeTitle, hitsToNext } from '../domain/grade';
 import { MOLGI_STREAK_MAX, DAY_RUN_STEPS, MONTH_DAYS_GOAL, TOTAL_ENDS_STEPS, TOTAL_MOLGI_STEPS, achievements, myRankResult, rankPeriodsToFetch, type Achievement, type RankHistory } from '../domain/achievements';
 import type { ArcherTotal } from '../domain/ranking';
 import { onlineAvailable, rpc } from '../platform/online';
@@ -47,6 +49,88 @@ function Row({ a, toLog }: { a: Achievement; toLog: () => void }) {
         <span className="ach-when">{a.date ? <>달성<br />{when}</> : '미달성'}</span>
       </button>
     </li>
+  );
+}
+
+const fmt1 = (n: number) => (Math.round(n * 10) / 10).toFixed(1).replace(/\.0$/, '');
+
+/** 대표 칭호 고르기: 이룬 업적 가운데 하나. 특기할 것부터 */
+function TitleSheet({ list, current, onPick, onClose }: { list: Achievement[]; current: string | null; onPick: (id: string | null) => void; onClose: () => void }) {
+  const done = list.filter((a) => a.date);
+  const sorted = [...done.filter((a) => a.special), ...done.filter((a) => !a.special).reverse()];
+  return (
+    <Sheet title="대표 칭호 고르기" onClose={onClose}>
+      <div className="small muted">이룬 업적 하나를 칭호로 답니다. 랭킹에서 닉네임 옆에 보입니다.</div>
+      {sorted.length
+        ? <ul className="title-list">{sorted.map((a) => (
+          <li key={a.id}>
+            <button className={a.id === current ? 'on' : ''} aria-pressed={a.id === current} onClick={() => onPick(a.id)}>
+              <b>{a.name}{a.special && <span className="pill best">특기</span>}</b>
+              <span className="small muted">{a.desc}</span>
+            </button>
+          </li>
+        ))}</ul>
+        : <div className="small muted">아직 이룬 업적이 없습니다. 첫 순을 저장하면 집궁부터 달 수 있습니다.</div>}
+      {current && <button className="btn ghost" onClick={() => onPick(null)}>칭호 떼기</button>}
+      <button className="btn ghost" onClick={onClose}>닫기</button>
+    </Sheet>
+  );
+}
+
+/** 내 등급(과녁 테두리)과 대표 칭호 */
+function GradeCard({ list }: { list: Achievement[] }) {
+  const { grade: r, title, settings, setTitle, online } = useStore();
+  const [picking, setPicking] = useState(false);
+  const g = r.grade;
+  const more = hitsToNext(r);
+  const pct = !g ? Math.round((r.counted / GRADE_WINDOW) * 100)
+    : !r.next || r.per15 == null ? 100
+    : Math.max(0, Math.min(100, Math.round(((r.per15 - g.min) / (r.next.min - g.min)) * 100)));
+  const pick = (id: string | null) => {
+    void setTitle(id).then(() => toast(id ? `대표 칭호를 ${list.find((a) => a.id === id)?.name}(으)로 달았습니다` : '대표 칭호를 뗐습니다'));
+    setPicking(false);
+  };
+  return (
+    <section className="card grade-card">
+      <div className="row between">
+        <h2>내 등급</h2>
+        <HelpButton title="등급은 이렇게 매깁니다">
+          <p>직접 쏜 <b>최근 {GRADE_WINDOW}순</b>을 15시(3순) 기준 평균으로 봅니다. 예시 기록은 넣지 않습니다.</p>
+          <ul className="grade-steps">{GRADES.map((x, i) => (
+            <li key={x.id}><GradeMark grade={x} size={22} /> <b>{gradeTitle(x)}</b> <span className="muted">{i === 0 ? `${GRADES[1].min}중 미만` : GRADES[i + 1] ? `${x.min}~${GRADES[i + 1].min}중` : `${x.min}중 이상`}</span></li>
+          ))}</ul>
+          <p>10중은 관중 랭킹에 드는 기준이자 대회 입상권(15시 10중)이라 백은 과녁의 경계로 두었습니다.</p>
+          <p><b>올라가는 것은 바로</b> 됩니다. <b>내려가는 것은 {GRADE_HOLD_DAYS}일 기다립니다.</b> 지난 {GRADE_HOLD_DAYS}일 안에 이룬 가장 높은 등급을 보여 줍니다. 습사를 쉬는 동안에는 내려가지 않습니다.</p>
+          <p>등급은 앱 안의 기록으로 매기는 것이라 협회의 단과는 다릅니다. 지난 순을 고치거나 지우면 다시 계산합니다.</p>
+        </HelpButton>
+      </div>
+      <div className="grade-main">
+        <GradeMark grade={g} size={72} />
+        <div className="grade-text">
+          <b className="grade-name">{g ? gradeTitle(g) : '등급 매기기 전'}</b>
+          {g && r.per15 != null
+            ? <span className="small muted">최근 {GRADE_WINDOW}순 15시 평균 <b className="ink">{fmt1(r.per15)}중</b></span>
+            : <span className="small muted">{GRADE_WINDOW}순을 쏘면 등급이 매겨집니다 · 지금 {r.counted}순</span>}
+          {title && <span className="pill title big">{title}</span>}
+        </div>
+      </div>
+      <div className="ach-prog">
+        <div className="row between small">
+          <span className="muted">{!g ? `${r.need}순 남음` : r.next ? `${gradeTitle(r.next)}까지` : '가장 높은 등급입니다'}</span>
+          {g && r.next && more != null && <span className="muted">최근 {GRADE_WINDOW}순에서 {more}중 더</span>}
+        </div>
+        <div className="ach-track" aria-hidden><div className={`fill ${g ? g.id : ''}`} style={{ width: `${pct}%` }} /></div>
+      </div>
+      {g && r.now && r.holdUntil && (
+        <div className="small muted">지금 최근 {GRADE_WINDOW}순은 {gradeTitle(r.now)}입니다. {formatDate(r.holdUntil)}까지 다시 {g.min}중을 넘기면 {gradeTitle(g)}을 이어 갑니다.</div>
+      )}
+      <div className="row between title-row">
+        <span className="small">대표 칭호 <b>{title ?? '없음'}</b></span>
+        <button className="btn ghost small" onClick={() => setPicking(true)}>{settings.title && title ? '바꾸기' : '고르기'}</button>
+      </div>
+      {!online && <div className="small muted">겨루기 탭에서 랭킹에 참여하면 등급과 칭호가 닉네임 옆에 보입니다.</div>}
+      {picking && <TitleSheet list={list} current={title ? settings.title ?? null : null} onPick={pick} onClose={() => setPicking(false)} />}
+    </section>
   );
 }
 
@@ -144,6 +228,7 @@ export function AchievementsView({ toLog, active }: { toLog: () => void; active:
 
   return (
     <>
+      <GradeCard list={r.list} />
       <section className="card">
         <div className="row between">
           <h2>업적 <span className="muted small">{done} / {r.list.length} 달성</span></h2>

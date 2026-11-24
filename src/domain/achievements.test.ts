@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { achievements, earnedLine, myRankResult, newlyEarned, rankPeriodsToFetch } from './achievements';
+import { achievements, earnedLine, titleName, achievementName, myRankResult, newlyEarned, rankPeriodsToFetch } from './achievements';
 import { sampleData } from './sample';
 import type { End, Shot } from './types';
 
@@ -164,5 +164,30 @@ describe('업적', () => {
     // 날마다 3순은 새로 센다: 전날 끝 2순과 다음 날 첫 순은 잇지 않는다
     expect(got([end('2026-11-05', 'xxxxx'), end('2026-11-05', 'ooooo'), end('2026-11-05', 'ooooo'), end('2026-11-06', 'xxxxx')]).fifteen10).toBe('2026-11-05#3');
     expect(got([end('2026-11-05', 'ooooo'), end('2026-11-05', 'ooooo'), end('2026-11-06', 'ooooo')]).fifteen10).toBeUndefined();
+  });
+
+  it('우중의 궁사: 비·눈 오는 날 습사 (몰기가 아니어도)', () => {
+    const g = got([end('2026-11-01', 'xxxxx', { weather: { sky: '흐림', temp: 5, wind: null, windDir: null } }),
+      end('2026-11-02', 'oxxxx', { weather: { sky: '눈', temp: -1, wind: null, windDir: null } })]);
+    expect(g.rainday).toBe('2026-11-02#1');
+    expect(g.rainmolgi).toBeUndefined();
+  });
+
+  it('새벽을 여는 활: 그날 오전 6시 전에 저장한 순만', () => {
+    const at = (date: string, h: number) => new Date(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10), h, 30).getTime();
+    expect(got([end('2026-11-01', 'xxxxx', { recordedAt: at('2026-11-01', 6) })]).dawn).toBeUndefined();
+    expect(got([end('2026-11-01', 'xxxxx', { recordedAt: at('2026-11-01', 5) })]).dawn).toBe('2026-11-01#1');
+    // 지난 날 기록을 나중에 넣은 순은 저장 시각이 그날이 아니라서 들지 않는다
+    expect(got([end('2026-11-01', 'xxxxx', { recordedAt: at('2026-11-03', 5) })]).dawn).toBeUndefined();
+  });
+
+  it('대표 칭호: 이룬 업적만 이름을 준다', () => {
+    const r = achievements([end('2026-11-01', 'ooooo')]);
+    expect(titleName(r.list, 'chomolgi')).toBe('초몰기');
+    expect(titleName(r.list, 'molgi3')).toBeNull();
+    expect(titleName(r.list, 'nope')).toBeNull();
+    expect(titleName(r.list, null)).toBeNull();
+    expect(achievementName('molgi20')).toBe('백발백중');
+    expect(achievementName('<script>')).toBeNull();
   });
 });

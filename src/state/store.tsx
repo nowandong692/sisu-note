@@ -1,4 +1,6 @@
 import { topDan, type Dans } from '../domain/dan';
+import { grade as gradeReport, type GradeReport } from '../domain/grade';
+import { achievements, titleName as achievementTitle } from '../domain/achievements';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Club, DayNote, End, MemoShare, Gear, GearCategory, OnlineProfile, Range, Settings, Weather } from '../domain/types';
 import { dayClientId, dayShareArgs, isDayClientId, shareArgs, shareTouched } from '../domain/sharedMemo';
@@ -107,6 +109,12 @@ export interface Store extends Data {
   setClub(club: Club | null): Promise<void>;
   /** 내 단을 바꾼다. 랭킹에 참여 중이면 가장 높은 단을 서버에도 올린다 */
   setDans(dans: Dans): Promise<void>;
+  /** 내 실력 등급 (최근 30순 기준, 기록에서 다시 계산) */
+  grade: GradeReport;
+  /** 대표 칭호 이름 (고른 업적을 이뤘을 때만) */
+  title: string | null;
+  /** 대표 칭호를 고른다 (null이면 뗀다). 랭킹에 참여 중이면 서버에도 올린다 */
+  setTitle(id: string | null): Promise<void>;
   /** 참여 그만두기: 서버의 내 기록을 모두 지운다 */
   leaveOnline(): Promise<void>;
   loadSample(): Promise<void>;
@@ -431,6 +439,26 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
 
   const ranges = useMemo(() => data.settings.ranges ?? [], [data.settings.ranges]);
 
+  // 등급과 대표 칭호: 기록에서 다시 계산한다
+  const myGrade = useMemo(() => gradeReport(data.ends, today()), [data.ends]);
+  const titleId = data.settings.title;
+  const myTitle = useMemo(() => (titleId ? achievementTitle(achievements(data.ends, data.settings.rankHistory ?? {}, today(), data.gear).list, titleId) : null),
+    [data.ends, data.gear, data.settings.rankHistory, titleId]);
+  // 랭킹에 보일 등급·칭호: 바뀌었으면 서버에 올린다. 서버에 015가 없으면 이번 실행에서는 다시 묻지 않는다
+  const badgeOff = useRef(false);
+  const badgeBusy = useRef(false);
+  useEffect(() => {
+    const o = data.settings.online;
+    if (!data.loaded || !o || badgeOff.current || badgeBusy.current || !onlineAvailable()) return;
+    const want = { grade: myGrade.grade?.level ?? null, title: myTitle ? titleId ?? null : null };
+    if (o.badge && o.badge.grade === want.grade && o.badge.title === want.title) return;
+    badgeBusy.current = true;
+    rpc('set_badge', { p_key: o.key, p_grade: want.grade, p_title: want.title })
+      .then(() => { const cur = settingsRef.current.online; if (cur?.key === o.key) return updateSettings({ online: { ...cur, badge: want } }); })
+      .catch((e: unknown) => { if (!(e instanceof OnlineError) || e.code !== 'network') badgeOff.current = true; })
+      .finally(() => { badgeBusy.current = false; });
+  }, [data.loaded, data.settings.online, myGrade, myTitle, titleId, updateSettings]);
+
   const store = useMemo<Store>(() => ({
     ...data,
     todayWeather,
@@ -678,6 +706,11 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       await rpc('set_profile', { p_key: o.key, p_nickname: o.nickname, p_range_name: club?.name ?? '' });
       await updateSettings({ online: { ...o, rangeName: club?.name ?? null } });
     },
+    grade: myGrade,
+    title: myTitle,
+    async setTitle(id) {
+      await updateSettings({ title: id });
+    },
     async setDans(dans) {
       await updateSettings({ dans });
       const o = data.settings.online;
@@ -720,7 +753,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       await updateSettings({ current: { bow: null, ring: null, arrow: null } });
       await enqueueMemos([...data.ends.filter((e) => e.share).map((e) => e.id), ...data.days.filter((d) => d.share).map((d) => dayClientId(d.date))]);
     },
-  }), [data, repo, updateSettings, todayWeather, editId, pastDate, setPastDate, ranges, unknownSpot, rangeOffer, noticePosition, enqueue, enqueueMemos, sharedDayIds, commentNews, refreshCommentNews, markCommentsSeen, pullRecords]);
+  }), [data, repo, updateSettings, todayWeather, editId, pastDate, setPastDate, ranges, unknownSpot, rangeOffer, noticePosition, enqueue, enqueueMemos, sharedDayIds, commentNews, refreshCommentNews, markCommentsSeen, pullRecords, myGrade, myTitle]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

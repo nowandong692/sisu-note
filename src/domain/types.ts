@@ -139,6 +139,8 @@ export interface OnlineProfile {
   recordQueue?: string[];
   /** 이 기기의 기록을 모두 백업 대기열에 넣었는지 (참여하거나 복구한 뒤 한 번) */
   recordsSeeded?: boolean;
+  /** 서버에 마지막으로 올린 등급(1~5)과 대표 칭호 업적 id. 바뀌었을 때만 다시 올린다 */
+  badge?: { grade: number | null; title: string | null };
 }
 
 export type ThemeMode = 'system' | 'light' | 'dark';
@@ -158,6 +160,8 @@ export interface Settings {
   club?: Club | null;
   /** 기관마다 받은 단 (대한궁도협회, 궁도스포츠클럽) */
   dans?: Dans;
+  /** 대표 칭호로 단 업적 id (이룬 업적만 보인다) */
+  title?: string | null;
   /** 끝난 랭킹 기간마다 내 결과 (업적에 쓴다). 키는 `week:2026-11-02` 꼴 */
   rankHistory?: Record<string, { place: 0 | 1 | 2 | 3 | null; volume: number | null }>;
   /** 내 메모 댓글을 어디까지 봤는지 (가장 최근에 본 댓글 id). 이보다 뒤의 남의 댓글이 "새 댓글" */

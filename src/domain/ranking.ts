@@ -26,6 +26,10 @@ export interface ArcherTotal {
   range?: string | null;
   /** 가장 높은 단 (1~9) */
   dan?: number | null;
+  /** 실력 등급 1~5 (015_grade.sql 전이거나 30순 전이면 없음) */
+  grade?: number | null;
+  /** 대표 칭호 업적 id */
+  title?: string | null;
   ends: number;
   hits: number;
   /** 기간 안에서 쏜 차례대로 관중 여부 (선다시수용, 앞 50시) */
