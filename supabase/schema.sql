@@ -24,10 +24,16 @@ create table if not exists public.archers (
   hidden boolean not null default false,
   -- 가장 높은 단 (1~9). 어느 기관 단인지는 저장하지 않는다
   dan smallint,
+  -- 실력 등급 (1 나무 ~ 5 황금, 015_grade.sql). 앱이 기록으로 계산해 올린다
+  grade smallint,
+  -- 대표 칭호 업적 id (015_grade.sql). 이름은 앱이 업적 목록에서 찾는다
+  title text,
   created_at timestamptz not null default now(),
   constraint nickname_len check (char_length(nickname) between 1 and 12),
   constraint range_len check (range_name is null or char_length(range_name) <= 30),
-  constraint dan_range check (dan is null or dan between 1 and 9)
+  constraint dan_range check (dan is null or dan between 1 and 9),
+  constraint grade_range check (grade is null or grade between 1 and 5),
+  constraint title_id check (title is null or title ~ '^[a-z0-9-]{1,24}$')
 );
 create unique index if not exists archers_nickname_uq on public.archers (lower(nickname));
 
@@ -108,6 +114,15 @@ begin
   update archers set dan = p_dan where id = _archer(p_key);
 end $$;
 
+-- 내 실력 등급(1~5, 30순 전이면 null)과 대표 칭호 업적 id (015_grade.sql)
+create or replace function public.set_badge(p_key text, p_grade int, p_title text) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if p_grade is not null and (p_grade < 1 or p_grade > 5) then raise exception 'bad grade'; end if;
+  if p_title is not null and p_title !~ '^[a-z0-9-]{1,24}$' then raise exception 'bad title'; end if;
+  update archers set grade = p_grade, title = p_title where id = _archer(p_key);
+end $$;
+
 -- 복구 코드 확인 (새 휴대폰에서): 맞으면 닉네임을 돌려준다
 create or replace function public.whoami(p_key text) returns table (nickname text, range_name text)
 language sql stable security definer set search_path = public, extensions as $$
@@ -153,7 +168,7 @@ $$;
 -- 기간 집계: 'day' | 'week' | 'month', 기준 날짜. 궁사별 순 수, 관중 수, 선다시수용 앞 50시.
 -- 순위·시상은 앱이 같은 규칙(src/domain/ranking.ts)으로 매긴다. 궁사 id 대신 닉네임만 내보낸다.
 create or replace function public.period_totals(p_period text, p_date date, p_key text default null)
-returns table (nickname text, range_name text, dan int, ends int, hits int, seq boolean[], me boolean)
+returns table (nickname text, range_name text, dan int, ends int, hits int, seq boolean[], me boolean, grade int, title text)
 language sql stable security definer set search_path = public, extensions as $$
   with span as (
     select case p_period
@@ -173,7 +188,7 @@ language sql stable security definer set search_path = public, extensions as $$
     group by archer_id
   )
   select a.nickname, a.range_name, a.dan::int, g.shots / 5, g.hits, g.seq,
-         (p_key is not null and a.key_hash = digest(p_key, 'sha256'))
+         (p_key is not null and a.key_hash = digest(p_key, 'sha256')), a.grade::int, a.title
   from agg g join archers a on a.id = g.archer_id
   where p_period in ('day', 'week', 'month')
     and (not a.hidden or (p_key is not null and a.key_hash = digest(p_key, 'sha256')))
@@ -207,7 +222,7 @@ language sql security definer set search_path = public, extensions as $$
 $$;
 
 revoke all on function public._archer(text), public._today(), public._max_ends_per_day(), public._clean_nick(text) from public, anon, authenticated;
-grant execute on function public.nickname_available(text, text), public.register(text, text), public.whoami(text), public.set_profile(text, text, text), public.set_dan(text, int),
+grant execute on function public.nickname_available(text, text), public.register(text, text), public.whoami(text), public.set_profile(text, text, text), public.set_dan(text, int), public.set_badge(text, int, text),
   public.submit_end(text, text, boolean[], timestamptz), public.delete_end(text, text), public.delete_me(text),
   public.period_totals(text, date, text), public.archer_ends(text, text, date), public.report(text, text) to anon;
 

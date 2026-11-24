@@ -7,7 +7,7 @@ import { SAMPLE_PREFIX } from './sample';
  * 이 기기에만 의미가 있는 것(랭킹 열쇠와 올리기 대기열, 오늘 날씨, 댓글 읽음 표시)과 예시 데이터는 올리지 않는다.
  */
 export const BACKUP_SETTING_KEYS = [
-  'club', 'dans', 'rankHistory', 'memoTags', 'lastShare', 'appearance', 'hand', 'grid',
+  'club', 'dans', 'title', 'rankHistory', 'memoTags', 'lastShare', 'appearance', 'hand', 'grid',
   'current', 'ranges', 'currentRange', 'currentRangeManual',
 ] as const satisfies readonly (keyof Settings)[];
 
@@ -73,6 +73,7 @@ export function mergeBackup(local: { gear: Gear[]; ends: End[]; settings: Settin
   } else {
     if (!cur.club && s.club) patch.club = s.club;
     if (!cur.dans && s.dans) patch.dans = s.dans;
+    if (!cur.title && s.title) patch.title = s.title;
     if (!cur.memoTags && s.memoTags) patch.memoTags = s.memoTags;
     if (!cur.appearance && s.appearance) patch.appearance = s.appearance;
     if (s.rankHistory) patch.rankHistory = { ...s.rankHistory, ...(cur.rankHistory ?? {}) };

@@ -33,6 +33,7 @@ const MESSAGES: [RegExp, OnlineErrorCode, string][] = [
   [/login failed/, 'server', '로그인을 확인하지 못했습니다. 한 번 더 해 주세요.'],
   [/login not ready/, 'server', '이 로그인은 아직 준비 중입니다.'],
   [/Could not find the function public\.(login_providers|link_login|login_with|my_logins|unlink_login)/, 'missing', '서버에 로그인 기능이 아직 없습니다. supabase/migrations/014_login.sql을 실행해 주세요.'],
+  [/Could not find the function public\.set_badge/, 'missing', '서버에 등급 기능이 아직 없습니다. supabase/migrations/015_grade.sql을 실행해 주세요.'],
   [/backup too large/, 'server', '장비·설정 백업이 너무 큽니다.'],
   [/no such memo/, 'server', '이 메모는 내려갔거나 볼 수 없습니다.'],
   [/Could not find the function public\.(add_comment|delete_comment|memo_comment_list)/, 'missing', '서버에 댓글 기능이 아직 없습니다. supabase/migrations/008_memo_comments.sql을 실행해 주세요.'],

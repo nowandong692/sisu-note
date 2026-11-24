@@ -1,4 +1,7 @@
 import { danShort } from '../domain/dan';
+import { gradeByLevel } from '../domain/grade';
+import { achievementName } from '../domain/achievements';
+import { GradeMark } from '../components/GradeMark';
 import { useEffect, useState } from 'react';
 import { ConfirmButton, Sheet, toast } from '../components/ui';
 import { restoreMessage } from '../domain/recordBackup';
@@ -23,7 +26,7 @@ const PERIODS: [RankPeriod, string][] = [['day', '일간'], ['week', '주간'], 
 const PLACE_LABEL = ['장려', '1위', '2위', '3위'];
 
 interface ServerEnd { day: string; recorded_at: string; hits: boolean[] }
-interface ServerRow { nickname: string; range_name: string | null; dan?: number | null; ends: number; hits: number; seq: boolean[] | null; me: boolean }
+interface ServerRow { nickname: string; range_name: string | null; dan?: number | null; grade?: number | null; title?: string | null; ends: number; hits: number; seq: boolean[] | null; me: boolean }
 
 function periodLabel(date: string, p: RankPeriod): string {
   const s = periodStart(date, p);
@@ -255,9 +258,15 @@ function Row({ r, kind, canReport, onOpen }: { r: RankRow; kind: Kind; canReport
         ? <span className={`place p${r.place}`}>{PLACE_LABEL[r.place]}</span>
         : <span className="place num">{r.order}</span>}
       <button className="who-btn" onClick={onOpen} aria-label={`${r.name} 기록 보기`}>
+        {gradeByLevel(r.grade) && <GradeMark grade={gradeByLevel(r.grade)} size={26} className="rank-grade" />}
         <span className="who">
-          <b>{r.name}</b>{r.dan ? <span className="pill dan">{danShort(r.dan)}</span> : null}{r.me && <span className="pill best">나</span>}
-          {r.range && <span className="small muted"> · {r.range}</span>}
+          <span className="who-name"><b>{r.name}</b>{r.dan ? <span className="pill dan">{danShort(r.dan)}</span> : null}{r.me && <span className="pill best">나</span>}</span>
+          {(achievementName(r.title) || r.range) && (
+            <span className="who-sub small muted">
+              {achievementName(r.title) && <span className="pill title">{achievementName(r.title)}</span>}
+              {r.range && <span>{r.range}</span>}
+            </span>
+          )}
         </span>
         <span className="score">
           {kind === 'hits'
@@ -301,7 +310,10 @@ function RankingBoard({ active }: { active: boolean }) {
     let alive = true;
     setLoading(true); setErr('');
     rpc<ServerRow[]>('period_totals', { p_period: period, p_date: start, p_key: o?.key ?? null })
-      .then((list) => { if (alive) setRows(list.map((x) => ({ name: x.nickname, range: x.range_name, dan: x.dan ?? null, ends: x.ends, hits: x.hits, seq: x.seq ?? [], me: x.me }))); })
+      .then((list) => { if (alive) setRows(list.map((x) => ({ name: x.nickname, range: x.range_name, dan: x.dan ?? null,
+        // 내 줄은 서버에 아직 올리지 못했어도 이 기기에서 계산한 등급·칭호로
+        grade: x.me ? store.grade.grade?.level ?? null : x.grade ?? null, title: x.me ? (store.title ? store.settings.title ?? null : null) : x.title ?? null,
+        ends: x.ends, hits: x.hits, seq: x.seq ?? [], me: x.me }))); })
       .catch((e) => { if (alive) { setRows(null); setErr(e instanceof OnlineError ? e.message : errText(e)); } })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
