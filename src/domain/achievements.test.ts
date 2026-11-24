@@ -37,7 +37,7 @@ describe('업적', () => {
     expect(g.streak6).toBeUndefined();
   });
 
-  it('접장(첫 몰기)과 3연몰 (15시 15중)', () => {
+  it('몰기와 3연몰 (15시 15중)', () => {
     const ends = [end('2026-11-03', 'ooooo'), end('2026-11-03', 'ooooo'), end('2026-11-03', 'ooooo'), end('2026-11-03', 'oxooo')];
     const r = achievements(ends);
     const g = got(ends);
@@ -48,7 +48,7 @@ describe('업적', () => {
     expect(g.streak16).toBe('2026-11-03#4');
     expect(g.streak17).toBeUndefined();
     expect(r.bestMolgi).toBe(3);
-    expect(r.list.filter((a) => a.special).map((a) => a.name)).toEqual(['접장', '3연몰', '6연몰', '9연몰', '12연몰', '15연몰', '18연몰', '백발백중']);
+    expect(r.list.filter((a) => a.special).map((a) => a.name)).toEqual(['몰기', '3연몰', '6연몰', '9연몰', '12연몰', '15연몰', '18연몰', '백발백중']);
   });
 
   it('예시 기록은 넣지 않는다', () => {
@@ -181,7 +181,7 @@ describe('업적', () => {
 
   it('대표 칭호: 이룬 업적만 이름을 준다', () => {
     const r = achievements([end('2026-11-01', 'ooooo')]);
-    expect(titleName(r.list, 'chomolgi')).toBe('접장');
+    expect(titleName(r.list, 'chomolgi')).toBe('몰기');
     expect(titleName(r.list, 'molgi3')).toBeNull();
     expect(titleName(r.list, 'nope')).toBeNull();
     // 뺀 업적을 칭호로 달았던 사람은 칭호가 보이지 않는다
@@ -203,8 +203,9 @@ describe('업적', () => {
     ];
     const r = achievements(ends);
     const t = (id: string) => r.list.find((a) => a.id === id)!;
-    // 접장은 첫 몰기 한 번뿐이라 세지 않는다 (몰기 횟수는 totalMolgi)
-    expect(t('chomolgi').times).toBeUndefined();
+    // 몰기는 낼 때마다 센다 (누적 몰기와 같은 수)
+    expect(t('chomolgi').times).toBe(5);
+    expect(t('chomolgi').lastDate).toBe('2026-10-02');
     expect(t('chomolgi').date).toBe('2026-10-01');
     expect(r.totalMolgi).toBe(5);
     expect(t('windmolgi').lastDate).toBe('2026-10-02');
@@ -237,7 +238,7 @@ describe('업적', () => {
     const earned = newlyEarned(before, after);
     const repeated = newlyRepeated(before, after);
     expect(earned).toEqual([]);
-    // 접장은 다시 세지 않으므로 또 이룬 업적이 없다
+    // 몰기 횟수는 저장 알림이 따로 보이므로 한 줄에 넣지 않는다
     expect(repeated).toEqual([]);
     expect(earnedLine(earned, repeated)).toBe('');
     const rain = { sky: '비', temp: 10, wind: null, windDir: null } as const;
