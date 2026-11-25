@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Target } from '../components/Target';
 import {
-  MIN_ENDS_FOR_RANKING, byRange, byWeather, byWindDir, weatherLean, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, trendSeries, zoneCounts,
+  MIN_ENDS_FOR_RANKING, byRange, byWeather, byWindDir, weatherLean, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, shotsAt, summarize, trendSeries, zoneCounts,
   type GroupRow, type TrendPoint, type TrendUnit, type WeatherLeanRow,
 } from '../domain/stats';
-import { DIR8_VEC, MISS_DIRS8, type End, type Hand, type MissDir8 } from '../domain/types';
+import { DIR8_VEC, MISS_DIRS8, SHOTS_PER_END, type End, type Hand, type MissDir8 } from '../domain/types';
 import { BAND, TH, TW, TX, TY, VIEW_H, VIEW_W, VIEW_X, VIEW_Y } from '../domain/target';
 import { dayOffset } from '../domain/util';
 import { useStore } from '../state/store';
@@ -289,6 +289,36 @@ function WeatherLeanCard({ ends, hand }: { ends: End[]; hand: Hand }) {
   );
 }
 
+/** 탄착 분포. 전체 또는 1시~5시 가운데 한 시만 골라 본다 */
+function SpreadCard({ ends, hand }: { ends: End[]; hand: Hand }) {
+  const [at, setAt] = useState<number | null>(null);
+  const shots = shotsAt(ends, at);
+  const hits = shots.filter((x) => x.hit).length;
+  const unplacedHits = shots.filter((x) => x.hit && x.x == null).length;
+  const zones = zoneCounts(ends, at);
+  const hasZones = zones.some((z) => z > 0);
+  return (
+    <section className="card">
+      <div className="row between">
+        <h2>탄착 분포</h2>
+        {at != null && <span className="small muted">{shots.length}순 중 {hits}중 ({Math.round((hits / (shots.length || 1)) * 100)}%)</span>}
+      </div>
+      <div className="seg" role="group" aria-label="탄착 분포 시 선택">
+        {[null, ...Array.from({ length: SHOTS_PER_END }, (_, i) => i)].map((i) => (
+          <button key={i ?? 'all'} className={at === i ? 'on' : ''} aria-pressed={at === i} onClick={() => setAt(i)}>{i == null ? '전체' : `${i + 1}시`}</button>
+        ))}
+      </div>
+      <div className="target-wrap">
+        <Target hand={hand} grid={hasZones} small marks={shots} zoneCounts={hasZones ? zones : null} />
+      </div>
+      <div className="small muted">
+        파란 점은 관중, 회색 점은 불입니다.{at != null && ` 각 순의 ${at + 1}번째 화살만 보여 줍니다.`}{hasZones && ' 과녁 칸의 숫자는 칸 위치를 남긴 관중 중 그 칸에 맞은 비율입니다.'}
+        {unplacedHits > 0 && ` 위치 없이 기록한 관중 ${unplacedHits}시는 점으로 표시하지 않습니다.`}
+      </div>
+    </section>
+  );
+}
+
 export function StatsScreen() {
   const { ends: allEnds, gear, gearName, settings, rangeName, ranges } = useStore();
   const [period, setPeriod] = useState(30);
@@ -336,10 +366,6 @@ export function StatsScreen() {
   const pos = shotPositionRates(ends);
   const weakest = pos.indexOf(Math.min(...pos));
   const miss = missBreakdown(ends, settings.hand);
-  const shots = ends.flatMap((e) => e.shots);
-  const unplacedHits = shots.filter((x) => x.hit && x.x == null).length;
-  const zones = zoneCounts(ends);
-  const hasZones = zones.some((z) => z > 0);
   const name = (k: string) => gearName(k || null);
   const windRows = byWindDir(ends, settings.hand);
   const weatherGroups = ([['sky', '날씨'], ['temp', '기온'], ['wind', '바람']] as const)
@@ -388,16 +414,7 @@ export function StatsScreen() {
           ))}
         </div>
       </section>
-      <section className="card">
-        <h2>탄착 분포</h2>
-        <div className="target-wrap">
-          <Target hand={settings.hand} grid={hasZones} small marks={shots} zoneCounts={hasZones ? zones : null} />
-        </div>
-        <div className="small muted">
-          파란 점은 관중, 회색 점은 불입니다.{hasZones && ' 과녁 칸의 숫자는 칸 위치를 남긴 관중 중 그 칸에 맞은 비율입니다.'}
-          {unplacedHits > 0 && ` 위치 없이 기록한 관중 ${unplacedHits}시는 점으로 표시하지 않습니다.`}
-        </div>
-      </section>
+      <SpreadCard ends={ends} hand={settings.hand} />
       {miss.total > 0 && (
         <section className="card">
           <h2>불 방향</h2>
