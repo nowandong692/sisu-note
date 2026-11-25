@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { missLean, weatherLean, byWeather, byWindDir, tempBand, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, summarize, weekStart, weeklyTrend, trendSeries } from './stats';
+import { missLean, weatherLean, byWeather, byWindDir, tempBand, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, shotsAt, zoneCounts, summarize, weekStart, weeklyTrend, trendSeries } from './stats';
 import { endsToCsv } from './csv';
 import { sampleData } from './sample';
 import { TH, TW, TX, TY, classifyTap } from './target';
@@ -26,6 +26,17 @@ describe('통계', () => {
   it('요약: 순, 중, 순당 평균, 중률, 몰기', () => {
     expect(summarize(ends)).toEqual({ ends: 3, hits: 10, perEnd: 10 / 3, rate: 10 / 15, perfect: 1 });
     expect(summarize([])).toMatchObject({ ends: 0, perEnd: 0, rate: 0 });
+  });
+
+  it('탄착 분포: 전체 또는 한 시만 모은다', () => {
+    expect(shotsAt(ends)).toHaveLength(15);
+    expect(shotsAt(ends, 0).map((s) => s.hit)).toEqual([true, true, false]);
+    expect(shotsAt(ends, 4).map((s) => s.direction)).toEqual([null, null, '앞남']);
+    const z = { ...H, zone: 5 };
+    const zs = [end('2026-11-11', [z, H, z, H, H])];
+    expect(zoneCounts(zs)[4]).toBe(2);
+    expect(zoneCounts(zs, 0)[4]).toBe(1);
+    expect(zoneCounts(zs, 1)[4]).toBe(0);
   });
 
   it('주 시작은 월요일', () => {

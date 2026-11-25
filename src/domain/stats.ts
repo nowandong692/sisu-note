@@ -1,4 +1,4 @@
-import type { End, GearCategory, Hand, MissDir8, MissLevel, WindDir } from './types';
+import type { End, GearCategory, Hand, MissDir8, MissLevel, Shot, WindDir } from './types';
 import { DIR8_VEC, MISS_DIRS8 } from './types';
 import { missDir8 } from './target';
 import { SKIES, WIND_DIRS, WIND_LEVELS } from './weather';
@@ -132,11 +132,16 @@ export function missBreakdown(ends: End[], hand?: Hand): { total: number; byDir:
   return { total, byDir };
 }
 
-/** 관중 중 9등분 칸별 개수 */
-export function zoneCounts(ends: End[]): number[] {
+/** 관중 중 9등분 칸별 개수. at(0~4)을 주면 그 시만 센다 */
+export function zoneCounts(ends: End[], at?: number | null): number[] {
   const z = new Array(9).fill(0);
-  for (const e of ends) for (const s of e.shots) if (s.hit && s.zone) z[s.zone - 1]++;
+  for (const s of shotsAt(ends, at)) if (s.hit && s.zone) z[s.zone - 1]++;
   return z;
+}
+
+/** 모든 순의 화살. at(0~4, 1시~5시)을 주면 각 순의 그 시만 모은다 */
+export function shotsAt(ends: End[], at?: number | null): Shot[] {
+  return at == null ? ends.flatMap((e) => e.shots) : ends.flatMap((e) => (e.shots[at] ? [e.shots[at]] : []));
 }
 
 export interface GroupRow extends Summary {
