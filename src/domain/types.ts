@@ -200,7 +200,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   hand: 'right',
-  grid: false,
+  grid: true,
   current: { bow: null, ring: null, arrow: null },
 };
 
