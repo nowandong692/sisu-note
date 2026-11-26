@@ -14,6 +14,13 @@ describe('IndexedDB 저장소', () => {
     expect(await repo.loadAll()).toEqual({ gear: [], ends: [], days: [], settings: DEFAULT_SETTINGS });
   });
 
+  it('9등분은 처음엔 켜져 있고, 끄면 끈 채로 기억한다', async () => {
+    const repo = new IndexedDbRepository('t-grid');
+    expect((await repo.loadAll()).settings.grid).toBe(true);
+    await repo.saveSettings({ ...DEFAULT_SETTINGS, grid: false });
+    expect((await new IndexedDbRepository('t-grid').loadAll()).settings.grid).toBe(false);
+  });
+
   it('장비, 순, 설정을 저장하고 다시 읽는다', async () => {
     const repo = new IndexedDbRepository('t-roundtrip');
     await repo.putGear(gear);
