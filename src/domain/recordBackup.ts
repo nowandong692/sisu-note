@@ -127,12 +127,14 @@ export function mergeRecords(
 }
 
 /** 복구를 마친 뒤 알림 글 */
-export function restoreMessage(r: { gear: number; ends: number; fromRanking: number; days: number }): string {
+export function restoreMessage(r: { gear: number; ends: number; fromRanking: number; days: number; nickname?: string }): string {
   const got = [
     r.ends ? `순 기록 ${r.ends}순` : '',
     r.days ? `하루 메모 ${r.days}일` : '',
     r.gear ? `장비 ${r.gear}개` : '',
   ].filter(Boolean);
-  const head = got.length ? `예전 닉네임과 기록을 되살렸습니다 (${got.join(', ')})` : '예전 닉네임과 랭킹 기록을 이어 씁니다';
+  // 어느 닉네임으로 이어 쓰게 됐는지 보여 준다. 로그인이 다른 닉네임에 연결돼 있으면 여기서 알아챌 수 있다
+  const who = r.nickname ? `'${r.nickname}' 닉네임` : '예전 닉네임';
+  const head = got.length ? `${who}과 기록을 되살렸습니다 (${got.join(', ')})` : `${who}과 랭킹 기록을 이어 씁니다`;
   return r.fromRanking ? `${head}. 그중 ${r.fromRanking}순은 랭킹 기록에서 되살려 관중 여부만 있습니다` : head;
 }
