@@ -491,10 +491,10 @@ export function ShootScreen() {
         <div className="welcome-row">
           {store.grade.grade && (
             <button className="grade-btn" aria-label={`내 등급 ${gradeTitle(store.grade.grade)}, 등급 설명 보기`} onClick={() => setGradeOpen(true)}>
-              <GradeMark grade={store.grade.grade} size={40} />
+              <GradeMark grade={store.grade.grade} dan={myDan} size={40} />
             </button>
           )}
-          {gradeOpen && <GradeSheet r={store.grade} title={store.title} onClose={() => setGradeOpen(false)} />}
+          {gradeOpen && <GradeSheet r={store.grade} dan={myDan} title={store.title} onClose={() => setGradeOpen(false)} />}
           <div className="welcome">
             <p><b>{welcomeWho(settings.club?.name, settings.online?.nickname, honorific(ends.some((e) => hitsOf(e) === SHOTS_PER_END)), myDan ? danShort(myDan) : null)}</b>, {welcome.greet}</p>
             <p className="remark">{store.title && <span className="pill title big">{store.title}</span>} {welcome.remark}</p>

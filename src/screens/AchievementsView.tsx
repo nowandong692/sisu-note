@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { HelpButton, Sheet, toast } from '../components/ui';
 import { GradeHelp, GradeSummary } from '../components/GradeInfo';
+import { topDan } from '../domain/dan';
 import { MOLGI_STREAK_MAX, DAY_RUN_STEPS, MONTH_DAYS_GOAL, TOTAL_ENDS_STEPS, TOTAL_MOLGI_STEPS, achievements, myRankResult, rankPeriodsToFetch, type Achievement, type RankHistory } from '../domain/achievements';
 import type { ArcherTotal } from '../domain/ranking';
 import { onlineAvailable, rpc } from '../platform/online';
@@ -95,7 +96,7 @@ function GradeCard({ list }: { list: Achievement[] }) {
         <h2>내 등급</h2>
         <HelpButton title="등급은 이렇게 매깁니다"><GradeHelp /></HelpButton>
       </div>
-      <GradeSummary r={r} title={title} />
+      <GradeSummary r={r} dan={topDan(settings.dans)} title={title} />
       <div className="row between title-row">
         <span className="small">대표 칭호 <b>{title ?? '없음'}</b></span>
         <button className="btn ghost small" onClick={() => setPicking(true)}>{settings.title && title ? '바꾸기' : '고르기'}</button>

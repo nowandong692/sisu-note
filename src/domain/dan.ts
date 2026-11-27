@@ -33,3 +33,9 @@ export function topDan(dans: Dans | null | undefined): number | null {
   const ls = Object.values(dans ?? {}).map(validDan).filter((v): v is number => v !== null);
   return ls.length ? Math.max(...ls) : null;
 }
+
+/** 단을 무궁화 수로: 1~4단은 위에 1~4송이, 5~8단은 위 4송이에 아래 1~4송이, 9단(신궁)은 홍심도 무궁화 */
+export function danFlowers(dan: number | null | undefined): { top: number; bottom: number; center: boolean } {
+  const d = dan && Number.isInteger(dan) && dan >= 1 && dan <= 9 ? dan : 0;
+  return { top: Math.min(d, 4), bottom: Math.max(0, Math.min(d - 4, 4)), center: d === 9 };
+}

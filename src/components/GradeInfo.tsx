@@ -2,6 +2,7 @@ import { Sheet } from './ui';
 import { GradeMark } from './GradeMark';
 import { GRADES, GRADE_HOLD_DAYS, GRADE_WINDOW, gradeTitle, hitsToNext, type GradeReport } from '../domain/grade';
 import { formatDate } from '../domain/util';
+import { danLabel } from '../domain/dan';
 
 const fmt1 = (n: number) => (Math.round(n * 10) / 10).toFixed(1).replace(/\.0$/, '');
 
@@ -16,12 +17,16 @@ export function GradeHelp() {
       <p>10중은 관중 랭킹에 드는 기준이자 대회 입상권(15시 10중)이라 백은 과녁의 경계로 두었습니다.</p>
       <p><b>올라가는 것은 바로</b> 됩니다. <b>내려가는 것은 {GRADE_HOLD_DAYS}일 기다립니다.</b> 지난 {GRADE_HOLD_DAYS}일 안에 이룬 가장 높은 등급을 보여 줍니다. 습사를 쉬는 동안에는 내려가지 않습니다.</p>
       <p>등급은 앱 안의 기록으로 매기는 것이라 협회의 단과는 다릅니다. 지난 순을 고치거나 지우면 다시 계산합니다.</p>
+      <p><b>단은 무궁화로</b> 답니다. 설정에 단을 넣으면 과녁 테두리에 무궁화가 핍니다. 1~4단은 위쪽에 단 수만큼, 5~8단은 위쪽 네 송이에 아래쪽으로 더하고, 9단(신궁)은 홍심도 무궁화가 됩니다.</p>
+      <ul className="grade-steps dan-steps">{[1, 4, 5, 8, 9].map((d) => (
+        <li key={d}><GradeMark grade={GRADES[4]} dan={d} size={30} /> <b>{danLabel(d)}</b></li>
+      ))}</ul>
     </>
   );
 }
 
 /** 내 등급: 큰 과녁, 이름, 최근 평균, 다음 등급까지 막대, 내려가기 유예 */
-export function GradeSummary({ r, title }: { r: GradeReport; title?: string | null }) {
+export function GradeSummary({ r, dan, title }: { r: GradeReport; dan?: number | null; title?: string | null }) {
   const g = r.grade;
   const more = hitsToNext(r);
   const pct = !g ? Math.round((r.counted / GRADE_WINDOW) * 100)
@@ -30,7 +35,7 @@ export function GradeSummary({ r, title }: { r: GradeReport; title?: string | nu
   return (
     <>
       <div className="grade-main">
-        <GradeMark grade={g} size={72} />
+        <GradeMark grade={g} dan={dan} size={72} />
         <div className="grade-text">
           <b className="grade-name">{g ? gradeTitle(g) : '등급 매기기 전'}</b>
           {g && r.per15 != null
@@ -54,11 +59,11 @@ export function GradeSummary({ r, title }: { r: GradeReport; title?: string | nu
 }
 
 /** 습사 탭에서 등급 과녁을 눌렀을 때: 내 등급과 등급 설명 */
-export function GradeSheet({ r, title, onClose }: { r: GradeReport; title?: string | null; onClose: () => void }) {
+export function GradeSheet({ r, dan, title, onClose }: { r: GradeReport; dan?: number | null; title?: string | null; onClose: () => void }) {
   return (
     <Sheet title="내 등급" onClose={onClose}>
       <div className="grade-sheet">
-        <GradeSummary r={r} title={title} />
+        <GradeSummary r={r} dan={dan} title={title} />
         <h3>등급은 이렇게 매깁니다</h3>
         <div className="help-body"><GradeHelp /></div>
       </div>

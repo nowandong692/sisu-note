@@ -256,7 +256,7 @@ function Row({ r, kind, onOpen }: { r: RankRow; kind: Kind; onOpen: () => void }
         ? <span className={`place p${r.place}`}>{PLACE_LABEL[r.place]}</span>
         : <span className="place num">{r.order}</span>}
       <button className="who-btn" onClick={onOpen} aria-label={`${r.name} 기록 보기`}>
-        {gradeByLevel(r.grade) && <GradeMark grade={gradeByLevel(r.grade)} size={26} className="rank-grade" />}
+        {gradeByLevel(r.grade) && <GradeMark grade={gradeByLevel(r.grade)} dan={r.dan} size={26} className="rank-grade" />}
         <span className="who">
           <span className="who-name"><b>{r.name}</b>{r.dan ? <span className="pill dan">{danShort(r.dan)}</span> : null}{r.me && <span className="pill best">나</span>}</span>
           {(achievementName(r.title) || r.range) && (
