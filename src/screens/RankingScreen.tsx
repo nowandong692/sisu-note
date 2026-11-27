@@ -241,7 +241,7 @@ function RulesSheet({ onClose }: { onClose: () => void }) {
         <ul>
           <li>궁사를 누르면 그 기간의 순별 기록과 습사 시간을 볼 수 있습니다.</li>
           <li>참여한 뒤 오늘 저장한 순만 올라갑니다. 지난 날짜 순은 올라가지 않습니다.</li>
-          <li>모두 본인이 입력한 기록입니다. 사실과 달라 보이면 신고해 주세요.</li>
+          <li>모두 본인이 입력한 기록입니다.</li>
         </ul>
       </div>
       <button className="btn ghost small" onClick={onClose}>닫기</button>
@@ -249,9 +249,7 @@ function RulesSheet({ onClose }: { onClose: () => void }) {
   );
 }
 
-function Row({ r, kind, canReport, onOpen }: { r: RankRow; kind: Kind; canReport: boolean; onOpen: () => void }) {
-  const report = () => rpc('report', { p_nickname: r.name, p_reason: '기록이 사실과 다른 것 같음' })
-    .then(() => toast('신고를 받았습니다'), (e) => toast(errText(e)));
+function Row({ r, kind, onOpen }: { r: RankRow; kind: Kind; onOpen: () => void }) {
   return (
     <li className={`rank-row ${r.me ? 'me' : ''}`}>
       {kind === 'hits'
@@ -275,7 +273,6 @@ function Row({ r, kind, canReport, onOpen }: { r: RankRow; kind: Kind; canReport
         </span>
         <span className="chev" aria-hidden="true">›</span>
       </button>
-      {canReport && !r.me && <ConfirmButton className="del" label="신고" confirmLabel="신고하기" onConfirm={report} />}
     </li>
   );
 }
@@ -379,7 +376,7 @@ function RankingBoard({ active }: { active: boolean }) {
               : '이 기간에 올라온 순이 없습니다.'}
           </div>
         )}
-        {ranked.length > 0 && <ol className="rank-list">{ranked.map((r) => <Row key={r.name} r={r} kind={kind} canReport={!!o} onOpen={() => setViewing(r)} />)}</ol>}
+        {ranked.length > 0 && <ol className="rank-list">{ranked.map((r) => <Row key={r.name} r={r} kind={kind} onOpen={() => setViewing(r)} />)}</ol>}
         {myLine && <div className="small my-line">{myLine}</div>}
       </section>
       {showCode && o && <CodeSheet code={o.key} first={showCode === 'first'} onClose={() => setShowCode(null)} />}
