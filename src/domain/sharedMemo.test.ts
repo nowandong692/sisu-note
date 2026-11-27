@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agoLabel, cleanComment, dayClientId, dayShareArgs, dayShareStateOf, defaultShare, hasNewComment, endNoOf, olderCommentCount, shouldReplacePage, isDayClientId, needsShareConfirm, shareAudience, shareArgs, shareStateOf, shareTouched } from './sharedMemo';
+import { agoLabel, cleanComment, dayClientId, dayShareArgs, dayShareStateOf, defaultShare, hasNewComment, endNoOf, olderCommentCount, shouldReplacePage, isDayClientId, needsShareConfirm, shareAudience, shareArgs, shareStateOf, shareTouched, toggleReaction } from './sharedMemo';
 import type { End, Shot } from './types';
 
 const shot = (hit: boolean): Shot => ({ hit, x: null, y: null, zone: null, side: null, level: null, direction: null });
@@ -149,5 +149,20 @@ describe('글이 많아질 때', () => {
     expect(olderCommentCount(50, 120)).toBe(70);
     expect(olderCommentCount(120, 120)).toBe(0);
     expect(olderCommentCount(30, undefined)).toBe(0);
+  });
+});
+
+describe('메모 반응', () => {
+  it('처음 누르면 하나 늘고 내 반응이 된다', () => {
+    expect(toggleReaction({}, null, 'like')).toEqual({ counts: { like: 1 }, mine: 'like' });
+  });
+  it('같은 반응을 다시 누르면 취소된다', () => {
+    expect(toggleReaction({ like: 1, thanks: 2 }, 'like', 'like')).toEqual({ counts: { thanks: 2 }, mine: null });
+  });
+  it('다른 반응을 누르면 바뀐다', () => {
+    expect(toggleReaction({ like: 3 }, 'like', 'sad')).toEqual({ counts: { like: 2, sad: 1 }, mine: 'sad' });
+  });
+  it('서버 수가 내 반응보다 적어도 음수가 되지 않는다', () => {
+    expect(toggleReaction({}, 'yes', 'yes')).toEqual({ counts: {}, mine: null });
   });
 });

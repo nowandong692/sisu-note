@@ -116,6 +116,36 @@ export interface SharedMemo {
   /** 하루 메모만: 그날 쏜 순 수와 관중 수 */
   ends?: number | null;
   hit_count?: number | null;
+  /** 반응 수 (서버에 017이 없으면 없음 = 반응 버튼을 보이지 않는다) */
+  reactions?: ReactionCounts;
+  /** 내가 누른 반응 */
+  my_reaction?: ReactionKind | null;
+}
+
+/** 메모에 남기는 반응. 한 메모에 한 사람이 하나 */
+export const REACTIONS = [
+  { kind: 'like', emoji: '👍', label: '좋아요' },
+  { kind: 'sad', emoji: '😢', label: '슬퍼요' },
+  { kind: 'yes', emoji: '🙆', label: '넵!' },
+  { kind: 'thanks', emoji: '🙏', label: '감사해요' },
+] as const;
+export type ReactionKind = (typeof REACTIONS)[number]['kind'];
+export type ReactionCounts = Partial<Record<ReactionKind, number>>;
+
+/**
+ * 반응을 눌렀을 때 바로 보일 상태 (서버 답을 기다리지 않고). 같은 반응을 다시 누르면 취소, 다른 반응이면 바꾼다.
+ * 서버(react_memo)도 같은 규칙이다.
+ */
+export function toggleReaction(counts: ReactionCounts, mine: ReactionKind | null, pressed: ReactionKind): { counts: ReactionCounts; mine: ReactionKind | null } {
+  const next: ReactionCounts = { ...counts };
+  const bump = (k: ReactionKind, d: number) => {
+    const n = Math.max(0, (next[k] ?? 0) + d);
+    if (n) next[k] = n; else delete next[k];
+  };
+  if (mine) bump(mine, -1);
+  if (mine === pressed) return { counts: next, mine: null };
+  bump(pressed, 1);
+  return { counts: next, mine: pressed };
 }
 
 /** 내 메모에 새 댓글이 있는가: 남이 단 가장 최근 댓글이 내가 본 것보다 뒤 */

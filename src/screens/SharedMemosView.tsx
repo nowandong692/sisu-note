@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { danShort } from '../domain/dan';
 import { AutoTextarea, ConfirmButton, toast } from '../components/ui';
-import { agoLabel, cleanComment, COMMENT_MAX, COMMENT_PAGE, hasNewComment, olderCommentCount, shouldReplacePage, REPORT_REASONS, type MemoComment, type SharedMemo } from '../domain/sharedMemo';
+import { agoLabel, cleanComment, COMMENT_MAX, COMMENT_PAGE, hasNewComment, olderCommentCount, shouldReplacePage, REACTIONS, REPORT_REASONS, toggleReaction, type MemoComment, type ReactionCounts, type ReactionKind, type SharedMemo } from '../domain/sharedMemo';
 import { formatDate } from '../domain/util';
 import { onlineAvailable, rpc } from '../platform/online';
 import { useStore } from '../state/store';
@@ -140,6 +140,59 @@ function Comments({ m, onCount }: { m: SharedMemo; onCount: (n: number) => void 
   );
 }
 
+/**
+ * 메모 반응: 좋아요, 슬퍼요, 넵!, 감사해요. 한 사람이 하나만 (다시 누르면 취소, 다른 것을 누르면 바뀐다).
+ * 내 메모이거나 닉네임이 없으면 누를 수 없고, 받은 반응 수만 보인다.
+ */
+function Reactions({ m }: { m: SharedMemo }) {
+  const { online } = useStore();
+  const [counts, setCounts] = useState<ReactionCounts>(m.reactions ?? {});
+  const [mine, setMine] = useState<ReactionKind | null>(m.my_reaction ?? null);
+  const [busy, setBusy] = useState(false);
+  const canReact = !!online && !m.mine;
+  if (!m.reactions) return null; // 서버에 017이 아직 없음
+  const shown = canReact ? REACTIONS : REACTIONS.filter((r) => counts[r.kind]);
+  if (!shown.length) return null;
+
+  const press = async (kind: ReactionKind) => {
+    if (!online || busy) return;
+    const before = { counts, mine };
+    const next = toggleReaction(counts, mine, kind);
+    setCounts(next.counts);
+    setMine(next.mine);
+    setBusy(true);
+    try {
+      const r = await rpc<{ reactions: ReactionCounts; mine: ReactionKind | null }>('react_memo', { p_key: online.key, p_memo_id: m.id, p_kind: kind });
+      setCounts(r.reactions ?? {});
+      setMine(r.mine ?? null);
+    } catch (e) {
+      setCounts(before.counts);
+      setMine(before.mine);
+      toast(errText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="sm-reactions" role="group" aria-label="반응">
+      {shown.map((r) => {
+        const n = counts[r.kind] ?? 0;
+        const label = `${r.label}${n ? ` ${n}명` : ''}`;
+        return canReact ? (
+          <button key={r.kind} className={`react-btn ${mine === r.kind ? 'on' : ''}`} aria-pressed={mine === r.kind} aria-label={label} onClick={() => void press(r.kind)}>
+            <span aria-hidden="true">{r.emoji}</span> {r.label}{n > 0 && <b>{n}</b>}
+          </button>
+        ) : (
+          <span key={r.kind} className="react-btn static" aria-label={label}>
+            <span aria-hidden="true">{r.emoji}</span> {r.label}<b>{n}</b>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function MemoCard({ m, seen }: { m: SharedMemo; seen: number }) {
   const n = m.hits.filter(Boolean).length;
   const [open, setOpen] = useState(false);
@@ -168,6 +221,7 @@ function MemoCard({ m, seen }: { m: SharedMemo; seen: number }) {
       </div>
       {m.memo && <div className="sm-text">{m.memo}</div>}
       {m.tags.length > 0 && <div className="sm-tags">{m.tags.map((t) => <span key={t} className="pill tag">#{t}</span>)}</div>}
+      <Reactions m={m} />
       <div className="row between sm-actions">
         <button className="comment-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
           {open ? '댓글 접기' : count > 0 ? `댓글 ${count}개` : '댓글 달기'}
