@@ -683,10 +683,10 @@ nav.tabs .tab-icon .dot { position: absolute; top: -1px; right: -5px; width: 9px
 
 /* 등급 과녁과 대표 칭호 */
 .grade-mark { flex: none; vertical-align: middle; }
-.grade-card .grade-main { display: flex; align-items: center; gap: 14px; }
-.grade-card .grade-text { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
-.grade-card .grade-name { font-family: var(--font-display); font-size: 22px; }
-.grade-card .ink { color: var(--ink); }
+.grade-card .grade-main, .grade-sheet .grade-main { display: flex; align-items: center; gap: 14px; }
+.grade-card .grade-text, .grade-sheet .grade-text { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+.grade-card .grade-name, .grade-sheet .grade-name { font-family: var(--font-display); font-size: 22px; }
+.grade-card .ink, .grade-sheet .ink { color: var(--ink); }
 .grade-card .title-row { border-top: 1px solid var(--line); padding-top: 10px; }
 .ach-track .fill.wood { background: #8A5A33; }
 .ach-track .fill.iron { background: #5E6268; }
@@ -695,11 +695,17 @@ nav.tabs .tab-icon .dot { position: absolute; top: -1px; right: -5px; width: 9px
 .ach-track .fill.gold { background: #D9A52E; }
 .grade-steps { list-style: none; padding: 0; margin: 4px 0; display: flex; flex-direction: column; gap: 6px; }
 .grade-steps li { display: flex; align-items: center; gap: 8px; }
+.dan-steps { flex-direction: row; flex-wrap: wrap; gap: 10px 16px; }
 .pill.title { background: #FBF1D6; color: #7A5410; border: 1px solid #E8D29A; }
 .pill.title.big { margin-left: 0; font-size: 12px; padding: 2px 10px; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pill.title { background: #3A2F15; color: #F0D48A; border-color: #5C4A1E; } }
 :root[data-theme="dark"] .pill.title { background: #3A2F15; color: #F0D48A; border-color: #5C4A1E; }
 .rank-grade { margin-right: -4px; }
+.who-grade { margin-right: 3px; }
+.grade-btn { flex: none; display: inline-flex; padding: 0; border: 0; background: none; border-radius: 6px; cursor: pointer; }
+.grade-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.grade-sheet { display: grid; gap: 10px; }
+.grade-sheet h3 { margin: 6px 0 0; font-size: 15px; }
 .rank-row .who { display: flex; flex-direction: column; gap: 2px; }
 .rank-row .who-name, .rank-row .who-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rank-row .who-sub { display: flex; align-items: center; gap: 6px; }

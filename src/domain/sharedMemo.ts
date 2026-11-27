@@ -125,6 +125,8 @@ export interface SharedMemo {
   reaction_last?: ReactionCounts | null;
   /** 내 메모만: 신고가 많아 다른 사람에게 숨겨졌다 (서버 019) */
   report_hidden?: boolean;
+  /** 글을 올릴 때 글쓴이의 등급 1~5 (서버 020). 그 전에 올린 글이나 등급이 없던 궁사는 null */
+  grade?: number | null;
 }
 
 /** 신고가 이 수를 넘은 메모·댓글은 글쓴이와 관리자만 본다 (서버 _report_hide_limit와 같은 값) */
@@ -201,6 +203,8 @@ export interface MemoComment {
   my_reactions?: ReactionKind[];
   /** 내 댓글만: 신고가 많아 다른 사람에게 숨겨졌다 (서버 019) */
   report_hidden?: boolean;
+  /** 댓글을 달 때 글쓴이의 등급 1~5 (서버 020) */
+  grade?: number | null;
 }
 
 /** 댓글은 한 번에 이만큼씩 (최근 것부터) */

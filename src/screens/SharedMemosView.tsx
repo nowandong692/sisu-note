@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { danShort } from '../domain/dan';
+import { GradeMark } from '../components/GradeMark';
+import { gradeByLevel } from '../domain/grade';
 import { AutoTextarea, ConfirmButton, toast } from '../components/ui';
 import { ReactionBar, ReactionPicker, useHoldToReact, useReactionToggle } from '../components/Reactions';
 import { agoLabel, cleanComment, COMMENT_MAX, COMMENT_PAGE, hasNewComment, lastReactionOf, myReactionsOf, newReactionKinds, newsText, olderCommentCount, shouldReplacePage, REPORT_REASONS, type MemoComment, type SharedMemo } from '../domain/sharedMemo';
@@ -49,6 +51,7 @@ function CommentItem({ c, memoOwner, onRemove }: { c: MemoComment; memoOwner: st
   return (
     <li className={`${c.mine ? 'me' : ''} ${canReact ? 'holdable' : ''}`} {...hold}>
       <div className="c-head">
+        {gradeByLevel(c.grade) && <GradeMark grade={gradeByLevel(c.grade)} dan={c.dan} size={18} className="who-grade" />}
         <b>{c.nickname}</b>{c.dan ? <span className="pill dan">{danShort(c.dan)}</span> : null}
         {c.nickname === memoOwner && <span className="pill best">글쓴이</span>}
         {c.range_name && <span className="small muted"> · {c.range_name}</span>}
@@ -168,6 +171,7 @@ function MemoCard({ m, seen, seenReaction }: { m: SharedMemo; seen: number; seen
     <li className={`shared-memo ${m.mine ? 'me' : ''}`}>
       <div className={`sm-main ${canReact ? 'holdable' : ''}`} {...hold}>
       <div className="sm-who">
+        {gradeByLevel(m.grade) && <GradeMark grade={gradeByLevel(m.grade)} dan={m.dan} size={20} className="who-grade" />}
         <b>{m.nickname}</b>{m.dan ? <span className="pill dan">{danShort(m.dan)}</span> : null}{m.mine && <span className="pill best">나</span>}
         {m.range_name && <span className="small muted"> · {m.range_name}</span>}
         <span className="sm-ago small muted">{agoLabel(m.created_at)}</span>
