@@ -4,7 +4,7 @@ import { NicknameField, type NickStatus } from '../components/NicknameField';
 import { cleanNickname, nicknameProblem } from '../domain/nickname';
 import { onlineAvailable } from '../platform/online';
 import { CodeSheet, RestoreForm } from './RankingScreen';
-import { ConfirmButton, Sheet, toast } from '../components/ui';
+import { ConfirmButton, InfoTitle, Sheet, toast } from '../components/ui';
 import { endsToCsv } from '../domain/csv';
 import { sampleEndIds } from '../domain/sample';
 import { DAN_LEVELS, DAN_ORGS, danLabel, validDan, type DanOrg } from '../domain/dan';
@@ -182,7 +182,9 @@ function MemoTagSection() {
   const missing = MEMO_TAGS.filter((t) => !list.includes(t)).length;
   return (
     <section className="card">
-      <h2>메모 태그</h2>
+      <InfoTitle title="메모 태그">
+        태그를 빼도 이미 붙인 순의 태그는 지우지 않습니다. 메모 모아보기에서 그대로 찾을 수 있고, 그 순을 고칠 때도 보입니다. 태그는 이 기기에만 저장되고 서버에 올리지 않습니다.
+      </InfoTitle>
       {list.length ? (
         <ul className="tag-list">
           {list.map((t, i) => {
@@ -207,7 +209,6 @@ function MemoTagSection() {
       {err && <div className="small err-text" role="alert">{err}</div>}
       {missing > 0 && <button className="btn ghost small" onClick={() => void save(restoreDefaults(list)).then(() => toast('기본 태그를 되살렸습니다'))}>기본 태그 되살리기 ({missing}개)</button>}
       {deleting && <TagDeleteSheet tag={deleting} onClose={() => setDeleting(null)} />}
-      <div className="small muted">태그를 빼도 이미 붙인 순의 태그는 지우지 않습니다. 메모 모아보기에서 그대로 찾을 수 있고, 그 순을 고칠 때도 보입니다. 태그는 이 기기에만 저장되고 서버에 올리지 않습니다.</div>
     </section>
   );
 }
@@ -279,8 +280,7 @@ export function SettingsScreen() {
       <MemoTagSection />
       <AppearanceSection />
       <section className="card">
-        <h2>데이터</h2>
-        <div className="small muted">순 기록은 이 기기에만 저장됩니다. 가끔 CSV로 내보내 백업해 두세요. 장비와 설정은 랭킹에 참여 중이면 서버에 백업되어, 브라우저 저장소가 지워져도 복구 코드나 연결해 둔 카카오·구글 로그인으로 되찾을 수 있습니다. "기록만 지우기"는 순 기록만, "모든 데이터 지우기"는 장비까지 지웁니다. 누르면 무엇이 지워지는지 먼저 보여 줍니다.</div>
+        <InfoTitle title="데이터">순 기록은 이 기기에만 저장됩니다. 가끔 CSV로 내보내 백업해 두세요. 장비와 설정은 랭킹에 참여 중이면 서버에 백업되어, 브라우저 저장소가 지워져도 복구 코드나 연결해 둔 카카오·구글 로그인으로 되찾을 수 있습니다. "기록만 지우기"는 순 기록만, "모든 데이터 지우기"는 장비까지 지웁니다. 누르면 무엇이 지워지는지 먼저 보여 줍니다.</InfoTitle>
         <div className="row">
           <button className="btn ghost small" disabled={!ends.length} onClick={() => saveTextFile(`국궁록-${today()}.csv`, endsToCsv(ends, gear, store.ranges, store.settings.hand))}>CSV 내보내기</button>
           {hasSample && <button className="btn ghost small" onClick={() => setWarn('sample')}>예시 기록 빼기</button>}

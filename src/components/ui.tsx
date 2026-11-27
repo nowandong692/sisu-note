@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from 'react';
+import { INFO } from './icons';
 
 /*
  * 휴대폰의 뒤로 가기로 창(시트)을 닫는다. 창을 열 때 방문 기록을 한 칸 넣고,
@@ -121,6 +122,21 @@ export function HelpButton({ title, children }: { title: string; children: React
           <button className="btn" onClick={() => setOpen(false)}>확인</button>
         </Sheet>
       )}
+    </>
+  );
+}
+
+/** 카드 제목과 (i) 버튼. 누르면 제목 아래에 설명을 펼치고, 다시 누르면 접는다. */
+export function InfoTitle({ title, children }: { title: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  return (
+    <>
+      <div className="row between">
+        <h2>{title}</h2>
+        <button className={`act-btn ${open ? 'on' : ''}`} aria-label={`${title} 설명`} aria-expanded={open} aria-controls={id} title="설명" onClick={() => setOpen((v) => !v)}>{INFO}</button>
+      </div>
+      {open && <div id={id} className="small muted">{children}</div>}
     </>
   );
 }

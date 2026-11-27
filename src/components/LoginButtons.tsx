@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Sheet, toast } from './ui';
-import { INFO } from './icons';
+import { InfoTitle, Sheet, toast } from './ui';
 import {
   LOGINS_CHANGED as CHANGED, PROVIDER_NAME, loginProviders, myLogins, startLogin, unlinkLogin,
   type LoginProvider, type LoginPurpose,
@@ -56,7 +55,6 @@ export function LoginSection() {
   const [err, setErr] = useState('');
   const [asking, setAsking] = useState<LoginProvider | null>(null);
   const [busy, setBusy] = useState(false);
-  const [info, setInfo] = useState(false);
   const key = o?.key;
   useEffect(() => {
     if (!key) return;
@@ -80,14 +78,10 @@ export function LoginSection() {
   const notLinked = providers.map((p) => p.provider).filter((p) => !linked?.includes(p));
   return (
     <section className="card">
-      <div className="row between">
-        <h2>로그인 연결</h2>
-        <button className={`act-btn ${info ? 'on' : ''}`} aria-label="로그인 연결 설명" aria-expanded={info} aria-controls="login-info" title="설명" onClick={() => setInfo((v) => !v)}>{INFO}</button>
-      </div>
-      {info && <div id="login-info" className="small muted">
+      <InfoTitle title="로그인 연결">
         카카오나 구글 계정을 연결해 두면, 브라우저 기록을 지우거나 휴대폰을 바꿔도 그 계정으로 로그인만 하면 닉네임과 기록을 되찾습니다.
         이메일·이름·전화번호는 받지 않고, 계정마다 다른 번호를 알아볼 수 없게 바꾼 값만 서버에 둡니다. 복구 코드도 그대로 쓸 수 있습니다.
-      </div>}
+      </InfoTitle>
       {linked && linked.length > 0 && (
         <ul className="login-linked">
           {linked.map((p) => (
