@@ -118,7 +118,8 @@ function TodayTarget({ ends, onRemoveShot, topHeight }: { ends: End[]; onRemoveS
   return (
     <div className="today-target">
       {/* 입력 과녁의 시 칸·버튼 줄과 같은 높이로 두어 전환해도 과녁이 제자리에 있게 한다. 순이 많아도 옆으로 밀리지 않는다 */}
-      <div className="target-top" style={topHeight ? { height: topHeight } : undefined}>
+      {/* 순이 10개를 넘어 색 칸이 두 줄이 되면 그만큼만 높아진다 */}
+      <div className={`target-top ${ends.length > 10 ? 'multi' : ''}`} style={topHeight ? { minHeight: topHeight } : undefined}>
         <div className="end-step">
           <button className="btn ghost small" aria-label="앞 순" onClick={() => setSel(selIdx <= 0 ? (selIdx === 0 ? null : ends[ends.length - 1].id) : ends[selIdx - 1].id)}>‹</button>
           <button className="end-step-now" onClick={() => setSel(null)} aria-label="모든 순 보기">
