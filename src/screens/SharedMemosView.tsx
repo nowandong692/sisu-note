@@ -57,6 +57,7 @@ function CommentItem({ c, memoOwner, onRemove }: { c: MemoComment; memoOwner: st
         {c.can_delete && <ConfirmButton className="act-btn danger small-del" label="지우기" confirmLabel="지우기 확인" ariaLabel={`${c.nickname}님 댓글 지우기`} onConfirm={onRemove} />}
       </div>
       <div className="c-body">{c.body}</div>
+      {c.report_hidden && <div className="small err-text">신고가 많아 다른 사람에게는 보이지 않습니다.</div>}
       <ReactionBar counts={r.counts} mine={r.mine} canReact={canReact} onToggle={(k) => void r.toggle(k)} />
       {picking && <ReactionPicker mine={r.mine} onPick={(k) => void r.toggle(k)} onClose={() => setPicking(false)} />}
     </li>
@@ -187,6 +188,7 @@ function MemoCard({ m, seen, seenReaction }: { m: SharedMemo; seen: number; seen
         {hasNewComment(m, seen) && <span className="pill best">새 댓글</span>}
         {fresh.length > 0 && <span className="pill best">새 반응</span>}
       </div>
+      {m.report_hidden && <div className="small err-text">신고가 많아 다른 사람에게는 보이지 않습니다. 관리자가 확인합니다.</div>}
       {m.memo && <div className="sm-text">{m.memo}</div>}
       {m.tags.length > 0 && <div className="sm-tags">{m.tags.map((t) => <span key={t} className="pill tag">#{t}</span>)}</div>}
       </div>
