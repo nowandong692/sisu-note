@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { danShort } from '../domain/dan';
 import { AutoTextarea, ConfirmButton, toast } from '../components/ui';
-import { agoLabel, cleanComment, COMMENT_MAX, COMMENT_PAGE, hasNewComment, lastReactionOf, newReactionKinds, newsText, olderCommentCount, shouldReplacePage, REACTIONS, REPORT_REASONS, toggleReaction, type MemoComment, type ReactionCounts, type ReactionKind, type SharedMemo } from '../domain/sharedMemo';
+import { ReactionBar, ReactionPicker, useHoldToReact, useReactionToggle } from '../components/Reactions';
+import { agoLabel, cleanComment, COMMENT_MAX, COMMENT_PAGE, hasNewComment, lastReactionOf, myReactionsOf, newReactionKinds, newsText, olderCommentCount, shouldReplacePage, REPORT_REASONS, type MemoComment, type SharedMemo } from '../domain/sharedMemo';
 import { formatDate } from '../domain/util';
 import { onlineAvailable, rpc } from '../platform/online';
 import { useStore } from '../state/store';
@@ -35,6 +36,30 @@ function ReportButton({ memoId, commentId, who }: { memoId?: number; commentId?:
       {REPORT_REASONS.map((r) => <button key={r} className="chip" onClick={() => void send(r)}>{r}</button>)}
       <button className="chip quiet" onClick={() => setOpen(false)}>취소</button>
     </div>
+  );
+}
+
+/** 댓글 하나. 남의 댓글은 길게 눌러 반응을 고르고, 보이는 반응을 눌러 더하거나 취소한다 */
+function CommentItem({ c, memoOwner, onRemove }: { c: MemoComment; memoOwner: string; onRemove: () => void }) {
+  const { online } = useStore();
+  const r = useReactionToggle(c.reactions, c.my_reactions ?? [], 'react_comment', { p_comment_id: c.id });
+  const canReact = !!online && !c.mine && c.reactions !== undefined;
+  const [picking, setPicking] = useState(false);
+  const hold = useHoldToReact(() => setPicking(true), canReact);
+  return (
+    <li className={`${c.mine ? 'me' : ''} ${canReact ? 'holdable' : ''}`} {...hold}>
+      <div className="c-head">
+        <b>{c.nickname}</b>{c.dan ? <span className="pill dan">{danShort(c.dan)}</span> : null}
+        {c.nickname === memoOwner && <span className="pill best">글쓴이</span>}
+        {c.range_name && <span className="small muted"> · {c.range_name}</span>}
+        <span className="small muted c-ago">{agoLabel(c.created_at)}</span>
+        {!c.mine && !c.can_delete && <ReportButton commentId={c.id} who={c.nickname} />}
+        {c.can_delete && <ConfirmButton className="act-btn danger small-del" label="지우기" confirmLabel="지우기 확인" ariaLabel={`${c.nickname}님 댓글 지우기`} onConfirm={onRemove} />}
+      </div>
+      <div className="c-body">{c.body}</div>
+      <ReactionBar counts={r.counts} mine={r.mine} canReact={canReact} onToggle={(k) => void r.toggle(k)} />
+      {picking && <ReactionPicker mine={r.mine} onPick={(k) => void r.toggle(k)} onClose={() => setPicking(false)} />}
+    </li>
   );
 }
 
@@ -107,19 +132,7 @@ function Comments({ m, onCount }: { m: SharedMemo; onCount: (n: number) => void 
       )}
       {list && list.length > 0 && (
         <ol className="comment-list">
-          {list.map((c) => (
-            <li key={c.id} className={c.mine ? 'me' : ''}>
-              <div className="c-head">
-                <b>{c.nickname}</b>{c.dan ? <span className="pill dan">{danShort(c.dan)}</span> : null}
-                {c.nickname === m.nickname && <span className="pill best">글쓴이</span>}
-                {c.range_name && <span className="small muted"> · {c.range_name}</span>}
-                <span className="small muted c-ago">{agoLabel(c.created_at)}</span>
-                {!c.mine && !c.can_delete && <ReportButton commentId={c.id} who={c.nickname} />}
-                {c.can_delete && <ConfirmButton className="act-btn danger small-del" label="지우기" confirmLabel="지우기 확인" ariaLabel={`${c.nickname}님 댓글 지우기`} onConfirm={() => void remove(c)} />}
-              </div>
-              <div className="c-body">{c.body}</div>
-            </li>
-          ))}
+          {list.map((c) => <CommentItem key={c.id} c={c} memoOwner={m.nickname} onRemove={() => void remove(c)} />)}
         </ol>
       )}
       {err && <div className="small err-text" role="alert">{err}</div>}
@@ -140,66 +153,19 @@ function Comments({ m, onCount }: { m: SharedMemo; onCount: (n: number) => void 
   );
 }
 
-/**
- * 메모 반응: 좋아요, 슬퍼요, 넵!, 감사해요. 한 사람이 하나만 (다시 누르면 취소, 다른 것을 누르면 바뀐다).
- * 내 메모이거나 닉네임이 없으면 누를 수 없고, 받은 반응 수만 보인다.
- */
-function Reactions({ m, fresh }: { m: SharedMemo; fresh: ReactionKind[] }) {
-  const { online } = useStore();
-  const [counts, setCounts] = useState<ReactionCounts>(m.reactions ?? {});
-  const [mine, setMine] = useState<ReactionKind | null>(m.my_reaction ?? null);
-  const [busy, setBusy] = useState(false);
-  const canReact = !!online && !m.mine;
-  if (!m.reactions) return null; // 서버에 017이 아직 없음
-  const shown = canReact ? REACTIONS : REACTIONS.filter((r) => counts[r.kind]);
-  if (!shown.length) return null;
-
-  const press = async (kind: ReactionKind) => {
-    if (!online || busy) return;
-    const before = { counts, mine };
-    const next = toggleReaction(counts, mine, kind);
-    setCounts(next.counts);
-    setMine(next.mine);
-    setBusy(true);
-    try {
-      const r = await rpc<{ reactions: ReactionCounts; mine: ReactionKind | null }>('react_memo', { p_key: online.key, p_memo_id: m.id, p_kind: kind });
-      setCounts(r.reactions ?? {});
-      setMine(r.mine ?? null);
-    } catch (e) {
-      setCounts(before.counts);
-      setMine(before.mine);
-      toast(errText(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="sm-reactions" role="group" aria-label="반응">
-      {shown.map((r) => {
-        const n = counts[r.kind] ?? 0;
-        const label = `${r.label}${n ? ` ${n}명` : ''}`;
-        return canReact ? (
-          <button key={r.kind} className={`react-btn ${mine === r.kind ? 'on' : ''}`} aria-pressed={mine === r.kind} aria-label={label} title={r.label} onClick={() => void press(r.kind)}>
-            <span aria-hidden="true">{r.emoji}</span>{n > 0 && <b>{n}</b>}
-          </button>
-        ) : (
-          <span key={r.kind} className={`react-btn static ${fresh.includes(r.kind) ? 'new' : ''}`} aria-label={fresh.includes(r.kind) ? `${label}, 새 반응` : label} title={r.label}>
-            <span aria-hidden="true">{r.emoji}</span><b>{n}</b>
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
 function MemoCard({ m, seen, seenReaction }: { m: SharedMemo; seen: number; seenReaction: number }) {
+  const { online } = useStore();
   const fresh = newReactionKinds(m, seenReaction);
+  const r = useReactionToggle(m.reactions, myReactionsOf(m), 'react_memo', { p_memo_id: m.id });
+  const canReact = !!online && !m.mine && m.reactions !== undefined; // 서버에 017이 없으면 반응을 쓰지 않는다
+  const [picking, setPicking] = useState(false);
+  const hold = useHoldToReact(() => setPicking(true), canReact);
   const n = m.hits.filter(Boolean).length;
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(m.comments ?? 0);
   return (
     <li className={`shared-memo ${m.mine ? 'me' : ''}`}>
+      <div className={`sm-main ${canReact ? 'holdable' : ''}`} {...hold}>
       <div className="sm-who">
         <b>{m.nickname}</b>{m.dan ? <span className="pill dan">{danShort(m.dan)}</span> : null}{m.mine && <span className="pill best">나</span>}
         {m.range_name && <span className="small muted"> · {m.range_name}</span>}
@@ -223,11 +189,16 @@ function MemoCard({ m, seen, seenReaction }: { m: SharedMemo; seen: number; seen
       </div>
       {m.memo && <div className="sm-text">{m.memo}</div>}
       {m.tags.length > 0 && <div className="sm-tags">{m.tags.map((t) => <span key={t} className="pill tag">#{t}</span>)}</div>}
-      <Reactions m={m} fresh={fresh} />
+      </div>
+      <ReactionBar counts={r.counts} mine={r.mine} canReact={canReact} fresh={fresh} onToggle={(k) => void r.toggle(k)} />
+      {picking && <ReactionPicker mine={r.mine} onPick={(k) => void r.toggle(k)} onClose={() => setPicking(false)} />}
       <div className="row between sm-actions">
-        <button className="comment-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-          {open ? '댓글 접기' : count > 0 ? `댓글 ${count}개` : '댓글 달기'}
-        </button>
+        <div className="row sm-acts-left">
+          <button className="comment-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+            {open ? '댓글 접기' : count > 0 ? `댓글 ${count}개` : '댓글 달기'}
+          </button>
+          {canReact && <button className="comment-toggle react-add" aria-expanded={picking} onClick={() => setPicking(!picking)}>반응하기</button>}
+        </div>
         {!m.mine && <ReportButton memoId={m.id} who={m.nickname} />}
       </div>
       {open && <Comments m={m} onCount={setCount} />}

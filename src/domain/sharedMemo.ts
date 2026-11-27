@@ -118,13 +118,14 @@ export interface SharedMemo {
   hit_count?: number | null;
   /** 반응 수 (서버에 017이 없으면 없음 = 반응 버튼을 보이지 않는다) */
   reactions?: ReactionCounts;
-  /** 내가 누른 반응 */
+  /** 내가 누른 반응들 (018). 017 서버는 하나만 my_reaction으로 준다 */
+  my_reactions?: ReactionKind[];
   my_reaction?: ReactionKind | null;
   /** 내 메모만: 반응마다 가장 최근 번호 (새 반응 표시용) */
   reaction_last?: ReactionCounts | null;
 }
 
-/** 메모에 남기는 반응. 한 메모에 한 사람이 하나 */
+/** 메모와 댓글에 남기는 반응. 한 사람이 종류마다 한 번씩 (여러 개 함께 가능) */
 export const REACTIONS = [
   { kind: 'like', emoji: '👍', label: '좋아요' },
   { kind: 'sad', emoji: '😢', label: '슬퍼요' },
@@ -135,20 +136,23 @@ export type ReactionKind = (typeof REACTIONS)[number]['kind'];
 export type ReactionCounts = Partial<Record<ReactionKind, number>>;
 
 /**
- * 반응을 눌렀을 때 바로 보일 상태 (서버 답을 기다리지 않고). 같은 반응을 다시 누르면 취소, 다른 반응이면 바꾼다.
- * 서버(react_memo)도 같은 규칙이다.
+ * 반응을 눌렀을 때 바로 보일 상태 (서버 답을 기다리지 않고). 이미 남긴 반응이면 취소, 아니면 하나 더한다.
+ * 다른 반응은 그대로 둔다. 서버(react_memo, react_comment)도 같은 규칙이다.
  */
-export function toggleReaction(counts: ReactionCounts, mine: ReactionKind | null, pressed: ReactionKind): { counts: ReactionCounts; mine: ReactionKind | null } {
+export function toggleReaction(counts: ReactionCounts, mine: ReactionKind[], pressed: ReactionKind): { counts: ReactionCounts; mine: ReactionKind[] } {
   const next: ReactionCounts = { ...counts };
-  const bump = (k: ReactionKind, d: number) => {
-    const n = Math.max(0, (next[k] ?? 0) + d);
-    if (n) next[k] = n; else delete next[k];
-  };
-  if (mine) bump(mine, -1);
-  if (mine === pressed) return { counts: next, mine: null };
-  bump(pressed, 1);
-  return { counts: next, mine: pressed };
+  const had = mine.includes(pressed);
+  const n = Math.max(0, (next[pressed] ?? 0) + (had ? -1 : 1));
+  if (n) next[pressed] = n; else delete next[pressed];
+  return { counts: next, mine: had ? mine.filter((k) => k !== pressed) : [...mine, pressed] };
 }
+
+/** 서버가 준 내 반응 (018은 목록, 017은 하나) */
+export const myReactionsOf = (x: { my_reactions?: ReactionKind[] | null; my_reaction?: ReactionKind | null }): ReactionKind[] =>
+  x.my_reactions ?? (x.my_reaction ? [x.my_reaction] : []);
+
+/** 보일 반응: 누른 사람이 있는 것만, 정해진 차례대로 */
+export const shownReactions = (counts: ReactionCounts) => REACTIONS.filter((r) => (counts[r.kind] ?? 0) > 0);
 
 /** 내 메모에 새 댓글이 있는가: 남이 단 가장 최근 댓글이 내가 본 것보다 뒤 */
 export const hasNewComment = (m: Pick<SharedMemo, 'mine' | 'last_comment'>, seen: number) => m.mine && (m.last_comment ?? 0) > seen;
@@ -187,6 +191,9 @@ export interface MemoComment {
   can_delete: boolean;
   /** 이 메모에서 내가 볼 수 있는 댓글 전체 수 (서버에 011이 없으면 없음) */
   total?: number;
+  /** 반응 수 (서버에 018이 없으면 없음 = 댓글 반응을 쓰지 않는다) */
+  reactions?: ReactionCounts;
+  my_reactions?: ReactionKind[];
 }
 
 /** 댓글은 한 번에 이만큼씩 (최근 것부터) */

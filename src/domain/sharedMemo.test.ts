@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agoLabel, cleanComment, dayClientId, dayShareArgs, dayShareStateOf, defaultShare, hasNewComment, endNoOf, olderCommentCount, shouldReplacePage, isDayClientId, needsShareConfirm, shareAudience, shareArgs, shareStateOf, shareTouched, toggleReaction, newReactionKinds, lastReactionOf, newsText } from './sharedMemo';
+import { agoLabel, cleanComment, dayClientId, dayShareArgs, dayShareStateOf, defaultShare, hasNewComment, endNoOf, olderCommentCount, shouldReplacePage, isDayClientId, needsShareConfirm, shareAudience, shareArgs, shareStateOf, shareTouched, toggleReaction, myReactionsOf, shownReactions, newReactionKinds, lastReactionOf, newsText } from './sharedMemo';
 import type { End, Shot } from './types';
 
 const shot = (hit: boolean): Shot => ({ hit, x: null, y: null, zone: null, side: null, level: null, direction: null });
@@ -153,17 +153,25 @@ describe('글이 많아질 때', () => {
 });
 
 describe('메모 반응', () => {
-  it('처음 누르면 하나 늘고 내 반응이 된다', () => {
-    expect(toggleReaction({}, null, 'like')).toEqual({ counts: { like: 1 }, mine: 'like' });
+  it('처음 누르면 하나 늘고 내 반응에 들어간다', () => {
+    expect(toggleReaction({}, [], 'like')).toEqual({ counts: { like: 1 }, mine: ['like'] });
   });
-  it('같은 반응을 다시 누르면 취소된다', () => {
-    expect(toggleReaction({ like: 1, thanks: 2 }, 'like', 'like')).toEqual({ counts: { thanks: 2 }, mine: null });
+  it('다시 누르면 그 반응만 취소된다', () => {
+    expect(toggleReaction({ like: 1, thanks: 2 }, ['like', 'thanks'], 'like')).toEqual({ counts: { thanks: 2 }, mine: ['thanks'] });
   });
-  it('다른 반응을 누르면 바뀐다', () => {
-    expect(toggleReaction({ like: 3 }, 'like', 'sad')).toEqual({ counts: { like: 2, sad: 1 }, mine: 'sad' });
+  it('다른 반응은 함께 남길 수 있다', () => {
+    expect(toggleReaction({ like: 3 }, ['like'], 'sad')).toEqual({ counts: { like: 3, sad: 1 }, mine: ['like', 'sad'] });
   });
   it('서버 수가 내 반응보다 적어도 음수가 되지 않는다', () => {
-    expect(toggleReaction({}, 'yes', 'yes')).toEqual({ counts: {}, mine: null });
+    expect(toggleReaction({}, ['yes'], 'yes')).toEqual({ counts: {}, mine: [] });
+  });
+  it('017 서버의 하나짜리 내 반응도 읽는다', () => {
+    expect(myReactionsOf({ my_reaction: 'sad' })).toEqual(['sad']);
+    expect(myReactionsOf({ my_reactions: ['like', 'yes'] })).toEqual(['like', 'yes']);
+    expect(myReactionsOf({})).toEqual([]);
+  });
+  it('누른 사람이 있는 반응만 정해진 차례로 보인다', () => {
+    expect(shownReactions({ thanks: 1, like: 2, sad: 0 }).map((r) => r.kind)).toEqual(['like', 'thanks']);
   });
 });
 
