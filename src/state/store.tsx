@@ -98,6 +98,10 @@ export interface Store extends Data {
   refreshCommentNews(): Promise<void>;
   /** 내 메모 댓글을 여기까지 봤다고 적어 둔다 */
   markCommentsSeen(latest: number): Promise<void>;
+  /** 내 메모에 남이 남긴 새 반응 (빨간 점에 함께 센다). latest: 가장 최근 반응 번호 */
+  reactionNews: { unread: number; latest: number };
+  /** 내 메모 반응을 여기까지 봤다고 적어 둔다 */
+  markReactionsSeen(latest: number): Promise<void>;
   /** 새로 참여: 복구 코드를 만들고 닉네임을 등록한다 */
   joinOnline(nickname: string, rangeName: string | null): Promise<void>;
   /** 다른 기기에서 쓰던 복구 코드로 이어 하기. 서버의 장비·설정 백업과 순 기록 백업(없으면 랭킹에 올린 순)을 함께 되살린다 */
@@ -214,19 +218,31 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
   }, [updateSettings]);
 
   const [commentNews, setCommentNews] = useState({ unread: 0, latest: 0 });
+  const [reactionNews, setReactionNews] = useState({ unread: 0, latest: 0 });
   /** 내 메모의 새 댓글 수. 서버에 009가 없거나 인터넷이 없으면 조용히 그대로 둔다 */
   const refreshCommentNews = useCallback(async () => {
     const o = settingsRef.current.online;
-    if (!o || !onlineAvailable()) { setCommentNews({ unread: 0, latest: 0 }); return; }
-    try {
-      const rows = await rpc<{ latest: number | null; unread: number }[]>('comment_news', { p_key: o.key, p_after: settingsRef.current.commentSeen ?? 0 });
-      setCommentNews({ unread: rows[0]?.unread ?? 0, latest: rows[0]?.latest ?? 0 });
-    } catch { /* 다음에 다시 묻는다 */ }
+    if (!o || !onlineAvailable()) { setCommentNews({ unread: 0, latest: 0 }); setReactionNews({ unread: 0, latest: 0 }); return; }
+    const ask = async (fn: string, after: number, set: (v: { unread: number; latest: number }) => void) => {
+      try {
+        const rows = await rpc<{ latest: number | null; unread: number }[]>(fn, { p_key: o.key, p_after: after });
+        set({ unread: rows[0]?.unread ?? 0, latest: rows[0]?.latest ?? 0 });
+      } catch { /* 다음에 다시 묻는다 (반응은 서버에 017이 없으면 조용히 넘어간다) */ }
+    };
+    await Promise.all([
+      ask('comment_news', settingsRef.current.commentSeen ?? 0, setCommentNews),
+      ask('reaction_news', settingsRef.current.reactionSeen ?? 0, setReactionNews),
+    ]);
   }, []);
   const markCommentsSeen = useCallback(async (latest: number) => {
     if (latest <= (settingsRef.current.commentSeen ?? 0)) return;
     await updateSettings({ commentSeen: latest });
     setCommentNews((p) => ({ ...p, unread: 0 }));
+  }, [updateSettings]);
+  const markReactionsSeen = useCallback(async (latest: number) => {
+    if (latest <= (settingsRef.current.reactionSeen ?? 0)) return;
+    await updateSettings({ reactionSeen: latest });
+    setReactionNews((p) => ({ ...p, unread: 0 }));
   }, [updateSettings]);
 
   const flushingMemos = useRef(false);
@@ -657,6 +673,8 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
     commentNews,
     refreshCommentNews,
     markCommentsSeen,
+    reactionNews,
+    markReactionsSeen,
     async joinOnline(raw, rangeName) {
       const nickname = cleanNickname(raw);
       const key = newRecoveryCode();
@@ -753,7 +771,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
       await updateSettings({ current: { bow: null, ring: null, arrow: null } });
       await enqueueMemos([...data.ends.filter((e) => e.share).map((e) => e.id), ...data.days.filter((d) => d.share).map((d) => dayClientId(d.date))]);
     },
-  }), [data, repo, updateSettings, todayWeather, editId, pastDate, setPastDate, ranges, unknownSpot, rangeOffer, noticePosition, enqueue, enqueueMemos, sharedDayIds, commentNews, refreshCommentNews, markCommentsSeen, pullRecords, myGrade, myTitle]);
+  }), [data, repo, updateSettings, todayWeather, editId, pastDate, setPastDate, ranges, unknownSpot, rangeOffer, noticePosition, enqueue, enqueueMemos, sharedDayIds, commentNews, refreshCommentNews, markCommentsSeen, reactionNews, markReactionsSeen, pullRecords, myGrade, myTitle]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

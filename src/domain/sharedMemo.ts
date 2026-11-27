@@ -116,10 +116,56 @@ export interface SharedMemo {
   /** 하루 메모만: 그날 쏜 순 수와 관중 수 */
   ends?: number | null;
   hit_count?: number | null;
+  /** 반응 수 (서버에 017이 없으면 없음 = 반응 버튼을 보이지 않는다) */
+  reactions?: ReactionCounts;
+  /** 내가 누른 반응 */
+  my_reaction?: ReactionKind | null;
+  /** 내 메모만: 반응마다 가장 최근 번호 (새 반응 표시용) */
+  reaction_last?: ReactionCounts | null;
+}
+
+/** 메모에 남기는 반응. 한 메모에 한 사람이 하나 */
+export const REACTIONS = [
+  { kind: 'like', emoji: '👍', label: '좋아요' },
+  { kind: 'sad', emoji: '😢', label: '슬퍼요' },
+  { kind: 'yes', emoji: '🙆', label: '넵!' },
+  { kind: 'thanks', emoji: '🙏', label: '감사해요' },
+] as const;
+export type ReactionKind = (typeof REACTIONS)[number]['kind'];
+export type ReactionCounts = Partial<Record<ReactionKind, number>>;
+
+/**
+ * 반응을 눌렀을 때 바로 보일 상태 (서버 답을 기다리지 않고). 같은 반응을 다시 누르면 취소, 다른 반응이면 바꾼다.
+ * 서버(react_memo)도 같은 규칙이다.
+ */
+export function toggleReaction(counts: ReactionCounts, mine: ReactionKind | null, pressed: ReactionKind): { counts: ReactionCounts; mine: ReactionKind | null } {
+  const next: ReactionCounts = { ...counts };
+  const bump = (k: ReactionKind, d: number) => {
+    const n = Math.max(0, (next[k] ?? 0) + d);
+    if (n) next[k] = n; else delete next[k];
+  };
+  if (mine) bump(mine, -1);
+  if (mine === pressed) return { counts: next, mine: null };
+  bump(pressed, 1);
+  return { counts: next, mine: pressed };
 }
 
 /** 내 메모에 새 댓글이 있는가: 남이 단 가장 최근 댓글이 내가 본 것보다 뒤 */
 export const hasNewComment = (m: Pick<SharedMemo, 'mine' | 'last_comment'>, seen: number) => m.mine && (m.last_comment ?? 0) > seen;
+
+/** 내 메모에 내가 본 뒤로 새로 온 반응 종류 */
+export function newReactionKinds(m: Pick<SharedMemo, 'mine' | 'reaction_last'>, seen: number): ReactionKind[] {
+  if (!m.mine || !m.reaction_last) return [];
+  return REACTIONS.map((r) => r.kind).filter((k) => (m.reaction_last?.[k] ?? 0) > seen);
+}
+
+/** 이 메모에 온 가장 최근 반응 번호 (내 메모만) */
+export const lastReactionOf = (m: Pick<SharedMemo, 'reaction_last'>) => Math.max(0, ...Object.values(m.reaction_last ?? {}).map((n) => n ?? 0));
+
+/** "새 댓글 2개, 새 반응 3개", 하나만 있으면 그것만 */
+export function newsText(comments: number, reactions: number): string {
+  return [comments > 0 ? `새 댓글 ${comments}개` : '', reactions > 0 ? `새 반응 ${reactions}개` : ''].filter(Boolean).join(', ');
+}
 
 /** 신고 사유 (고르기 쉽게 몇 가지만) */
 export const REPORT_REASONS = ['욕설·비방', '광고·도배', '기타 부적절한 내용'] as const;

@@ -166,6 +166,8 @@ export interface Settings {
   rankHistory?: Record<string, { place: 0 | 1 | 2 | 3 | null; volume: number | null }>;
   /** 내 메모 댓글을 어디까지 봤는지 (가장 최근에 본 댓글 id). 이보다 뒤의 남의 댓글이 "새 댓글" */
   commentSeen?: number;
+  /** 내 메모 반응을 어디까지 봤는지 (가장 최근에 본 반응 번호). 이보다 뒤의 반응이 "새 반응" */
+  reactionSeen?: number;
   /** 마지막으로 고른 메모 공개 범위. 새 순에 그대로 쓴다 (없으면 나만 보기) */
   lastShare?: MemoShare | null;
   /** 내 메모 태그 목록 (없으면 기본 태그 MEMO_TAGS) */
