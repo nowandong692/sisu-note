@@ -8,7 +8,7 @@ import { ConfirmButton, toast } from '../components/ui';
 import { hitsOf } from '../domain/stats';
 import { weatherLabel } from '../domain/weather';
 import { shotLabel } from '../domain/target';
-import { dayOffset, formatDate } from '../domain/util';
+import { dayOffset, formatDate, today } from '../domain/util';
 import type { End, Hand } from '../domain/types';
 import { useStore } from '../state/store';
 import { endMeta } from '../domain/endMeta';
@@ -72,12 +72,14 @@ export function LogScreen() {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [selEnd, setSelEnd] = useState<string | null>(null);
   const [view, setView] = useState<'date' | 'memo'>('date');
-  /** 날짜별 보기의 기간. 처음에는 전체 */
-  const [period, setPeriod] = useState<Period>({ days: 0 });
-  /** 보여 줄 날짜가 지금 기간 밖이면 전체로 넓힌다 */
+  /** 날짜별 보기의 기간. 처음에는 최근 30일 */
+  const [period, setPeriod] = useState<Period>({ days: 30 });
+  /** 보여 줄 날짜가 지금 기간 밖이면 그 날짜까지 들어가게 기간을 넓힌다 */
   const reveal = (date: string) => setPeriod((p) => {
     const b = periodBounds(p);
-    return date >= b.from && date <= b.to ? p : { days: 0 };
+    if (date >= b.from && date <= b.to) return p;
+    const to = b.to > today() ? today() : b.to;
+    return { from: date < b.from ? date : b.from, to: date > to ? date : to };
   });
   // 기록 탭은 늘 떠 있으므로(숨겨 둘 뿐) 다른 화면에서 고친 순을 보여 달라는 알림을 받아 펼친다
   useEffect(() => {

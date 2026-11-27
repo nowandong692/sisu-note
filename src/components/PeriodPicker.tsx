@@ -1,15 +1,15 @@
 import { dayOffset, today } from '../domain/util';
 
-/** 기간: 최근 N일(0이면 전체), 또는 시작일~종료일을 직접 지정 */
+/** 기간: 최근 N일, 또는 시작일~종료일을 직접 지정 */
 export type Period = { days: number } | { from: string; to: string };
 
-const PRESETS: [number, string][] = [[30, '최근 30일'], [90, '최근 90일'], [0, '전체']];
+const PRESETS: [number, string][] = [[30, '최근 30일'], [90, '최근 90일']];
 const isYmd = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
 /** 기간 안의 날짜인지 고르는 범위. 끝은 포함한다 */
 // eslint-disable-next-line react-refresh/only-export-components
 export function periodBounds(p: Period): { from: string; to: string } {
-  if ('days' in p) return { from: p.days ? dayOffset(-p.days) : '0000', to: '9999' };
+  if ('days' in p) return { from: dayOffset(-p.days), to: '9999' };
   return { from: p.from, to: p.to };
 }
 
@@ -19,14 +19,14 @@ const short = (s: string) => {
 };
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000) + 1;
 
-/** 최근 30일 / 90일 / 전체 / 기간 지정 칩. 기간 지정을 고르면 시작일·종료일 칸이 열린다 */
+/** 최근 30일 / 90일 / 기간 지정 칩. 기간 지정을 고르면 시작일·종료일 칸이 열린다 */
 export function PeriodPicker({ value, onChange, idPrefix }: { value: Period; onChange: (p: Period) => void; idPrefix: string }) {
   const custom = 'from' in value;
   const openCustom = () => {
     if (custom) return;
-    // 보던 기간에서 시작한다. 전체였으면 최근 30일
-    const days = value.days || 30;
-    onChange({ from: dayOffset(-days), to: today() });
+    // 처음에는 1년 전 오늘부터 오늘까지
+    const t = today();
+    onChange({ from: `${Number(t.slice(0, 4)) - 1}${t.slice(4)}`.replace(/-02-29$/, '-02-28'), to: t });
   };
   // 시작일이 종료일을 넘으면 다른 쪽을 같이 옮겨 늘 시작일 ≤ 종료일
   const setFrom = (from: string) => custom && isYmd(from) && onChange({ from, to: from > value.to ? from : value.to });
