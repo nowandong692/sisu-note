@@ -1291,7 +1291,7 @@ revoke all on function public._google_token_sub(text) from public, anon, authent
 revoke all on function public.login_with_google_token(text) from public;
 grant execute on function public.login_with_google_token(text) to anon;
 
--- 활쏜얘기 메모에 반응 (017): 좋아요·슬퍼요·넵!·감사해요. 한 메모에 한 사람이 하나, 내 메모에는 반응하지 않는다
+-- 활쏜얘기 메모에 반응 (017): 좋아요·슬퍼요·넵!·감사해요. 한 메모에 한 사람이 하나, 내 메모에는 반응하지 않는다. 내 메모에 새 반응은 댓글처럼 알린다
 create table if not exists public.memo_reactions (
   memo_id bigint not null references public.shared_memos (id) on delete cascade,
   archer_id uuid not null references public.archers (id) on delete cascade,
@@ -1301,9 +1301,13 @@ create table if not exists public.memo_reactions (
   constraint mr_kind check (kind in ('like', 'sad', 'yes', 'thanks'))
 );
 create index if not exists memo_reactions_archer_idx on public.memo_reactions (archer_id);
+create sequence if not exists public.memo_reactions_seq;
+alter table public.memo_reactions add column if not exists seq bigint not null default nextval('public.memo_reactions_seq');
+create index if not exists memo_reactions_memo_seq_idx on public.memo_reactions (memo_id, seq);
 
 alter table public.memo_reactions enable row level security;
 revoke all on public.memo_reactions from anon, authenticated;
+revoke all on sequence public.memo_reactions_seq from anon, authenticated;
 
 -- 한 메모의 반응 수 ({"like": 3, "thanks": 1}처럼, 없는 반응은 빠진다). 숨긴 궁사의 반응은 본인에게만 센다
 create or replace function public._memo_reaction_counts(p_memo bigint, p_viewer uuid) returns jsonb
@@ -1332,18 +1336,29 @@ begin
     cur := null;
   else
     insert into memo_reactions (memo_id, archer_id, kind) values (p_memo_id, a, p_kind)
-    on conflict (memo_id, archer_id) do update set kind = excluded.kind, created_at = now();
+    on conflict (memo_id, archer_id) do update set kind = excluded.kind, created_at = now(), seq = nextval('public.memo_reactions_seq');
     cur := p_kind;
   end if;
   return jsonb_build_object('reactions', _memo_reaction_counts(p_memo_id, a), 'mine', cur);
 end $$;
 
--- 공개 메모 목록에 반응 수(reactions)와 내 반응(my_reaction)을 더한다 (돌려주는 열이 바뀌므로 지우고 다시 만든다)
+-- 내 메모에 남이 남긴 새 반응 (comment_news와 같은 꼴). latest: 가장 최근 반응 번호, unread: p_after보다 뒤의 반응 수
+create or replace function public.reaction_news(p_key text, p_after bigint default 0)
+returns table (latest bigint, unread int)
+language sql stable security definer set search_path = public, extensions as $$
+  select max(r.seq), (count(*) filter (where r.seq > coalesce(p_after, 0)))::int
+  from memo_reactions r
+  join shared_memos m on m.id = r.memo_id
+  join archers ra on ra.id = r.archer_id
+  where m.archer_id = _archer(p_key) and r.archer_id <> m.archer_id and not ra.hidden
+$$;
+
+-- 공개 메모 목록에 반응 수(reactions), 내 반응(my_reaction), 내 메모면 반응마다 가장 최근 번호(reaction_last)를 더한다 (돌려주는 열이 바뀌므로 지우고 다시 만든다)
 drop function if exists public.shared_memo_list(text, text, bigint, int);
 create function public.shared_memo_list(p_key text default null, p_filter text default 'all', p_before bigint default null, p_limit int default 30)
 returns table (id bigint, nickname text, range_name text, dan int, day date, end_no int, hits boolean[], tags text[], memo text, scope text,
                created_at timestamptz, updated_at timestamptz, mine boolean, comments int, last_comment bigint,
-               kind text, ends int, hit_count int, reactions jsonb, my_reaction text)
+               kind text, ends int, hit_count int, reactions jsonb, my_reaction text, reaction_last jsonb)
 language plpgsql stable security definer set search_path = public, extensions as $fn$
 declare
   me_id uuid;
@@ -1378,7 +1393,12 @@ begin
            m.created_at, m.updated_at, ($1 is not null and m.archer_id = $1), cc.n, cc.last,
            m.kind, m.ends::int, m.hit_count::int,
            _memo_reaction_counts(m.id, $1),
-           (select r.kind from memo_reactions r where r.memo_id = m.id and r.archer_id = $1)
+           (select r.kind from memo_reactions r where r.memo_id = m.id and r.archer_id = $1),
+           case when m.archer_id = $1 then (
+             select coalesce(jsonb_object_agg(t.kind, t.last), '{}'::jsonb) from (
+               select r.kind, max(r.seq) as last from memo_reactions r join archers ra on ra.id = r.archer_id
+               where r.memo_id = m.id and not ra.hidden group by r.kind
+             ) t) end
     from page p
     join shared_memos m on m.id = p.id
     join archers a on a.id = m.archer_id
@@ -1393,4 +1413,4 @@ begin
 end $fn$;
 
 revoke all on function public._memo_reaction_counts(bigint, uuid) from public, anon, authenticated;
-grant execute on function public.react_memo(text, bigint, text), public.shared_memo_list(text, text, bigint, int) to anon;
+grant execute on function public.react_memo(text, bigint, text), public.reaction_news(text, bigint), public.shared_memo_list(text, text, bigint, int) to anon;

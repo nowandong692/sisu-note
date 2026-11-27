@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { newsText } from './domain/sharedMemo';
 import { sampleEndIds } from './domain/sample';
 import { ConfirmButton, Sheet, ToastHost, toast } from './components/ui';
 import { formatDate, today } from './domain/util';
@@ -193,7 +194,7 @@ export default function App({ loginReturn = null }: { loginReturn?: LoginReturn 
         <div className="in">
           {TABS.map(([t, label]) => (
             <button key={t} className={tab === t ? 'on' : ''} aria-current={tab === t ? 'page' : undefined} onClick={() => go(t)}>
-              <span className="tab-icon">{ICONS[t]}{t === 'talk' && store.commentNews.unread > 0 && <i className="dot" aria-label={`새 댓글 ${store.commentNews.unread}개`} />}</span>{label}
+              <span className="tab-icon">{ICONS[t]}{t === 'talk' && store.commentNews.unread + store.reactionNews.unread > 0 && <i className="dot" aria-label={newsText(store.commentNews.unread, store.reactionNews.unread)} />}</span>{label}
             </button>
           ))}
         </div>

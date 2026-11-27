@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agoLabel, cleanComment, dayClientId, dayShareArgs, dayShareStateOf, defaultShare, hasNewComment, endNoOf, olderCommentCount, shouldReplacePage, isDayClientId, needsShareConfirm, shareAudience, shareArgs, shareStateOf, shareTouched, toggleReaction } from './sharedMemo';
+import { agoLabel, cleanComment, dayClientId, dayShareArgs, dayShareStateOf, defaultShare, hasNewComment, endNoOf, olderCommentCount, shouldReplacePage, isDayClientId, needsShareConfirm, shareAudience, shareArgs, shareStateOf, shareTouched, toggleReaction, newReactionKinds, lastReactionOf, newsText } from './sharedMemo';
 import type { End, Shot } from './types';
 
 const shot = (hit: boolean): Shot => ({ hit, x: null, y: null, zone: null, side: null, level: null, direction: null });
@@ -164,5 +164,22 @@ describe('메모 반응', () => {
   });
   it('서버 수가 내 반응보다 적어도 음수가 되지 않는다', () => {
     expect(toggleReaction({}, 'yes', 'yes')).toEqual({ counts: {}, mine: null });
+  });
+});
+
+describe('새 반응 표시', () => {
+  it('내 메모에서 본 번호보다 뒤의 반응만 새 반응', () => {
+    expect(newReactionKinds({ mine: true, reaction_last: { like: 5, thanks: 9 } }, 6)).toEqual(['thanks']);
+    expect(newReactionKinds({ mine: false, reaction_last: { like: 5 } }, 0)).toEqual([]);
+    expect(newReactionKinds({ mine: true, reaction_last: null }, 0)).toEqual([]);
+  });
+  it('가장 최근 반응 번호', () => {
+    expect(lastReactionOf({ reaction_last: { like: 5, sad: 12 } })).toBe(12);
+    expect(lastReactionOf({ reaction_last: null })).toBe(0);
+  });
+  it('알림 문구', () => {
+    expect(newsText(2, 3)).toBe('새 댓글 2개, 새 반응 3개');
+    expect(newsText(0, 3)).toBe('새 반응 3개');
+    expect(newsText(1, 0)).toBe('새 댓글 1개');
   });
 });

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { danShort } from '../domain/dan';
 import { AutoTextarea, ConfirmButton, toast } from '../components/ui';
-import { agoLabel, cleanComment, COMMENT_MAX, COMMENT_PAGE, hasNewComment, olderCommentCount, shouldReplacePage, REACTIONS, REPORT_REASONS, toggleReaction, type MemoComment, type ReactionCounts, type ReactionKind, type SharedMemo } from '../domain/sharedMemo';
+import { agoLabel, cleanComment, COMMENT_MAX, COMMENT_PAGE, hasNewComment, lastReactionOf, newReactionKinds, newsText, olderCommentCount, shouldReplacePage, REACTIONS, REPORT_REASONS, toggleReaction, type MemoComment, type ReactionCounts, type ReactionKind, type SharedMemo } from '../domain/sharedMemo';
 import { formatDate } from '../domain/util';
 import { onlineAvailable, rpc } from '../platform/online';
 import { useStore } from '../state/store';
@@ -144,7 +144,7 @@ function Comments({ m, onCount }: { m: SharedMemo; onCount: (n: number) => void 
  * 메모 반응: 좋아요, 슬퍼요, 넵!, 감사해요. 한 사람이 하나만 (다시 누르면 취소, 다른 것을 누르면 바뀐다).
  * 내 메모이거나 닉네임이 없으면 누를 수 없고, 받은 반응 수만 보인다.
  */
-function Reactions({ m }: { m: SharedMemo }) {
+function Reactions({ m, fresh }: { m: SharedMemo; fresh: ReactionKind[] }) {
   const { online } = useStore();
   const [counts, setCounts] = useState<ReactionCounts>(m.reactions ?? {});
   const [mine, setMine] = useState<ReactionKind | null>(m.my_reaction ?? null);
@@ -184,7 +184,7 @@ function Reactions({ m }: { m: SharedMemo }) {
             <span aria-hidden="true">{r.emoji}</span> {r.label}{n > 0 && <b>{n}</b>}
           </button>
         ) : (
-          <span key={r.kind} className="react-btn static" aria-label={label}>
+          <span key={r.kind} className={`react-btn static ${fresh.includes(r.kind) ? 'new' : ''}`} aria-label={fresh.includes(r.kind) ? `${label}, 새 반응` : label}>
             <span aria-hidden="true">{r.emoji}</span> {r.label}<b>{n}</b>
           </span>
         );
@@ -193,7 +193,8 @@ function Reactions({ m }: { m: SharedMemo }) {
   );
 }
 
-function MemoCard({ m, seen }: { m: SharedMemo; seen: number }) {
+function MemoCard({ m, seen, seenReaction }: { m: SharedMemo; seen: number; seenReaction: number }) {
+  const fresh = newReactionKinds(m, seenReaction);
   const n = m.hits.filter(Boolean).length;
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(m.comments ?? 0);
@@ -218,10 +219,11 @@ function MemoCard({ m, seen }: { m: SharedMemo; seen: number }) {
         </>}
         {m.scope === 'club' && <span className="pill scope">같은 활터만</span>}
         {hasNewComment(m, seen) && <span className="pill best">새 댓글</span>}
+        {fresh.length > 0 && <span className="pill best">새 반응</span>}
       </div>
       {m.memo && <div className="sm-text">{m.memo}</div>}
       {m.tags.length > 0 && <div className="sm-tags">{m.tags.map((t) => <span key={t} className="pill tag">#{t}</span>)}</div>}
-      <Reactions m={m} />
+      <Reactions m={m} fresh={fresh} />
       <div className="row between sm-actions">
         <button className="comment-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
           {open ? '댓글 접기' : count > 0 ? `댓글 ${count}개` : '댓글 달기'}
@@ -245,6 +247,7 @@ export function SharedMemosView({ active }: { active: boolean }) {
   const [tick, setTick] = useState(0);
   /** 목록을 불러올 때 본 곳 (이번에 보는 동안 "새 댓글" 표시를 그대로 둔다) */
   const [seen, setSeen] = useState(store.settings.commentSeen ?? 0);
+  const [seenReaction, setSeenReaction] = useState(store.settings.reactionSeen ?? 0);
   /** 글이 너무 많이 쌓여 앞의 글을 비우고 다음 묶음만 보이는 중 */
   const [paged, setPaged] = useState(false);
   const topRef = useRef<HTMLElement>(null);
@@ -258,12 +261,14 @@ export function SharedMemosView({ active }: { active: boolean }) {
       const replace = !!before && shouldReplacePage(list?.length ?? 0, PAGE);
       setList((p) => (before && p && !replace ? [...p, ...rows] : rows));
       setMore(rows.length === PAGE);
-      if (!before) { setSeen(store.settings.commentSeen ?? 0); setPaged(false); }
+      if (!before) { setSeen(store.settings.commentSeen ?? 0); setSeenReaction(store.settings.reactionSeen ?? 0); setPaged(false); }
       if (replace) { setPaged(true); topRef.current?.scrollIntoView({ block: 'start' }); }
       // 내 메모 목록을 보면 새 댓글을 본 것으로 친다 (빨간 점이 사라진다)
       if (filter === 'mine') {
         const top = Math.max(0, ...rows.map((r) => r.last_comment ?? 0));
         if (top) void store.markCommentsSeen(Math.max(top, store.commentNews.latest));
+        const topR = Math.max(0, ...rows.map(lastReactionOf));
+        if (topR) void store.markReactionsSeen(Math.max(topR, store.reactionNews.latest));
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -300,9 +305,9 @@ export function SharedMemosView({ active }: { active: boolean }) {
         <button className="act-btn" aria-label="새로 고침" onClick={() => setTick((t) => t + 1)} disabled={loading}>↻</button>
       </div>
       {!o && <div className="small muted">겨루기 탭의 랭킹에서 닉네임을 정하면 내 메모도 공개하고, 같은 활터 메모도 볼 수 있습니다.</div>}
-      {o && filter !== 'mine' && store.commentNews.unread > 0 && (
+      {o && filter !== 'mine' && store.commentNews.unread + store.reactionNews.unread > 0 && (
         <button className="banner news-banner" onClick={() => setFilter('mine')}>
-          <span>내 메모에 새 댓글 {store.commentNews.unread}개가 달렸습니다.</span><b>보기</b>
+          <span>내 메모에 {newsText(store.commentNews.unread, store.reactionNews.unread)}가 달렸습니다.</span><b>보기</b>
         </button>
       )}
       {o && store.memoPending > 0 && <div className="small muted">아직 서버에 알리지 못한 메모 {store.memoPending}개가 있습니다. 인터넷에 연결되면 올라갑니다.</div>}
@@ -315,7 +320,7 @@ export function SharedMemosView({ active }: { active: boolean }) {
           <button className="btn ghost small" onClick={() => void load(null)}>최근 글로 돌아가기</button>
         </div>
       )}
-      {list && list.length > 0 && <ol className="shared-list">{list.map((m) => <MemoCard key={m.id} m={m} seen={seen} />)}</ol>}
+      {list && list.length > 0 && <ol className="shared-list">{list.map((m) => <MemoCard key={m.id} m={m} seen={seen} seenReaction={seenReaction} />)}</ol>}
       {list && more && <button className="btn ghost small" disabled={loading} onClick={() => void load(list[list.length - 1].id)}>{loading ? '불러오는 중…' : '더 보기'}</button>}
     </section>
   );

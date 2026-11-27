@@ -590,6 +590,7 @@ nav.tabs .tab-icon .dot { position: absolute; top: -1px; right: -5px; width: 9px
 .react-btn b { margin-left: 2px; font-weight: 700; }
 .react-btn.on { border-color: var(--hong); background: var(--hong-soft); color: var(--hong); font-weight: 600; }
 .react-btn.static { cursor: default; color: var(--muted); }
+.react-btn.static.new { border-color: var(--hong); background: var(--hong-soft); color: var(--hong); font-weight: 600; }
 .report-btn { background: none; border: none; color: var(--muted); font-size: 12px; padding: 4px 2px; cursor: pointer; }
 .report-done { font-size: 12px; }
 .report-pick { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
