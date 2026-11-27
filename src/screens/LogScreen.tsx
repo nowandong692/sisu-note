@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Sheet } from '../components/ui';
 import { Target, type Mark } from '../components/Target';
+import { PeriodPicker, periodBounds, type Period } from '../components/PeriodPicker';
 import { NOTE, PENCIL, TRASH } from '../components/icons';
 import { DayMemoField } from '../components/DayMemoField';
 import { ConfirmButton, toast } from '../components/ui';
 import { hitsOf } from '../domain/stats';
 import { weatherLabel } from '../domain/weather';
 import { shotLabel } from '../domain/target';
-import { dayOffset, formatDate } from '../domain/util';
+import { dayOffset, formatDate, today } from '../domain/util';
 import type { End, Hand } from '../domain/types';
 import { useStore } from '../state/store';
 import { endMeta } from '../domain/endMeta';
@@ -71,11 +72,21 @@ export function LogScreen() {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [selEnd, setSelEnd] = useState<string | null>(null);
   const [view, setView] = useState<'date' | 'memo'>('date');
+  /** 날짜별 보기의 기간. 처음에는 최근 30일 */
+  const [period, setPeriod] = useState<Period>({ days: 30 });
+  /** 보여 줄 날짜가 지금 기간 밖이면 그 날짜까지 들어가게 기간을 넓힌다 */
+  const reveal = (date: string) => setPeriod((p) => {
+    const b = periodBounds(p);
+    if (date >= b.from && date <= b.to) return p;
+    const to = b.to > today() ? today() : b.to;
+    return { from: date < b.from ? date : b.from, to: date > to ? date : to };
+  });
   // 기록 탭은 늘 떠 있으므로(숨겨 둘 뿐) 다른 화면에서 고친 순을 보여 달라는 알림을 받아 펼친다
   useEffect(() => {
     const on = (ev: Event) => {
       const { date, id } = (ev as CustomEvent<{ date: string; id: string }>).detail;
       setView('date');
+      reveal(date);
       setOpen((o) => ({ ...o, [date]: true }));
       setSelEnd(id);
       setTimeout(() => document.getElementById(`end-${id}`)?.scrollIntoView({ block: 'center' }), 80);
@@ -88,6 +99,7 @@ export function LogScreen() {
   const toggle = (id: string) => setSelEnd((cur) => (cur === id ? null : id));
   const jump = (date: string, id: string) => {
     setView('date');
+    reveal(date);
     setOpen((o) => ({ ...o, [date]: true }));
     setSelEnd(id);
     setSelShot(null);
@@ -103,17 +115,20 @@ export function LogScreen() {
   const byDate = new Map<string, typeof ends>();
   for (const e of ends) byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]);
   // 순 없이 하루 메모만 남긴 날도 보인다
-  const dates = [...new Set([...byDate.keys(), ...days.map((d) => d.date)])].sort().reverse();
+  const allDates = [...new Set([...byDate.keys(), ...days.map((d) => d.date)])].sort().reverse();
+  const bounds = periodBounds(period);
+  const dates = allDates.filter((d) => d >= bounds.from && d <= bounds.to);
 
   const jumpDay = (date: string) => {
     setView('date');
+    reveal(date);
     setOpen((o) => ({ ...o, [date]: true }));
     setSelEnd(null);
     setTimeout(() => document.getElementById(`daymemo-${date}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60);
   };
   if (view === 'memo') return <>{viewSwitch}<MemoView onJump={jump} onJumpDay={jumpDay} /></>;
 
-  if (!dates.length) {
+  if (!allDates.length) {
     return <section className="card"><div className="empty">아직 기록이 없습니다. 습사 탭에서 첫 순을 저장해 보세요.</div><div className="row">{addButton}</div>{pickSheet}</section>;
   }
 
@@ -122,7 +137,9 @@ export function LogScreen() {
     {viewSwitch}
     <div className="row">{addButton}</div>
     {pickSheet}
-    <section className="card">
+    <PeriodPicker value={period} onChange={setPeriod} idPrefix="log-period" />
+    {!dates.length && <section className="card"><div className="empty">이 기간에 기록이 없습니다.</div></section>}
+    {dates.length > 0 && <section className="card">
       {dates.map((date) => {
         const list = (byDate.get(date) ?? []).sort((a, b) => a.recordedAt - b.recordedAt);
         const memo = dayMemo(date);
@@ -197,7 +214,7 @@ export function LogScreen() {
           </div>
         );
       })}
-    </section>
+    </section>}
     </>
   );
 }
