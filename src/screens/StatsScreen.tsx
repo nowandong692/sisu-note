@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import { Target } from '../components/Target';
+import { PeriodPicker, periodBounds, type Period } from '../components/PeriodPicker';
 import {
   MIN_ENDS_FOR_RANKING, byRange, byWeather, byWindDir, weatherLean, monthlyStats, byBowAndRing, byGear, hitDistribution, missBreakdown, shotPositionRates, shotsAt, summarize, trendSeries, zoneCounts,
   type GroupRow, type TrendPoint, type TrendUnit, type WeatherLeanRow,
 } from '../domain/stats';
 import { DIR8_VEC, MISS_DIRS8, SHOTS_PER_END, type End, type Hand, type MissDir8 } from '../domain/types';
 import { BAND, TH, TW, TX, TY, VIEW_H, VIEW_W, VIEW_X, VIEW_Y } from '../domain/target';
-import { dayOffset } from '../domain/util';
 import { useStore } from '../state/store';
 import { formatDuration, totalMinutes } from '../domain/session';
 
-const PERIODS: [number, string][] = [[30, '최근 30일'], [90, '최근 90일'], [0, '전체']];
 
 const UNITS: [TrendUnit, string][] = [['day', '날짜별'], ['week', '주별'], ['month', '월별']];
 type Metric = 'perEnd' | 'perfect' | 'ends';
@@ -321,22 +320,20 @@ function SpreadCard({ ends, hand }: { ends: End[]; hand: Hand }) {
 
 export function StatsScreen() {
   const { ends: allEnds, gear, gearName, settings, rangeName, ranges } = useStore();
-  const [period, setPeriod] = useState(30);
+  const [period, setPeriod] = useState<Period>({ days: 30 });
   const [bow, setBow] = useState('all');
   /** 'all' 모든 활터, 'none' 활터를 남기지 않은 순, 그 밖에는 활터 id */
   const [range, setRange] = useState('all');
 
-  const cutoff = period ? dayOffset(-period) : '0000';
+  const { from, to } = periodBounds(period);
   const pick = (e: (typeof allEnds)[number]) => (bow === 'all' || e.bowId === bow)
     && (range === 'all' || (range === 'none' ? !e.rangeId : e.rangeId === range));
-  const ends = allEnds.filter((e) => e.date >= cutoff && pick(e));
+  const ends = allEnds.filter((e) => e.date >= from && e.date <= to && pick(e));
   const usedRanges = ranges.filter((r) => allEnds.some((e) => e.rangeId === r.id));
 
   const head = (
     <>
-      <div className="chips">
-        {PERIODS.map(([p, l]) => <button key={p} className={`chip ${period === p ? 'on' : ''}`} onClick={() => setPeriod(p)}>{l}</button>)}
-      </div>
+      <PeriodPicker value={period} onChange={setPeriod} idPrefix="stats-period" />
       <div className="filters">
         <div className="field">
           <label htmlFor="bowFilter">활 선택</label>
