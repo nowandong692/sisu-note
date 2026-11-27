@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { splitTournaments, type TournamentFile, type VideoFile } from '../domain/tournaments';
 import type { HwalterFile } from '../domain/hwalter';
 import { today } from '../domain/util';
+import { REPORT_HIDE_LIMIT } from '../domain/sharedMemo';
 import { loadHwalter } from '../platform/hwalterData';
 import { rpc } from '../platform/online';
 import { loadTournaments, loadVideos } from '../platform/tourData';
@@ -59,11 +60,12 @@ function ContentReports({ code, hideBtn }: { code: string; hideBtn: (nickname: s
       <h4>활쏜얘기 신고 {list ? `${shown.length}건` : ''}</h4>
       {err && <div className="small err-text" role="alert">{err}</div>}
       {list && shown.length === 0 && <div className="small muted">들어온 신고가 없습니다.</div>}
+      {list && shown.length > 0 && <div className="small muted">신고가 {REPORT_HIDE_LIMIT}건을 넘으면 다른 사람에게 가려집니다. 처리 완료로 닫으면 다시 보입니다.</div>}
       <ul className="admin-list">
         {shown.map((r) => (
           <li key={r.id}>
             <div>
-              <span className="pill">{r.kind === 'memo' ? '메모' : '댓글'}</span> <b>{r.nickname}</b>{r.hidden && <span className="pill">숨김</span>}{r.total > 1 && <span className="pill">신고 {r.total}건</span>}
+              <span className="pill">{r.kind === 'memo' ? '메모' : '댓글'}</span> <b>{r.nickname}</b>{r.hidden && <span className="pill">숨김</span>}{r.total > 1 && <span className="pill">신고 {r.total}건</span>}{r.total > REPORT_HIDE_LIMIT && <span className="pill">가려짐</span>}
               {' '}<span className="small muted">{r.range_name ?? ''} · {when(r.created_at)}</span>
             </div>
             <blockquote className="admin-quote">{r.body}</blockquote>

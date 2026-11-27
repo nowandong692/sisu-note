@@ -123,7 +123,12 @@ export interface SharedMemo {
   my_reaction?: ReactionKind | null;
   /** 내 메모만: 반응마다 가장 최근 번호 (새 반응 표시용) */
   reaction_last?: ReactionCounts | null;
+  /** 내 메모만: 신고가 많아 다른 사람에게 숨겨졌다 (서버 019) */
+  report_hidden?: boolean;
 }
+
+/** 신고가 이 수를 넘은 메모·댓글은 글쓴이와 관리자만 본다 (서버 _report_hide_limit와 같은 값) */
+export const REPORT_HIDE_LIMIT = 20;
 
 /** 메모와 댓글에 남기는 반응. 한 사람이 종류마다 한 번씩 (여러 개 함께 가능) */
 export const REACTIONS = [
@@ -194,6 +199,8 @@ export interface MemoComment {
   /** 반응 수 (서버에 018이 없으면 없음 = 댓글 반응을 쓰지 않는다) */
   reactions?: ReactionCounts;
   my_reactions?: ReactionKind[];
+  /** 내 댓글만: 신고가 많아 다른 사람에게 숨겨졌다 (서버 019) */
+  report_hidden?: boolean;
 }
 
 /** 댓글은 한 번에 이만큼씩 (최근 것부터) */
