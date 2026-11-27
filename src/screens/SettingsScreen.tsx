@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ClubSheet } from '../components/ClubSheet';
 import { NicknameField, type NickStatus } from '../components/NicknameField';
-import { cleanNickname, nicknameProblem } from '../domain/nickname';
+import { NICK_MAX, cleanNickname, nicknameProblem } from '../domain/nickname';
 import { onlineAvailable } from '../platform/online';
 import { CodeSheet, RestoreForm } from './RankingScreen';
 import { ConfirmButton, InfoTitle, Sheet, toast } from '../components/ui';
@@ -72,7 +72,14 @@ function NicknameSection() {
 
   return (
     <div className="profile-part">
-      <h3>내 닉네임</h3>
+      <InfoTitle level={3} title="내 닉네임">
+        습사 인사와 랭킹에 이 이름으로 보입니다. 실명이 아니어도 되고, {NICK_MAX}글자까지 다른 궁사와 겹치지 않게 정합니다.{' '}
+        {o ? (
+          <>복구 코드는 기기를 바꾸거나 기록이 지워졌을 때 이 닉네임과 기록을 되찾는 열쇠입니다. "복구 코드 보기"로 확인해 따로 적어 두고, 다른 기기에서 쓰던 닉네임이 있으면 "복구 코드 넣기"로 이어 씁니다.</>
+        ) : (
+          <>닉네임을 정하면 랭킹에 함께 참여합니다. 순마다 관중 여부와 저장 시각, 닉네임과 소속이 랭킹 서버에 올라가고, 순 기록·하루 메모·장비·설정은 복구용으로 백업됩니다. 이 기기에 복구 코드가 저장되니 따로 적어 두세요. 예전에 쓰던 닉네임이 있으면 "예전 닉네임 찾기"로 복구 코드를 넣어 이어 씁니다.</>
+        )}
+      </InfoTitle>
       {!onlineAvailable() && !o ? (
         <div className="small muted">닉네임은 랭킹 서버에서 겹치지 않게 확인한 뒤 정합니다. 랭킹 서버를 준비하고 있어 곧 정할 수 있습니다.</div>
       ) : restoring ? (
@@ -82,17 +89,16 @@ function NicknameSection() {
         </>
       ) : (
         <>
-          <NicknameField id="set-nick" label={o ? '습사 인사와 랭킹에 이 이름으로 보입니다' : '습사 인사와 랭킹에 쓸 이름 (실명이 아니어도 됩니다)'}
+          <NicknameField id="set-nick" label="닉네임" quiet
             value={nickname} mine={o?.nickname} myKey={o?.key} onStatus={setNick} onChange={(v) => { setNickname(v); setErr(''); }}
             takenHint={<>예전에 내가 쓰던 닉네임이면 <button type="button" className="link-btn" onClick={() => { setRestoring(true); setErr(''); }}>복구 코드로 이어 쓰기</button></>} />
-          {!o && <div className="small muted">닉네임을 정하면 랭킹에 함께 참여합니다. 순마다 관중 여부와 저장 시각, 닉네임과 소속이 서버에 올라가고, 장비와 설정은 복구용으로 백업됩니다. 이 기기에 복구 코드가 저장되니 따로 적어 두세요.</div>}
           {err && <div className="small err-text" role="alert">{err}</div>}
-          <div className="row">
+          <div className="row nick-actions">
             <button className="btn small" disabled={busy || unchanged || nick === 'taken' || nick === 'checking'} onClick={save}>
-              {busy ? '저장하는 중…' : o ? '닉네임 바꾸기' : '닉네임 정하고 랭킹 참여'}
+              {busy ? '저장 중…' : o ? '바꾸기' : '정하고 랭킹 참여'}
             </button>
             {o && <button className="btn ghost small" onClick={() => setCode('again')}>복구 코드 보기</button>}
-            <button className="btn ghost small" onClick={() => { setRestoring(true); setErr(''); }}>{o ? '복구 코드 넣기' : '예전 닉네임이 있어요'}</button>
+            <button className="btn ghost small" onClick={() => { setRestoring(true); setErr(''); }}>{o ? '복구 코드 넣기' : '예전 닉네임 찾기'}</button>
           </div>
         </>
       )}
@@ -280,7 +286,7 @@ export function SettingsScreen() {
       <MemoTagSection />
       <AppearanceSection />
       <section className="card">
-        <InfoTitle title="데이터">순 기록은 이 기기에만 저장됩니다. 가끔 CSV로 내보내 백업해 두세요. 장비와 설정은 랭킹에 참여 중이면 서버에 백업되어, 브라우저 저장소가 지워져도 복구 코드나 연결해 둔 카카오·구글 로그인으로 되찾을 수 있습니다. "기록만 지우기"는 순 기록만, "모든 데이터 지우기"는 장비까지 지웁니다. 누르면 무엇이 지워지는지 먼저 보여 줍니다.</InfoTitle>
+        <InfoTitle title="데이터">기록은 이 기기에 저장되니 가끔 CSV로 내보내 두세요. 랭킹에 참여 중이면 순 기록·하루 메모·장비·설정이 서버에 백업되어, 브라우저 저장소가 지워져도 복구 코드나 연결해 둔 카카오·구글 로그인으로 되찾을 수 있습니다. "기록만 지우기"는 순 기록만, "모든 데이터 지우기"는 장비까지 지웁니다. 누르면 무엇이 지워지는지 먼저 보여 줍니다.</InfoTitle>
         <div className="row">
           <button className="btn ghost small" disabled={!ends.length} onClick={() => saveTextFile(`국궁록-${today()}.csv`, endsToCsv(ends, gear, store.ranges, store.settings.hand))}>CSV 내보내기</button>
           {hasSample && <button className="btn ghost small" onClick={() => setWarn('sample')}>예시 기록 빼기</button>}
