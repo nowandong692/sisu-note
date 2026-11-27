@@ -127,14 +127,13 @@ export function HelpButton({ title, children }: { title: string; children: React
 }
 
 /** 카드 제목과 (i) 버튼. 누르면 제목 아래에 설명을 펼치고, 다시 누르면 접는다. */
-export function InfoTitle({ title, children, level = 2 }: { title: string; children: ReactNode; level?: 2 | 3 }) {
+export function InfoTitle({ title, children }: { title: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const id = useId();
-  const H = level === 3 ? 'h3' : 'h2';
   return (
     <>
       <div className="row between">
-        <H>{title}</H>
+        <h2>{title}</h2>
         <button className={`act-btn ${open ? 'on' : ''}`} aria-label={`${title} 설명`} aria-expanded={open} aria-controls={id} title="설명" onClick={() => setOpen((v) => !v)}>{INFO}</button>
       </div>
       {open && <div id={id} className="small muted">{children}</div>}

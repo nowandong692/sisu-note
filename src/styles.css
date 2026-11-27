@@ -336,11 +336,6 @@ input[type=search] { width: 100%; border: 1px solid var(--line); border-radius: 
 .err-text { color: var(--hong); }
 .ok-text { color: var(--good); }
 .nick-hint { min-height: 1.4em; }
-.nick-hint.quiet { min-height: 0; }
-.nick-hint.quiet:empty { display: none; }
-/* 닉네임 버튼은 좁은 화면에서도 되도록 한 줄에 */
-.nick-actions { gap: 6px; }
-.nick-actions .btn.small { padding: 8px 10px; white-space: nowrap; }
 .link-btn { background: none; border: 0; padding: 0; font: inherit; color: var(--ink); text-decoration: underline; cursor: pointer; }
 
 /* 장비 삭제 */
