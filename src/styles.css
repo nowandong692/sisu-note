@@ -292,14 +292,14 @@ img, svg { max-width: 100%; }
 .help-body p { margin: 0 0 8px; }
 .help-body ul { margin: 0 0 8px; padding-left: 20px; }
 /* 습사 화면: 과녁 위쪽을 촘촘하게 (작은 휴대폰에서도 과녁까지 한 화면에) */
-.shoot-card { padding: 12px; gap: 8px; }
+.shoot-card { padding: 10px 12px; gap: 6px; }
 .shoot-card .end-head { align-items: center; }
 .shoot-card .end-head .title { font-size: 18px; }
 .end-date { font-family: var(--font-body); font-size: 12px; color: var(--muted); margin-left: 4px; }
-.shoot-card .seg button, .shoot-card .chip { min-height: 30px; padding: 4px 10px; font-size: 12.5px; }
-.shoot-card .st { min-height: 42px; padding: 3px 2px; }
+.shoot-card .seg button, .shoot-card .chip { min-height: 28px; padding: 3px 10px; font-size: 12.5px; }
+.shoot-card .st { min-height: 38px; padding: 2px; gap: 0; line-height: 1.25; }
 .shoot-card .st b { font-size: 14px; }
-.shoot-card .btn.small { padding: 6px 12px; }
+.shoot-card .btn.small { padding: 5px 12px; }
 .shoot-card .target-wrap { gap: 4px; }
 .monthly th, .monthly td { padding: 8px 4px; }
 
@@ -484,7 +484,7 @@ textarea.autogrow { resize: none; overflow-y: auto; max-height: 60vh; }
 .dan-row label { margin: 0; }
 .dan-row select { width: auto; min-width: 140px; }
 /* 습사 탭 맨 위 한 줄 인사 */
-.welcome { margin: 0 2px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.welcome { margin: 0 2px; display: flex; flex-direction: column; gap: 0; min-width: 0; line-height: 1.4; }
 .welcome p { margin: 0; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .welcome .remark { font-size: 13px; white-space: normal; }
 .welcome b { color: var(--ink); font-weight: 600; }
@@ -629,9 +629,9 @@ nav.tabs .tab-icon .dot { position: absolute; top: -1px; right: -5px; width: 9px
 
 /* 습사: 오늘 기록을 과녁으로 */
 .shoot-view { align-self: center; }
-.today-target { display: flex; flex-direction: column; gap: 8px; }
+.today-target { display: flex; flex-direction: column; gap: 6px; }
 /* 입력 과녁 위 시 칸·버튼 줄. 오늘 전체에서는 같은 높이에 순 고르기를 둔다 */
-.target-top { display: flex; flex-direction: column; gap: 8px; }
+.target-top { display: flex; flex-direction: column; gap: 6px; }
 .today-target .target-top { justify-content: space-between; }
 .end-step { display: flex; align-items: stretch; gap: 6px; flex: 1 1 auto; min-height: 0; }
 .end-step .btn.small { font-size: 20px; padding: 0 14px; line-height: 1; }
@@ -639,8 +639,13 @@ nav.tabs .tab-icon .dot { position: absolute; top: -1px; right: -5px; width: 9px
 .end-step-now b { font-size: 15px; color: var(--ink); }
 .end-step-now .dots { display: flex; gap: 3px; }
 .end-step-now .dots > * { transform: scale(.8); }
-.end-strip { display: flex; gap: 3px; flex: none; height: 28px; }
-.end-strip button { flex: 1 1 0; min-width: 0; max-width: 40px; border: 2px solid; border-radius: 8px; background: var(--surface); color: #FFFFFF; font-size: 11px; font-weight: 700; padding: 0; overflow: hidden; }
+/* 순 칸이 두 줄 이상이면 가운데 칸을 한 줄로 줄여 과녁이 덜 밀리게 */
+.target-top.multi .end-step { flex: none; height: 30px; }
+.target-top.multi .end-step-now { flex-direction: row; gap: 6px; }
+.target-top.multi .end-step-now b { font-size: 14px; }
+/* 순 칸은 한 줄에 10개까지, 11순부터 다음 줄로 */
+.end-strip { display: grid; grid-template-columns: repeat(10, minmax(0, 40px)); grid-auto-rows: 26px; gap: 3px; flex: none; }
+.end-strip button { min-width: 0; border: 2px solid; border-radius: 8px; background: var(--surface); color: #FFFFFF; font-size: 11px; font-weight: 700; padding: 0; overflow: hidden; }
 .end-strip button:not([style*="background"]) { color: var(--muted); }
 .end-strip button.on { box-shadow: inset 0 0 0 2px var(--paper); }
 .today-target .target-wrap svg { max-width: 340px; }
@@ -702,7 +707,8 @@ nav.tabs .tab-icon .dot { position: absolute; top: -1px; right: -5px; width: 9px
 .title-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
 .title-list button { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .title-list button.on { border-color: var(--hong); background: var(--hong-soft); }
-.welcome-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+/* 습사 화면 맨 위 인사: 위·아래 여백을 줄여 과녁을 위로 */
+.welcome-row { display: flex; align-items: center; gap: 10px; min-width: 0; margin: -6px 0 -6px; }
 .welcome-row .welcome { flex: 1; }
 /* 설정: 프로필 카드 안의 닉네임·소속·단 */
 .profile-part { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
