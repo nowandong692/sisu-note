@@ -132,7 +132,7 @@ export interface Store extends Data {
 }
 
 /** 복구 결과: 되살린 장비 수, 순 수 (그중 랭킹 기록에서만 되살려 관중 여부만 있는 순 수), 하루 메모 수 */
-export interface RestoreResult { gear: number; ends: number; fromRanking: number; days: number }
+export interface RestoreResult { gear: number; ends: number; fromRanking: number; days: number; nickname: string }
 
 const Ctx = createContext<Store | null>(null);
 
@@ -344,16 +344,30 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
         const ids = (o?.recordQueue ?? []).slice(0, RECORD_BATCH);
         if (!o || !ids.length) return;
         const { put, del } = splitRecordQueue(ids, endsRef.current, daysRef.current);
+        /** 대기열에서 뺄 id: 서버에 올렸거나, 서버가 그 줄만 받지 않아 다시 보내도 같은 것 */
+        const sent = new Set(ids);
         try {
-          if (put.length) await rpc('save_records', { p_key: o.key, p_rows: put }, 20000);
+          if (put.length) {
+            try {
+              await rpc('save_records', { p_key: o.key, p_rows: put }, 20000);
+            } catch (err) {
+              // 묶음 중 한 줄만 규칙에 안 맞아도 묶음 전체가 거절되므로, 한 줄씩 다시 보내 그 줄만 뺀다
+              if (!(err instanceof OnlineError && err.code === 'rejected') || put.length === 1) throw err;
+              for (const row of put) {
+                await rpc('save_records', { p_key: o.key, p_rows: [row] }, 20000).catch((e) => {
+                  if (!(e instanceof OnlineError && e.code === 'rejected')) throw e;
+                });
+              }
+            }
+          }
           if (del.length) await rpc('delete_records', { p_key: o.key, p_ids: del });
         } catch (err) {
-          // 인터넷이 없거나 서버에 013이 아직 없으면 모아 둔 채로 다음에 다시 한다. 서버가 거절한 줄은 다시 해도 같으므로 버린다
-          if (err instanceof OnlineError && (err.code === 'network' || err.code === 'missing')) return;
+          // 서버가 그 내용을 받지 않는 경우에만 버린다. 인터넷이 끊기거나 서버가 잠깐 오류를 내면(시간 초과, 점검 등)
+          // 예전에는 그 묶음(최대 100순)을 버려서 백업에서 빠졌다. 이제는 모아 둔 채로 다음에 다시 올린다
+          if (!(err instanceof OnlineError && err.code === 'rejected')) return;
         }
         const cur = settingsRef.current.online;
         if (!cur || cur.key !== o.key) return;
-        const sent = new Set(ids);
         await updateSettings({ online: { ...cur, recordQueue: (cur.recordQueue ?? []).filter((q) => !sent.has(q)) } });
       }
     } finally {
@@ -708,7 +722,7 @@ export function StoreProvider({ repo, children }: { repo: Repository; children: 
         ...(!club && rows[0].range_name ? { club: { name: rows[0].range_name } } : {}),
       });
       await syncDan(key, settingsRef.current.dans);
-      return { gear: merged?.added.length ?? 0, ends: rec.addedEnds.length, fromRanking: rec.fromRanking, days: rec.addedDays.length };
+      return { gear: merged?.added.length ?? 0, ends: rec.addedEnds.length, fromRanking: rec.fromRanking, days: rec.addedDays.length, nickname: rows[0].nickname };
     },
     async setOnlineProfile(raw, rangeName) {
       const nickname = cleanNickname(raw);

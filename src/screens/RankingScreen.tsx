@@ -11,7 +11,8 @@ import {
   type ArcherTotal, type RankPeriod, type RankRow,
 } from '../domain/ranking';
 import { formatDate, today } from '../domain/util';
-import { OnlineError, onlineAvailable, rpc } from '../platform/online';
+import { OnlineError, normalizeRecoveryCode, onlineAvailable, rpc } from '../platform/online';
+import { loginProviders, myLogins } from '../platform/login';
 import { useStore } from '../state/store';
 import { INFO } from '../components/icons';
 import { ClubSheet } from '../components/ClubSheet';
@@ -71,7 +72,13 @@ export function RestoreForm({ onBack, onDone, backLabel = '새 닉네임 정하�
     setBusy(true); setErr('');
     try {
       const r = await store.restoreOnline(code);
-      toast(restoreMessage(r));
+      // 브라우저 기록을 지운 뒤 구글로 되찾았는데 다른(예전) 닉네임으로 이어진 적이 있다.
+      // 복구 코드로 되찾은 닉네임에 로그인이 하나도 연결돼 있지 않으면, 지금 연결해 두라고 함께 알린다
+      const unlinked = (await loginProviders()).length > 0
+        && (await myLogins(normalizeRecoveryCode(code)).catch(() => null))?.length === 0;
+      toast(unlinked
+        ? `${restoreMessage(r)}. 이 닉네임에는 카카오·구글 계정이 연결돼 있지 않습니다. 설정 → 로그인 연결에서 연결해 두면 다음에는 로그인만으로 되찾습니다`
+        : restoreMessage(r));
       onDone?.();
     } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
   };

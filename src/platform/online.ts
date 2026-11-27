@@ -8,8 +8,8 @@ const KEY = import.meta.env.VITE_SUPABASE_KEY;
 
 export const onlineAvailable = () => !!(URL && KEY);
 
-/** missing: 서버에 그 함수가 아직 없음 (SQL을 실행하기 전) */
-export type OnlineErrorCode = 'network' | 'nickname-taken' | 'unknown-key' | 'daily-limit' | 'missing' | 'server';
+/** missing: 서버에 그 함수가 아직 없음 (SQL을 실행하기 전). rejected: 보낸 내용이 서버 규칙에 맞지 않아 다시 보내도 같음 */
+export type OnlineErrorCode = 'network' | 'nickname-taken' | 'unknown-key' | 'daily-limit' | 'missing' | 'rejected' | 'server';
 export class OnlineError extends Error {
   readonly code: OnlineErrorCode;
   constructor(message: string, code: OnlineErrorCode) { super(message); this.code = code; }
@@ -35,6 +35,8 @@ const MESSAGES: [RegExp, OnlineErrorCode, string][] = [
   [/Could not find the function public\.login_with_google_token/, 'missing', '서버에 구글 자동 로그인 기능이 아직 없습니다. supabase/migrations/016_google_auto_login.sql을 실행해 주세요.'],
   [/Could not find the function public\.(login_providers|link_login|login_with|my_logins|unlink_login)/, 'missing', '서버에 로그인 기능이 아직 없습니다. supabase/migrations/014_login.sql을 실행해 주세요.'],
   [/Could not find the function public\.set_badge/, 'missing', '서버에 등급 기능이 아직 없습니다. supabase/migrations/015_grade.sql을 실행해 주세요.'],
+  [/bad records|too many records/, 'rejected', '서버가 받지 않는 기록입니다.'],
+  [/Could not find the function public\.(save_records|delete_records|load_records|my_ranked_ends)/, 'missing', '서버에 기록 백업 기능이 아직 없습니다. supabase/migrations/013_record_backup.sql을 실행해 주세요.'],
   [/backup too large/, 'server', '장비·설정 백업이 너무 큽니다.'],
   [/own memo/, 'server', '내 메모에는 반응할 수 없습니다.'],
   [/own comment/, 'server', '내 댓글에는 반응할 수 없습니다.'],

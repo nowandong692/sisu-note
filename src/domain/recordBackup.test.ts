@@ -85,6 +85,7 @@ describe('복구할 때 기록 합치기', () => {
 
   it('알림 글', () => {
     expect(restoreMessage({ gear: 0, ends: 0, fromRanking: 0, days: 0 })).toBe('예전 닉네임과 랭킹 기록을 이어 씁니다');
+    expect(restoreMessage({ gear: 0, ends: 3, fromRanking: 0, days: 0, nickname: '활쟁이' })).toBe("'활쟁이' 닉네임과 기록을 되살렸습니다 (순 기록 3순)");
     expect(restoreMessage({ gear: 2, ends: 18, fromRanking: 18, days: 0 }))
       .toBe('예전 닉네임과 기록을 되살렸습니다 (순 기록 18순, 장비 2개). 그중 18순은 랭킹 기록에서 되살려 관중 여부만 있습니다');
   });
