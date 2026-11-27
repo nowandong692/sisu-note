@@ -16,6 +16,8 @@ import { weatherLabel } from '../domain/weather';
 import { honorific, trendOf, welcomeFor, welcomeWho } from '../domain/welcome';
 import { danShort, topDan } from '../domain/dan';
 import { GradeMark } from '../components/GradeMark';
+import { GradeSheet } from '../components/GradeInfo';
+import { gradeTitle } from '../domain/grade';
 import { DayMemoField } from '../components/DayMemoField';
 import { ShareConfirmSheet, ShareNotice, SharePicker } from '../components/SharePicker';
 import { defaultShare, needsShareConfirm, SHARE_LABEL } from '../domain/sharedMemo';
@@ -277,6 +279,7 @@ export function ShootScreen() {
   const fresh = () => emptyDraft(defaultShare(store.settings, store.online));
   const [d, setD] = useState<Draft>(fresh);
   const [picking, setPicking] = useState(false);
+  const [gradeOpen, setGradeOpen] = useState(false);
   const [managing, setManaging] = useState(false);
   useEffect(() => {
     const on = () => { setPicking(false); setManaging(true); };
@@ -486,7 +489,12 @@ export function ShootScreen() {
     <>
       {!editing && !past && (
         <div className="welcome-row">
-          {store.grade.grade && <GradeMark grade={store.grade.grade} size={40} />}
+          {store.grade.grade && (
+            <button className="grade-btn" aria-label={`내 등급 ${gradeTitle(store.grade.grade)}, 등급 설명 보기`} onClick={() => setGradeOpen(true)}>
+              <GradeMark grade={store.grade.grade} size={40} />
+            </button>
+          )}
+          {gradeOpen && <GradeSheet r={store.grade} title={store.title} onClose={() => setGradeOpen(false)} />}
           <div className="welcome">
             <p><b>{welcomeWho(settings.club?.name, settings.online?.nickname, honorific(ends.some((e) => hitsOf(e) === SHOTS_PER_END)), myDan ? danShort(myDan) : null)}</b>, {welcome.greet}</p>
             <p className="remark">{store.title && <span className="pill title big">{store.title}</span>} {welcome.remark}</p>
