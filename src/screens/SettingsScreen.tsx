@@ -52,7 +52,7 @@ function NicknameSection() {
   const [nick, setNick] = useState<NickStatus>('idle');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  const [code, setCode] = useState<string | null>(null);
+  const [code, setCode] = useState<'first' | 'again' | null>(null);
   const [restoring, setRestoring] = useState(false);
   // 다른 곳(랭킹 탭)에서 닉네임이 바뀌면 칸도 맞춘다
   const [seen, setSeen] = useState(o?.nickname);
@@ -66,13 +66,13 @@ function NicknameSection() {
     setBusy(true); setErr('');
     try {
       if (o) { await store.setOnlineProfile(nickname, store.settings.club?.name ?? null); toast('닉네임을 바꿨습니다'); }
-      else { await store.joinOnline(nickname, store.settings.club?.name ?? null); setCode('new'); }
+      else { await store.joinOnline(nickname, store.settings.club?.name ?? null); setCode('first'); }
     } catch (e) { setErr(e instanceof Error ? e.message : '알 수 없는 오류가 났습니다.'); } finally { setBusy(false); }
   };
 
   return (
-    <section className="card">
-      <h2>내 닉네임</h2>
+    <div className="profile-part">
+      <h3>내 닉네임</h3>
       {!onlineAvailable() && !o ? (
         <div className="small muted">닉네임은 랭킹 서버에서 겹치지 않게 확인한 뒤 정합니다. 랭킹 서버를 준비하고 있어 곧 정할 수 있습니다.</div>
       ) : restoring ? (
@@ -91,12 +91,13 @@ function NicknameSection() {
             <button className="btn small" disabled={busy || unchanged || nick === 'taken' || nick === 'checking'} onClick={save}>
               {busy ? '저장하는 중…' : o ? '닉네임 바꾸기' : '닉네임 정하고 랭킹 참여'}
             </button>
+            {o && <button className="btn ghost small" onClick={() => setCode('again')}>복구 코드 보기</button>}
             <button className="btn ghost small" onClick={() => { setRestoring(true); setErr(''); }}>{o ? '복구 코드 넣기' : '예전 닉네임이 있어요'}</button>
           </div>
         </>
       )}
-      {code && store.online && <CodeSheet code={store.online.key} first onClose={() => setCode(null)} />}
-    </section>
+      {code && store.online && <CodeSheet code={store.online.key} first={code === 'first'} onClose={() => setCode(null)} />}
+    </div>
   );
 }
 
@@ -106,8 +107,8 @@ function ClubSection() {
   const [open, setOpen] = useState(false);
   const club = settings.club;
   return (
-    <section className="card">
-      <h2>내 소속</h2>
+    <div className="profile-part">
+      <h3>내 소속</h3>
       {club ? (
         <div className="club-now">
           <b>{club.name}</b>
@@ -121,7 +122,7 @@ function ClubSection() {
         {club && <ConfirmButton className="btn ghost small" label="소속 지우기" confirmLabel="지우기" onConfirm={() => setClub(null).then(() => toast('소속을 지웠습니다'))} />}
       </div>
       {open && <ClubSheet onClose={() => setOpen(false)} />}
-    </section>
+    </div>
   );
 }
 
@@ -136,8 +137,8 @@ function DanSection() {
     void setDans(next).then(() => toast(level ? `${org} ${danLabel(level)}로 정했습니다` : `${org} 단을 지웠습니다`));
   };
   return (
-    <section className="card">
-      <h2>내 단</h2>
+    <div className="profile-part">
+      <h3>내 단</h3>
       {DAN_ORGS.map((org) => (
         <div className="field dan-row" key={org}>
           <label htmlFor={`dan-${org}`}>{org}</label>
@@ -148,6 +149,18 @@ function DanSection() {
         </div>
       ))}
       <div className="small muted">받은 단이 있는 기관만 고르세요. 겨루기에 참여 중이면 가장 높은 단 하나만 랭킹에 함께 보입니다 (기관 이름은 올리지 않습니다).</div>
+    </div>
+  );
+}
+
+/** 프로필: 내 닉네임, 내 소속, 내 단을 한 카드에 */
+function ProfileSection() {
+  return (
+    <section className="card profile-card">
+      <h2>프로필</h2>
+      <NicknameSection />
+      <ClubSection />
+      <DanSection />
     </section>
   );
 }
@@ -253,7 +266,7 @@ function DataWarnSheet({ action, onClose }: { action: DataAction; onClose: () =>
   );
 }
 
-/** 설정 탭: 내 닉네임, 내 소속, 내 단, 메모 태그, 화면 밝기·테마, 데이터 */
+/** 설정 탭: 프로필(내 닉네임·소속·단), 로그인 연결, 메모 태그, 화면 밝기·테마, 데이터 */
 export function SettingsScreen() {
   const store = useStore();
   const { ends, gear } = store;
@@ -261,10 +274,8 @@ export function SettingsScreen() {
   const hasSample = useMemo(() => sampleEndIds(ends).size > 0, [ends]);
   return (
     <>
-      <NicknameSection />
+      <ProfileSection />
       <LoginSection />
-      <ClubSection />
-      <DanSection />
       <MemoTagSection />
       <AppearanceSection />
       <section className="card">

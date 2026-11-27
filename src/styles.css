@@ -689,3 +689,8 @@ nav.tabs .tab-icon .dot { position: absolute; top: -1px; right: -5px; width: 9px
 .title-list button.on { border-color: var(--hong); background: var(--hong-soft); }
 .welcome-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .welcome-row .welcome { flex: 1; }
+/* 설정: 프로필 카드 안의 닉네임·소속·단 */
+.profile-part { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.profile-part + .profile-part { border-top: 1px solid var(--line); padding-top: 12px; }
+.profile-part h3 { font-size: 14px; margin: 0; font-weight: 600; color: var(--muted); }
+.act-btn.on { color: var(--ink); border-color: var(--ink); }
