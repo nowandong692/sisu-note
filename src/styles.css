@@ -586,8 +586,9 @@ nav.tabs .tab-icon { position: relative; display: inline-flex; }
 nav.tabs .tab-icon .dot { position: absolute; top: -1px; right: -5px; width: 9px; height: 9px; border-radius: 50%; background: var(--hong); border: 2px solid var(--surface); }
 .sm-actions { align-items: center; }
 .sm-reactions { display: flex; flex-wrap: wrap; gap: 4px; }
-.react-btn { display: inline-flex; align-items: center; gap: 2px; min-height: 30px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font-size: 12px; white-space: nowrap; line-height: 1; cursor: pointer; }
-.react-btn b { margin-left: 2px; font-weight: 700; }
+.react-btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 44px; min-height: 32px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font-size: 13px; white-space: nowrap; line-height: 1; cursor: pointer; }
+.react-btn > span { font-size: 16px; }
+.react-btn b { font-weight: 700; }
 .react-btn.on { border-color: var(--hong); background: var(--hong-soft); color: var(--hong); font-weight: 600; }
 .react-btn.static { cursor: default; color: var(--muted); }
 .react-btn.static.new { border-color: var(--hong); background: var(--hong-soft); color: var(--hong); font-weight: 600; }

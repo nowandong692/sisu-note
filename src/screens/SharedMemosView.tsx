@@ -180,12 +180,12 @@ function Reactions({ m, fresh }: { m: SharedMemo; fresh: ReactionKind[] }) {
         const n = counts[r.kind] ?? 0;
         const label = `${r.label}${n ? ` ${n}명` : ''}`;
         return canReact ? (
-          <button key={r.kind} className={`react-btn ${mine === r.kind ? 'on' : ''}`} aria-pressed={mine === r.kind} aria-label={label} onClick={() => void press(r.kind)}>
-            <span aria-hidden="true">{r.emoji}</span> {r.label}{n > 0 && <b>{n}</b>}
+          <button key={r.kind} className={`react-btn ${mine === r.kind ? 'on' : ''}`} aria-pressed={mine === r.kind} aria-label={label} title={r.label} onClick={() => void press(r.kind)}>
+            <span aria-hidden="true">{r.emoji}</span>{n > 0 && <b>{n}</b>}
           </button>
         ) : (
-          <span key={r.kind} className={`react-btn static ${fresh.includes(r.kind) ? 'new' : ''}`} aria-label={fresh.includes(r.kind) ? `${label}, 새 반응` : label}>
-            <span aria-hidden="true">{r.emoji}</span> {r.label}<b>{n}</b>
+          <span key={r.kind} className={`react-btn static ${fresh.includes(r.kind) ? 'new' : ''}`} aria-label={fresh.includes(r.kind) ? `${label}, 새 반응` : label} title={r.label}>
+            <span aria-hidden="true">{r.emoji}</span><b>{n}</b>
           </span>
         );
       })}
