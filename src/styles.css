@@ -694,3 +694,7 @@ nav.tabs .tab-icon .dot { position: absolute; top: -1px; right: -5px; width: 9px
 .profile-part + .profile-part { border-top: 1px solid var(--line); padding-top: 12px; }
 .profile-part h3 { font-size: 14px; margin: 0; font-weight: 600; color: var(--muted); }
 .act-btn.on { color: var(--ink); border-color: var(--ink); }
+.nick-hint.quiet { min-height: 0; }
+/* 설정의 닉네임 버튼은 좁은 휴대폰에서도 한 줄에 */
+.nick-btns { flex-wrap: nowrap; gap: 6px; }
+.nick-btns .btn.small { padding: 8px 10px; white-space: nowrap; min-width: 0; }
